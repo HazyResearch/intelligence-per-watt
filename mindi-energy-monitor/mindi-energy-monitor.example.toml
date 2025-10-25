@@ -1,0 +1,10 @@
+# Mindi Energy Monitor Configuration
+
+# Port to listen on
+port = 50051
+
+# Bind address (use 0.0.0.0 to allow external connections)
+bind_address = "127.0.0.1"
+
+# Energy data collection interval in milliseconds
+collection_interval_ms = 50
