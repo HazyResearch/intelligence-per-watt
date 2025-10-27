@@ -205,10 +205,10 @@ class VLLMClient(InferenceClient):
         self.base_url = base_url
         self._client = httpx.Client(base_url=base_url, ...)
     
-    def stream_chat_completion(self, model, messages, **params):
+    def stream_chat_completion(self, model, prompt, **params):
         response = self._client.post("/v1/chat/completions", 
                                      json={"model": model, 
-                                           "messages": messages})
+                                           "prompt": prompt})
         return <Responce object>
 ```
 
