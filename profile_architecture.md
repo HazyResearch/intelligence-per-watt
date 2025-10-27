@@ -31,8 +31,7 @@ This document proposes a modular, extensible architecture for the Mindi Profiler
 6. [Execution Engine](#execution-engine)
 7. [Analysis Pipeline](#analysis-pipeline)
 8. [Extension Guide](#extension-guide)
-9. [Implementation Plan](#implementation-plan)
-10. [Appendix: Code Examples](#appendix-code-examples)
+9. [Appendix: Code Examples](#appendix-code-examples)
 
 ---
 
@@ -60,15 +59,7 @@ mindi-profiler/
 │       │   
 │       │   
 │       │
-│       ├── collectors/   # This will just bind to rust 
-collector plugins
-│       │   
-│       │   
-│       │   
-│       │   
-│       │   
-│       │
-│       │
+│       ├── energy_monitor/            # gRPC bridge to Rust collectors
 │       ├── execution/                 # Profiling engine
 │       ├── analysis/                  # Statistical analysis
 │       ├── datasets/                  # Dataset management
@@ -92,10 +83,10 @@ User CLI Command
 │  Profiling Runner (Orchestration)                  │
 └────────────────────────────────────────────────────┘
      ↓                    ↓                    ↓
-┌─────────────┐    ┌─────────────┐    ┌─────────────┐
-│   Client    │    │  Hardware   │    │   Dataset   │
-│  Registry   │    │  Collector  │    │   Loader    │
-└─────────────┘    └─────────────┘    └─────────────┘
+┌─────────────┐    ┌─────────────────────┐    ┌─────────────┐
+│   Client    │    │  Energy Monitor     │    │   Dataset   │
+│  Registry   │    │  (Rust collectors)  │    │   Loader    │
+└─────────────┘    └─────────────────────┘    └─────────────┘
      ↓                    ↓                    ↓
 ┌─────────────┐    ┌─────────────┐    ┌─────────────┐
 │  vLLM/      │    │  NVIDIA/    │    │    Our dataset of 
@@ -138,44 +129,27 @@ The `core/` module provides base interfaces that all plugins must implement:
 - `__init__(base_url, **config)` - Initialize client
 - `stream_chat_completion()` - Streaming inference
 - `list_models()` - List available models
-- `health()` - Health check (optional)
-- `get_metadata()` -> returns metadata (below)
-
-**Metadata:**
-- `client_id` - Unique identifier
-- `client_name` - Human-readable name
-- `client_version` - Version string
+- `health()` - Health check returning a boolean
 
 
 
 #### HardwareCollector (Base Interface)
 
-**Purpose:** Abstract interface for hardware telemetry
+**Purpose:** Lightweight Python bridge to the Rust energy-monitor service.
 
 **Required Methods:**
-- `is_available()` - Check if hardware/drivers present
-- `detect_hardware()` - Return hardware information
-
-**Optional Methods:**
-- `collect_telemetry()` - Real-time telemetry readings
-- `start_monitoring()` - Start continuous monitoring
-- `stop_monitoring()` - Stop and return aggregated stats
-
-**Metadata:**
-- `collector_id` - Unique identifier
-- `collector_name` - Human-readable name
-- `supported_platforms` - List of platforms
+- `is_available()` - Confirm the gRPC bridge can reach the Rust service
+- `stream_readings()` - Yield telemetry readings from the Rust collectors
 
 
 
 
 ### 2.2 Registry Pattern
 
-**ClientRegistry** and **CollectorRegistry** provide:
+**ClientRegistry** provides:
 - Component registration via decorators
 - Factory methods for instantiation
-- Auto-discovery of available components
-- Metadata querying
+- Listing available clients for discovery
 
 **Registration Example:**
 ```python
@@ -192,9 +166,6 @@ clients = ClientRegistry.list_clients()
 
 # Create instance
 client = ClientRegistry.create("vllm", "http://localhost:8000")
-
-# Auto-detect hardware
-collector = CollectorRegistry.auto_detect()
 ```
 
 ---
@@ -247,11 +218,11 @@ class VLLMClient(InferenceClient):
 
 ### 4.1 Design Goals
 
-1. **Platform Detection** - Auto-detect available hardware
-2. **Graceful Degradation** - Work without telemetry
-3. **Permission Awareness** - Document required permissions
-4. **Unified Interface** - Standard telemetry format
-5. **Optional Telemetry** - Not all collectors need real-time data
+1. **Platform Detection** - Auto-detect available hardware inside the Rust energy monitor
+2. **Graceful Degradation** - Work without telemetry when the monitor is unavailable
+3. **Permission Awareness** - Document required system permissions per platform
+4. **Unified Interface** - Stream a standard telemetry format over gRPC
+5. **Optional Telemetry** - Some platforms may expose limited metrics
 
 
 
@@ -263,14 +234,8 @@ class VLLMClient(InferenceClient):
 ```python
 @dataclass
 class HardwareInfo:
-    platform: Platform              # nvidia, amd, apple, etc
-    device_name: str                # GPU/CPU name
-    device_id: Optional[str]        # Unique device ID
-    vendor: Optional[str]           # NVIDIA, AMD, Apple
-    memory_total_gb: Optional[float]
-    compute_capability: Optional[str]
-    driver_version: Optional[str]
-    architecture: Optional[str]     # x86_64, arm64
+    system_info: Optional[SystemInfo] = None
+    gpu_info: Optional[GpuInfo] = None
 ```
 
 ### 4.3 Telemetry Readings
@@ -278,12 +243,15 @@ class HardwareInfo:
 ```python
 @dataclass
 class TelemetryReading:
-    timestamp_ms: float
-    power_watts: Optional[float]
-    energy_joules: Optional[float]
-    temperature_c: Optional[float]
-    memory_used_gb: Optional[float]
-    utilization_percent: Optional[float]
+    power_watts: Optional[float] = None
+    energy_joules: Optional[float] = None
+    temperature_celsius: Optional[float] = None
+    gpu_memory_usage_mb: Optional[float] = None
+    cpu_memory_usage_mb: Optional[float] = None
+    platform: Optional[str] = None
+    timestamp_nanos: Optional[int] = None
+    system_info: Optional[SystemInfo] = None
+    gpu_info: Optional[GpuInfo] = None
 ```
 
 ### 4.4 Supported Platforms
@@ -298,25 +266,18 @@ class TelemetryReading:
 ### 4.5 Auto-Detection Flow
 
 ```
-CollectorRegistry.auto_detect()
+Energy Monitor (Rust)
     ↓
-Try each registered collector:
-    ├─→ NVIDIACollector.is_available()
-    │   ├─→ Check for nvidia-smi
-    │   └─→ Try importing pynvml
-    │
-    ├─→ AppleCollector.is_available()
-    │   ├─→ Check if macOS
-    │   └─→ Check for Apple Silicon
-    │
-    ├─→ AMDCollector.is_available()
-    │   └─→ Check for ROCm
-    │
-    └─→ CPUCollector.is_available()
-        └─→ Always returns True (fallback)
+Probe each collector module:
+    ├─→ nvidia.rs::is_available()
+    ├─→ macos.rs::is_available()
+    ├─→ amd.rs::is_available()
+    └─→ cpu.rs::is_available()  # fallback
+        ↓
+Exposed via gRPC stream → Python bridge → Profiling Runner
 ```
 
-Python will determine system that we are running on and run the corresponding rust binary.
+The Python package simply verifies connectivity before consuming the shared telemetry stream.
 
 ---
 
@@ -530,59 +491,19 @@ class MyClient(InferenceClient):
 - Override `capabilities()` for feature declaration
 - Override `validate_config()` for config validation
 
-### 8.2 Adding a New Hardware Collector
-## Refactor to show how to do it in rust
+### 8.2 Adding a New Hardware Collector (Rust)
 
 **Step-by-Step:**
 
-1. Create file: `src/mindi_profiler/collectors/mycollector.py`
+1. Create a new module inside `mindi-energy-monitor/src/collectors/`, e.g. `nvidia.rs` or `macos.rs`.
+2. Implement the collector trait with `is_available()`, `detect_hardware()`, and telemetry streaming for that platform.
+3. Expose the module from `mindi-energy-monitor/src/collectors/mod.rs` so it participates in auto-detection.
+4. Add platform-specific tests under `mindi-energy-monitor/tests/` (or gated unit tests inside the module).
+5. Document any required permissions or tooling in the Rust crate README.
 
-2. Implement collector:
-```python
-from mindi_profiler.core.collector import HardwareCollector
-from mindi_profiler.core.registry import CollectorRegistry
-
-@CollectorRegistry.register("mycollector")
-class MyCollector(HardwareCollector):
-    collector_id = "mycollector"
-    collector_name = "My Hardware"
-    
-    def is_available(self) -> bool:
-        # Check if hardware/drivers present
-        return True
-    
-    def detect_hardware(self) -> HardwareInfo:
-        # Query hardware
-        return HardwareInfo(
-            platform=Platform.UNKNOWN,
-            device_name="My Device",
-            ...
-        )
-    
-    def collect_telemetry(self) -> TelemetryReading:
-        # Optional: real-time telemetry
-        return TelemetryReading(...)
-    
-    @classmethod
-    def supports_telemetry(cls) -> bool:
-        return True  # If you implement collect_telemetry
-```
-
-3. Add tests: `tests/test_collectors/test_mycollector.py`
-
-4. Update README
-
-5. Submit PR!
-
-**Minimal Requirements:**
-- Inherit from `HardwareCollector`
-- Implement `is_available()` and `detect_hardware()`
-- Register with decorator
-
-**Optional:**
-- Implement `collect_telemetry()` for real-time metrics
-- Override `supports_telemetry()` to return True
-- Override `required_permissions()` to document needs
+**Python Impact:**
+- No changes are required in `mindi_profiler` beyond ensuring the gRPC target is reachable.
+- The existing `EnergyMonitorCollector` bridge will surface new telemetry automatically.
 
 ---
 
@@ -592,7 +513,6 @@ class MyCollector(HardwareCollector):
 ```bash
 # List available components
 mindi-profiler list-clients
-mindi-profiler list-collectors
 mindi-profiler list-models
 
 # Profile vLLM service
@@ -615,8 +535,7 @@ mindi-profiler profile \
 mindi-profiler profile \
     --client mlx \
     --url http://localhost:8080 \
-    --model llama-3.2-1b \
-    --collector apple
+    --model llama-3.2-1b
 
 # Analyze existing results
 mindi-profiler analyze ./results
