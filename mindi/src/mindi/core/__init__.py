@@ -5,7 +5,7 @@ Core abstractions and shared infrastructure for the Mindi profiler.
 from .client import InferenceClient
 from .collector import HardwareCollector
 from .dataset import DatasetProvider
-from .registry import ClientRegistry, DatasetRegistry
+from .registry import ClientRegistry, CollectorRegistry, DatasetRegistry
 from .types import (
     ChatUsage,
     GpuInfo,
@@ -22,6 +22,7 @@ __all__ = [
     "HardwareCollector",
     "DatasetProvider",
     "ClientRegistry",
+    "CollectorRegistry",
     "DatasetRegistry",
     "ChatUsage",
     "GpuInfo",

@@ -8,36 +8,23 @@ from typing import Type
 import click
 
 from mindi.core.collector import HardwareCollector
+from mindi.core.registry import CollectorRegistry
 from mindi.core.types import TelemetryReading
-from mindi.telemetry_collectors import (
-    DEFAULT_TARGET,
-    MindiEnergyMonitorCollector,
-    ensure_monitor,
-    normalize_target,
-    wait_for_ready,
-)
 
 from ._console import console, success
 
 
-COLLECTOR_REGISTRY: dict[str, Type[HardwareCollector]] = {
-    MindiEnergyMonitorCollector.collector_id: MindiEnergyMonitorCollector,
-}
-
-
 def _get_collector(name: str) -> Type[HardwareCollector]:
     try:
-        return COLLECTOR_REGISTRY[name]
+        return CollectorRegistry.get(name)
     except KeyError as exc:
         raise click.ClickException(f"Unknown collector '{name}'") from exc
 
 
-@click.command(help="Ensure the energy monitor is running and stream telemetry.")
+@click.command(help="Ensure an energy monitor can run and stream telemetry.")
 @click.option(
     "--target",
     type=str,
-    default=DEFAULT_TARGET,
-    show_default=True,
     help="Energy monitor gRPC target (host:port)",
 )
 @click.option(
@@ -51,15 +38,9 @@ def _get_collector(name: str) -> Type[HardwareCollector]:
 @click.option(
     "--collector",
     type=str,
-    default=MindiEnergyMonitorCollector.collector_id,
+    default="mindi-energy-monitor",
     show_default=True,
     help="Hardware collector identifier",
-)
-@click.option(
-    "--launch/--no-launch",
-    default=True,
-    show_default=True,
-    help="Automatically launch the monitor when unavailable",
 )
 @click.option(
     "--timeout",
@@ -72,29 +53,20 @@ def energy(
     target: str,
     interval: float,
     collector: str,
-    launch: bool,
-    timeout: float,
 ) -> None:
-    target = normalize_target(target)
     collector_cls = _get_collector(collector)
+    collector_instance = collector_cls(target=target or "")
 
-    if not launch and not wait_for_ready(target, timeout=timeout):
-        raise click.ClickException(
-            f"Energy monitor unavailable at {target}; rerun with --launch to auto-start"
-        )
-
-    with ensure_monitor(
-        target,
-        timeout=timeout,
-        launch=launch,
-    ) as normalized:
-        _run_monitor(collector_cls(target=normalized), interval)
+    try:
+        with collector_instance.start():
+            _run_monitor(collector_instance, interval)
+    except RuntimeError as exc:
+        raise click.ClickException(str(exc)) from exc
 
 
 def _run_monitor(collector: HardwareCollector, interval: float) -> None:
     success(f"Streaming telemetry via collector '{collector.collector_name}'")
 
-    console.print("Energy Monitoring Dashboard (Ctrl+C to stop)")
     console.print(
         "{:>12} {:>10} {:>10} {:>10} {:>10} {:>8}".format(
             "Time",

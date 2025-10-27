@@ -2,7 +2,8 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any, MutableMapping, Optional
+from pathlib import Path
+from typing import Any, Mapping, MutableMapping, Optional
 
 
 class Platform(str, Enum):
@@ -37,6 +38,13 @@ class GpuInfo:
     device_type: str = ""
     backend: str = ""
 
+@dataclass(slots=True)
+class HardwareInfo:
+    """Wrapper around system and GPU metadata as returned by the energy monitor."""
+
+    system_info: Optional[SystemInfo] = None
+    gpu_info: Optional[GpuInfo] = None
+
 
 @dataclass(slots=True)
 class TelemetryReading:
@@ -55,15 +63,6 @@ class TelemetryReading:
     timestamp_nanos: Optional[int] = None
     system_info: Optional[SystemInfo] = None
     gpu_info: Optional[GpuInfo] = None
-
-
-@dataclass(slots=True)
-class HardwareInfo:
-    """Wrapper around system and GPU metadata as returned by the energy monitor."""
-
-    system_info: Optional[SystemInfo] = None
-    gpu_info: Optional[GpuInfo] = None
-
 
 @dataclass(slots=True)
 class ChatUsage:
@@ -92,13 +91,19 @@ class DatasetRecord:
     subject: str
     dataset_metadata: MutableMapping[str, Any] = field(default_factory=dict)
 
-
 @dataclass(slots=True)
 class ProfilerConfig:
-    """Runtime configuration for the profiling runner."""
+    dataset_id: str
+    collector_id: str
+    client_id: str
+    client_base_url: str
 
-    dataset_path: Optional[str] = None
-    output_path: Optional[str] = None
+    dataset_params: Mapping[str, Any] = field(default_factory=dict)
+    collector_params: Mapping[str, Any] = field(default_factory=dict)
+    client_params: Mapping[str, Any] = field(default_factory=dict)
+    model: str = ""
+    run_id: str = ""
+    output_dir: Path | None = None
     batch_size: int = 1
-    max_queries: Optional[int] = None
-    additional_parameters: MutableMapping[str, Any] = field(default_factory=dict)
+    max_queries: int | None = None
+    additional_parameters: Mapping[str, Any] = field(default_factory=dict)
