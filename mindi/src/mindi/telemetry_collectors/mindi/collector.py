@@ -2,19 +2,22 @@
 
 from __future__ import annotations
 
+from contextlib import contextmanager
 from typing import Iterable, Optional, Tuple
 
 import grpc
 
 from mindi.core.collector import HardwareCollector
+from mindi.core.registry import CollectorRegistry
 from mindi.core.types import GpuInfo, SystemInfo, TelemetryReading
 
-from .launcher import DEFAULT_TARGET, normalize_target, wait_for_ready
+from .launcher import DEFAULT_TARGET, ensure_monitor, normalize_target, wait_for_ready
 from .proto import get_stub_bundle
 
 
+@CollectorRegistry.register("mindi-energy-monitor")
 class MindiEnergyMonitorCollector(HardwareCollector):
-    collector_id = "energy-monitor"
+    collector_id = "mindi-energy-monitor"
     collector_name = "Mindi Energy Monitor"
 
     def __init__(
@@ -22,14 +25,22 @@ class MindiEnergyMonitorCollector(HardwareCollector):
         target: str = DEFAULT_TARGET,
         *,
         channel_options: Optional[Tuple[Tuple[str, str], ...]] = None,
+        timeout: float = 5.0,
     ) -> None:
-        self._target = normalize_target(target)
+        self._target = normalize_target(target or DEFAULT_TARGET)
         self._channel_options = channel_options or ()
+        self._timeout = timeout
         self._bundle = get_stub_bundle()
+
+    @contextmanager
+    def start(self):
+        with ensure_monitor(self._target, timeout=self._timeout, launch=True):
+            yield
+
 
     @classmethod
     def is_available(cls) -> bool:
-        return wait_for_ready()
+        return wait_for_ready(DEFAULT_TARGET, timeout=1.0)
 
     def stream_readings(self) -> Iterable[TelemetryReading]:
         channel = grpc.insecure_channel(self._target, options=self._channel_options)
