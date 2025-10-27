@@ -3,6 +3,7 @@ use std::sync::Arc;
 use tracing::info;
 mod collectors;
 mod config;
+mod host;
 mod server;
 
 // Include the generated proto code

@@ -2,6 +2,7 @@
 
 pub mod collectors;
 pub mod config;
+pub mod host;
 pub mod server;
 
 // Re-export the generated proto code
@@ -13,8 +14,9 @@ use std::sync::Arc;
 use tracing::{debug, info};
 
 // Export main types
-pub use collectors::{TelemetryCollector, TelemetryReading};
+pub use collectors::{CollectorSample, TelemetryCollector};
 pub use config::Config;
+pub use energy::TelemetryReading;
 
 /// Initializes and returns a telemetry collector based on the provided configuration.
 ///

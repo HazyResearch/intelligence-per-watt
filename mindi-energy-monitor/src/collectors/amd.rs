@@ -1,39 +1,26 @@
-// amd_collector.rs
-#![allow(dead_code)]
-#[cfg(not(target_os = "macos"))]
+#![cfg(all(not(target_os = "macos"), not(target_os = "windows")))]
+
 use anyhow::Result;
-#[cfg(not(target_os = "macos"))]
 use async_trait::async_trait;
-#[cfg(not(target_os = "macos"))]
 use rocm_smi_lib::{RocmSmi, RocmSmiDevice, RsmiTemperatureMetric, RsmiTemperatureType};
-#[cfg(not(target_os = "macos"))]
-use std::{
-    sync::{Arc, Mutex},
-    time::{Instant, SystemTime, UNIX_EPOCH},
-};
-#[cfg(not(target_os = "macos"))]
+use std::sync::{Arc, Mutex};
+use std::time::{Instant, SystemTime, UNIX_EPOCH};
 use tracing::info;
 
-#[cfg(not(target_os = "macos"))]
-use super::{TelemetryCollector, get_system_info};
-#[cfg(not(target_os = "macos"))]
-use crate::energy::{GpuInfo, SystemInfo, TelemetryReading};
+use super::{CollectorSample, TelemetryCollector};
+use crate::energy::GpuInfo;
 
 /// AMD telemetry collector using ROC-SMI
-#[cfg(not(target_os = "macos"))]
 pub struct AmdCollector {
     rsmi: Arc<Mutex<Option<RocmSmi>>>,
     devices: Arc<Mutex<Vec<RocmSmiDevice>>>,
     last_timestamp: Arc<Mutex<Option<Instant>>>,
     accumulated_energy_j: Arc<Mutex<f64>>,
-    system_info: Arc<Mutex<SystemInfo>>,
     gpu_info: Arc<Mutex<GpuInfo>>,
 }
 
-#[cfg(not(target_os = "macos"))]
 impl AmdCollector {
     pub fn new(_config: Arc<crate::config::Config>) -> Result<Self> {
-        // Initialize ROC-SMI
         let mut rsmi =
             RocmSmi::init().map_err(|e| anyhow::anyhow!("Failed to init ROC-SMI: {:?}", e))?;
 
@@ -42,7 +29,6 @@ impl AmdCollector {
             return Err(anyhow::anyhow!("No AMD GPUs found"));
         }
 
-        // Open all available GPUs
         let mut devices: Vec<RocmSmiDevice> = Vec::new();
         for i in 0..count {
             if let Ok(dev) = RocmSmiDevice::new(i) {
@@ -53,7 +39,6 @@ impl AmdCollector {
             return Err(anyhow::anyhow!("No AMD GPUs found"));
         }
 
-        // Build aggregated GPU info similar to NVIDIA collector
         let mut names: Vec<String> = Vec::with_capacity(devices.len());
         for d in devices.iter_mut() {
             let name = match d.get_identifiers() {
@@ -77,19 +62,16 @@ impl AmdCollector {
 
         info!("AMD GPUs detected for energy monitoring: {}", gpu_info.name);
 
-        // ROC-SMI doesn't expose a cumulative energy counter; integrate from power
         Ok(Self {
             rsmi: Arc::new(Mutex::new(Some(rsmi))),
             devices: Arc::new(Mutex::new(devices)),
             last_timestamp: Arc::new(Mutex::new(None)),
             accumulated_energy_j: Arc::new(Mutex::new(0.0)),
-            system_info: Arc::new(Mutex::new(get_system_info())),
             gpu_info: Arc::new(Mutex::new(gpu_info)),
         })
     }
 }
 
-#[cfg(not(target_os = "macos"))]
 #[async_trait]
 impl TelemetryCollector for AmdCollector {
     fn platform_name(&self) -> &str {
@@ -100,8 +82,8 @@ impl TelemetryCollector for AmdCollector {
         self.devices.lock().unwrap().len() > 0
     }
 
-    async fn collect(&self) -> Result<TelemetryReading> {
-        let mut reading = TelemetryReading {
+    async fn collect(&self) -> Result<CollectorSample> {
+        let mut sample = CollectorSample {
             power_watts: -1.0,
             energy_joules: -1.0,
             temperature_celsius: -1.0,
@@ -109,7 +91,6 @@ impl TelemetryCollector for AmdCollector {
             cpu_memory_usage_mb: -1.0,
             platform: "amd".to_string(),
             timestamp_nanos: SystemTime::now().duration_since(UNIX_EPOCH)?.as_nanos() as i64,
-            system_info: Some(self.system_info.lock().unwrap().clone()),
             gpu_info: Some(self.gpu_info.lock().unwrap().clone()),
         };
 
@@ -122,13 +103,11 @@ impl TelemetryCollector for AmdCollector {
 
         if let Ok(mut guard) = self.devices.lock() {
             for dev in guard.iter_mut() {
-                // Power (already in W per AMD SMI docs)
                 if let Ok(power) = dev.get_power_data() {
                     power_sum_w += power.current_power as f64;
                     any_power_ok = true;
                 }
 
-                // Temperature - prefer Junction, fallback to Edge; normalize units
                 if let Ok(temp) = dev.get_temperature_metric(
                     RsmiTemperatureType::Junction,
                     RsmiTemperatureMetric::Current,
@@ -145,7 +124,6 @@ impl TelemetryCollector for AmdCollector {
                     temp_count += 1;
                 }
 
-                // GPU Memory
                 if let Ok(mem) = dev.get_memory_data() {
                     let used_mb = mem.vram_used as f64 / (1024.0 * 1024.0);
                     mem_sum_mb += used_mb;
@@ -154,7 +132,6 @@ impl TelemetryCollector for AmdCollector {
             }
         }
 
-        // Fallback: sum hwmon power across all AMD GPU hwmon entries
         if !any_power_ok {
             if let Ok(entries) = std::fs::read_dir("/sys/class/hwmon") {
                 for entry in entries.flatten() {
@@ -179,8 +156,7 @@ impl TelemetryCollector for AmdCollector {
         }
 
         if any_power_ok {
-            reading.power_watts = power_sum_w;
-            // Integrate energy from aggregated power
+            sample.power_watts = power_sum_w;
             let now = Instant::now();
             let mut ts = self.last_timestamp.lock().unwrap();
             if let Some(last) = *ts {
@@ -188,41 +164,21 @@ impl TelemetryCollector for AmdCollector {
                 *self.accumulated_energy_j.lock().unwrap() += power_sum_w * dt;
             }
             *ts = Some(now);
-            reading.energy_joules = *self.accumulated_energy_j.lock().unwrap();
+            sample.energy_joules = *self.accumulated_energy_j.lock().unwrap();
         }
 
         if temp_count > 0 {
-            reading.temperature_celsius = temp_sum_c / (temp_count as f64);
+            sample.temperature_celsius = temp_sum_c / (temp_count as f64);
         }
 
         if any_mem_ok {
-            reading.gpu_memory_usage_mb = mem_sum_mb;
+            sample.gpu_memory_usage_mb = mem_sum_mb;
         }
 
-        // CPU memory (system used)
         let mut sys = sysinfo::System::new_all();
         sys.refresh_memory();
-        reading.cpu_memory_usage_mb = (sys.used_memory() as f64) / (1024.0 * 1024.0);
+        sample.cpu_memory_usage_mb = (sys.used_memory() as f64) / (1024.0 * 1024.0);
 
-        Ok(reading)
-    }
-
-    async fn reset_baseline(&self) -> Result<()> {
-        *self.accumulated_energy_j.lock().unwrap() = 0.0;
-        *self.last_timestamp.lock().unwrap() = None;
-        Ok(())
-    }
-
-    // per-query memory tracking removed from collector; computed client-side
-}
-
-// Stub for macOS
-#[cfg(target_os = "macos")]
-pub struct AmdCollector;
-
-#[cfg(target_os = "macos")]
-impl AmdCollector {
-    pub fn new(_: Arc<crate::config::Config>) -> anyhow::Result<Self> {
-        Err(anyhow::anyhow!("AMD collector not available on macOS"))
+        Ok(sample)
     }
 }

@@ -7,11 +7,6 @@ edition = "2024"
 name = "mindi_energy_monitor"
 path = "src/lib.rs"
 
-[features]
-default = []
-# Enable AMD energy collector via ROCm SMI when explicitly requested
-amd = ["dep:rocm_smi_lib"]
-
 [dependencies]
 # Core dependencies
 anyhow = "1.0"
@@ -19,7 +14,6 @@ async-trait = "0.1"
 tokio = { version = "1.41", features = ["full"] }
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter", "json"] }
-once_cell = "1.20"
 parking_lot = "0.12"
 sysinfo = "0.37.2"
 num_cpus = "1.16"
@@ -36,7 +30,7 @@ serde = { version = "1.0", features = ["derive"] }
 
 # Platform-specific dependencies
 [target.'cfg(all(not(target_os = "macos"), not(target_os = "windows")))'.dependencies]
-rocm_smi_lib = { version = "0.3", optional = true }
+rocm_smi_lib = "0.3"
 
 [target.'cfg(not(target_os = "macos"))'.dependencies]
 nvml-wrapper = "0.11.0"

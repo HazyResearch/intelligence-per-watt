@@ -6,23 +6,33 @@ use std::sync::Arc;
 use tokio::sync::mpsc;
 use tokio_stream::wrappers::UnboundedReceiverStream;
 use tonic::{Request, Response, Status, transport::Server};
-use tracing::{error, info};
+use tracing::{error, info, warn};
 
-use crate::collectors::TelemetryCollector;
+use crate::collectors::{CollectorSample, TelemetryCollector};
 use crate::config::Config;
 use crate::energy::{
-    HealthRequest, HealthResponse, ResetRequest, ResetResponse, StreamRequest,
+    HealthRequest, HealthResponse, ResetRequest, ResetResponse, StreamRequest, SystemInfo,
     energy_monitor_server::{EnergyMonitor, EnergyMonitorServer},
 };
+use crate::host::get_system_info;
 
 pub struct EnergyMonitorService {
     collector: Arc<dyn TelemetryCollector>,
     config: Arc<Config>,
+    system_info: Arc<SystemInfo>,
 }
 
 impl EnergyMonitorService {
-    pub fn new(collector: Arc<dyn TelemetryCollector>, config: Arc<Config>) -> Self {
-        Self { collector, config }
+    pub fn new(
+        collector: Arc<dyn TelemetryCollector>,
+        config: Arc<Config>,
+        system_info: Arc<SystemInfo>,
+    ) -> Self {
+        Self {
+            collector,
+            config,
+            system_info,
+        }
     }
 }
 
@@ -52,6 +62,7 @@ impl EnergyMonitor for EnergyMonitorService {
         let (tx, rx) = mpsc::unbounded_channel();
         let collector = self.collector.clone();
         let collection_interval_ms = self.config.collection_interval_ms;
+        let system_info = self.system_info.clone();
 
         // Spawn background task to send telemetry based on configured interval
         tokio::spawn(async move {
@@ -63,7 +74,8 @@ impl EnergyMonitor for EnergyMonitorService {
 
                 // Collect telemetry
                 match collector.collect().await {
-                    Ok(reading) => {
+                    Ok(sample) => {
+                        let reading = assemble_reading(sample, &system_info);
                         if tx.send(Ok(reading)).is_err() {
                             // Client disconnected
                             break;
@@ -92,13 +104,8 @@ impl EnergyMonitor for EnergyMonitorService {
         &self,
         _request: Request<ResetRequest>,
     ) -> Result<Response<ResetResponse>, Status> {
-        match self.collector.reset_baseline().await {
-            Ok(()) => Ok(Response::new(ResetResponse { success: true })),
-            Err(e) => {
-                error!("Failed to reset energy baseline: {}", e);
-                Ok(Response::new(ResetResponse { success: false }))
-            }
-        }
+        warn!("ResetEnergyBaseline called but collectors no longer support resetting baselines");
+        Ok(Response::new(ResetResponse { success: false }))
     }
 }
 
@@ -109,7 +116,8 @@ pub async fn run_server(
     config: Arc<Config>,
 ) -> Result<()> {
     let addr = format!("{}:{}", bind_address, port).parse()?;
-    let service = EnergyMonitorService::new(collector, config);
+    let system_info = Arc::new(get_system_info());
+    let service = EnergyMonitorService::new(collector, config, system_info);
 
     info!("Starting energy monitor gRPC server on {}", addr);
 
@@ -119,4 +127,21 @@ pub async fn run_server(
         .await?;
 
     Ok(())
+}
+
+fn assemble_reading(
+    sample: CollectorSample,
+    system_info: &Arc<SystemInfo>,
+) -> crate::energy::TelemetryReading {
+    crate::energy::TelemetryReading {
+        power_watts: sample.power_watts,
+        energy_joules: sample.energy_joules,
+        temperature_celsius: sample.temperature_celsius,
+        gpu_memory_usage_mb: sample.gpu_memory_usage_mb,
+        cpu_memory_usage_mb: sample.cpu_memory_usage_mb,
+        platform: sample.platform,
+        timestamp_nanos: sample.timestamp_nanos,
+        system_info: Some((**system_info).clone()),
+        gpu_info: sample.gpu_info,
+    }
 }

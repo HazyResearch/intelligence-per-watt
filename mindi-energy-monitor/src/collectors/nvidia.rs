@@ -319,45 +319,6 @@ impl TelemetryCollector for NvidiaCollector {
         Ok(reading)
     }
 
-    async fn reset_baseline(&self) -> Result<()> {
-        if let Ok(devices_guard) = self.nvml_devices.lock() {
-            let mut energy_baselines = self.energy_baselines.lock().unwrap();
-            let mut last_energy_readings = self.last_energy_readings.lock().unwrap();
-            let mut acc_energy = self.accumulated_energy_j_per_gpu.lock().unwrap();
-
-            if energy_baselines.len() != devices_guard.len() {
-                energy_baselines.resize(devices_guard.len(), 0);
-            }
-            if last_energy_readings.len() != devices_guard.len() {
-                last_energy_readings.resize(devices_guard.len(), 0);
-            }
-            if acc_energy.len() != devices_guard.len() {
-                acc_energy.resize(devices_guard.len(), 0.0);
-            }
-
-            for (i, device) in devices_guard.iter().enumerate() {
-                match device.total_energy_consumption() {
-                    Ok(current_energy) => {
-                        energy_baselines[i] = current_energy;
-                        last_energy_readings[i] = current_energy;
-                        debug!("Reset GPU {} energy baseline to: {} mJ", i, current_energy);
-                    }
-                    Err(_) => {
-                        debug!(
-                            "GPU {} has no energy counter; resetting integrated energy only",
-                            i
-                        );
-                    }
-                }
-                acc_energy[i] = 0.0;
-            }
-
-            *self.last_timestamp.lock().unwrap() = None;
-            debug!("Energy baselines reset across {} GPUs", devices_guard.len());
-        }
-        Ok(())
-    }
-
     // per-query memory tracking removed from collector; computed client-side
 }
 
