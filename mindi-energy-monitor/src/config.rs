@@ -1,16 +1,15 @@
-use anyhow::Result;
-use serde::{Deserialize, Serialize};
-use std::path::Path;
+use clap::Parser;
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Parser)]
+#[command(author, version, about = "Energy monitor service", long_about = None)]
 pub struct Config {
-    #[serde(default = "default_port")]
+    #[arg(long, default_value_t = default_port())]
     pub port: u16,
 
-    #[serde(default = "default_bind_address")]
+    #[arg(long, default_value_t = default_bind_address())]
     pub bind_address: String,
 
-    #[serde(default = "default_collection_interval_ms")]
+    #[arg(long, default_value_t = default_collection_interval_ms())]
     pub collection_interval_ms: u64,
 }
 
@@ -37,26 +36,8 @@ fn default_collection_interval_ms() -> u64 {
 }
 
 impl Config {
-    /// Load configuration from file
-    pub fn from_file(path: &Path) -> Result<Self> {
-        let contents = std::fs::read_to_string(path)?;
-        let config: Config = toml::from_str(&contents)?;
-        Ok(config)
-    }
-
-    /// Load configuration from file or use defaults
-    pub fn load() -> Self {
-        let config_path = std::path::Path::new("mindi-energy-monitor.toml");
-        if config_path.exists() {
-            match Self::from_file(config_path) {
-                Ok(config) => config,
-                Err(e) => {
-                    tracing::warn!("Failed to load config file: {}. Using defaults.", e);
-                    Self::default()
-                }
-            }
-        } else {
-            Self::default()
-        }
+    /// Parse configuration from CLI arguments.
+    pub fn parse() -> Self {
+        <Self as Parser>::parse()
     }
 }

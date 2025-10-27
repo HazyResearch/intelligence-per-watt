@@ -19,8 +19,8 @@ async fn main() -> Result<()> {
 
     info!("Starting Mindi Energy Monitor");
 
-    // Load configuration
-    let config = config::Config::load();
+    // Parse configuration from CLI
+    let config = config::Config::parse();
     let config = Arc::new(config);
     info!("Configuration loaded: {:?}", config);
 
