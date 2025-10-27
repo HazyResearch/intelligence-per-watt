@@ -54,6 +54,7 @@ def launch_monitor(
     *,
     env: Mapping[str, str] | None = None,
     timeout: float = 5.0,
+    target: str = DEFAULT_TARGET,
 ) -> tuple[int, str]:
     """Launch the energy monitor and wait for it to become ready.
 
@@ -61,12 +62,24 @@ def launch_monitor(
     is not achieved within ``timeout`` seconds.
     """
 
-    process = _binaries.launch("mindi-energy-monitor", args, env=env)
-    target = DEFAULT_TARGET
+    normalized = normalize_target(target)
+    host, port = normalized.rsplit(":", 1)
+
+    launch_args = list(args) if args is not None else []
+
+    def _has_flag(flag: str) -> bool:
+        return any(arg == flag or arg.startswith(f"{flag}=") for arg in launch_args)
+
+    if not _has_flag("--port"):
+        launch_args.extend(["--port", port])
+    if not _has_flag("--bind-address"):
+        launch_args.extend(["--bind-address", host])
+
+    process = _binaries.launch("mindi-energy-monitor", launch_args, env=env)
     deadline = time.monotonic() + timeout
     while time.monotonic() < deadline:
-        if wait_for_ready(target, timeout=0.5):
-            return process.pid, target
+        if wait_for_ready(normalized, timeout=0.5):
+            return process.pid, normalized
         time.sleep(0.25)
 
     try:
@@ -96,7 +109,12 @@ def ensure_monitor(
     pid: int | None = None
     if not wait_for_ready(normalized, timeout=timeout) and launch:
         env_map: Mapping[str, str] | None = env if env is not None else os.environ
-        pid, normalized = launch_monitor(launch_args, env=env_map, timeout=timeout)
+        pid, normalized = launch_monitor(
+            launch_args,
+            env=env_map,
+            timeout=timeout,
+            target=normalized,
+        )
 
     try:
         yield normalized

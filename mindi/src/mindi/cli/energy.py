@@ -83,7 +83,11 @@ def energy(
             f"Energy monitor unavailable at {target}; rerun with --launch to auto-start"
         )
 
-    with ensure_monitor(target, timeout=timeout, launch=launch) as normalized:
+    with ensure_monitor(
+        target,
+        timeout=timeout,
+        launch=launch,
+    ) as normalized:
         _run_monitor(collector_cls(target=normalized), interval)
 
 
