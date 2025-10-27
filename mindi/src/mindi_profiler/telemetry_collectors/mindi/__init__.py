@@ -1,13 +1,14 @@
-"""Telemetry collector implementations bundled with Mindi Profiler."""
+"""Subpackage for the bundled Mindi energy monitor collector."""
 
-from .mindi import (
+from .collector import MindiEnergyMonitorCollector
+from .launcher import (
     DEFAULT_TARGET,
-    MindiEnergyMonitorCollector,
     ensure_monitor,
     launch_monitor,
     normalize_target,
     wait_for_ready,
 )
+from .proto import StubBundle, get_stub_bundle
 
 __all__ = [
     "MindiEnergyMonitorCollector",
@@ -16,4 +17,7 @@ __all__ = [
     "launch_monitor",
     "normalize_target",
     "wait_for_ready",
+    "StubBundle",
+    "get_stub_bundle",
 ]
+

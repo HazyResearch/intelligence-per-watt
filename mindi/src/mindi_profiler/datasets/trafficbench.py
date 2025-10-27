@@ -5,11 +5,12 @@ import random
 from pathlib import Path
 from typing import Any, Dict, Iterable, Iterator
 
-from ..core.dataset import DatasetProvider, register_dataset
+from ..core.dataset import DatasetProvider
+from ..core.registry import DatasetRegistry
 from ..core.types import DatasetRecord
 
 
-@register_dataset("trafficbench")
+@DatasetRegistry.register("trafficbench")
 class TrafficBenchDataset(DatasetProvider):
     """Dataset provider for the bundled TrafficBench benchmark."""
 
@@ -62,18 +63,18 @@ class TrafficBenchDataset(DatasetProvider):
         subject = str(raw.get("subject") or "general").strip() or "general"
 
         dataset_metadata = dict(raw)
-        model_metrics = dict(raw.get("model_metrics") or {})
-
         return DatasetRecord(
             problem=problem,
             answer=answer,
             subject=subject,
             dataset_metadata=dataset_metadata,
-            model_metrics=model_metrics,
         )
 
     def _is_valid(self, record: DatasetRecord) -> bool:
         return bool(record.problem and record.answer and record.subject and record.dataset_metadata)
+
+    def size(self) -> int:
+        return sum(1 for record in self._load_records() if self._is_valid(record))
 
 
 __all__ = ["TrafficBenchDataset"]

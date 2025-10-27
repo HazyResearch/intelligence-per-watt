@@ -1,14 +1,13 @@
 from __future__ import annotations
 
-import json
 import time
-import uuid
-from typing import Any, Dict, Iterable, Mapping, MutableMapping, Sequence
+from typing import Any, Dict, MutableMapping, Sequence, Mapping
 
-import httpx
+from ollama import Client, ResponseError
 
 from ..core.client import InferenceClient
 from ..core.registry import ClientRegistry
+from ..core.types import ChatUsage, Response
 
 
 def _normalize_base_url(base_url: str) -> str:
@@ -37,82 +36,78 @@ class OllamaClient(InferenceClient):
         self._timeout = timeout
         self._default_options: Dict[str, Any] = dict(options or {})
         self._default_headers: Dict[str, str] = dict(headers or {})
-        self._client = httpx.Client(
-            base_url=self._base_url,
-            timeout=httpx.Timeout(timeout),
-            headers=self._default_headers,
+        self._client = Client(
+            host=self._base_url,
+            timeout=timeout,
+            headers=self._default_headers or None,
             verify=verify,
         )
 
     def stream_chat_completion(
         self, model: str, prompt: str, **params: Any
-    ) -> Iterable[Mapping[str, Any]]:
-        request_id = params.pop("request_id", f"chatcmpl-{uuid.uuid4().hex}")
+    ) -> Response:
         payload = self._build_payload(model, prompt, params)
-        created = int(time.time())
-        url = "/api/chat"
 
-        with self._client.stream("POST", url, json=payload) as response:
-            response.raise_for_status()
+        start_time = time.perf_counter()
 
-            prompt_tokens = 0
-            completion_tokens = 0
+        try:
+            stream = self._client.chat(**payload)
+        except (ResponseError, Exception) as exc:
+            raise RuntimeError(f"Ollama error: {getattr(exc, 'error', str(exc))}") from exc
 
-            for raw_line in response.iter_lines():
-                if not raw_line:
-                    continue
+        content_parts: list[str] = []
+        prompt_tokens = 0
+        completion_tokens = 0
+        ttft_ms: float | None = None
 
-                try:
-                    data = json.loads(raw_line)
-                except json.JSONDecodeError:
-                    continue
+        for chunk in stream:
+            data = self._coerce_mapping(chunk)
 
-                if error := data.get("error"):
-                    raise RuntimeError(f"Ollama error: {error}")
+            if error := data.get("error"):
+                raise RuntimeError(f"Ollama error: {error}")
 
-                if data.get("done"):
-                    prompt_tokens = int(data.get("prompt_eval_count") or prompt_tokens)
-                    completion_tokens = int(data.get("eval_count") or completion_tokens)
-                    total_tokens = prompt_tokens + completion_tokens
-                    usage = {
-                        "prompt_tokens": prompt_tokens,
-                        "completion_tokens": completion_tokens,
-                        "total_tokens": total_tokens,
-                    }
-                    yield self._build_chunk(
-                        request_id=request_id,
-                        created=created,
-                        model=model,
-                        content=None,
-                        finish_reason=data.get("done_reason", "stop"),
-                        usage=usage,
-                    )
-                    break
+            message = data.get("message") or {}
+            content_piece = message.get("content")
+            if content_piece:
+                if ttft_ms is None:
+                    ttft_ms = (time.perf_counter() - start_time) * 1000
+                content_parts.append(content_piece)
 
-                message = data.get("message") or {}
-                content_piece = message.get("content")
-                if content_piece:
-                    yield self._build_chunk(
-                        request_id=request_id,
-                        created=created,
-                        model=model,
-                        content=content_piece,
-                        finish_reason=None,
-                    )
+            if data.get("done"):
+                prompt_tokens = int(data.get("prompt_eval_count") or prompt_tokens)
+                completion_tokens = int(data.get("eval_count") or completion_tokens)
+                break
+
+        total_tokens = prompt_tokens + completion_tokens
+        usage = ChatUsage(
+            prompt_tokens=prompt_tokens,
+            completion_tokens=completion_tokens,
+            total_tokens=total_tokens,
+        )
+
+        if ttft_ms is None:
+            ttft_ms = 0.0
+
+        return Response(
+            content="".join(content_parts),
+            usage=usage,
+            time_to_first_token_ms=ttft_ms,
+        )
 
     def list_models(self) -> Sequence[str]:
-        response = self._client.get("/api/tags")
-        response.raise_for_status()
-        data = response.json()
-        models = data.get("models") or []
-        return [model_info.get("name", "") for model_info in models if model_info.get("name")]
+        try:
+            data = self._client.list()
+        except (ResponseError, Exception) as exc:
+            raise RuntimeError(f"Ollama error: {getattr(exc, 'error', str(exc))}") from exc
+
+        models = self._extract_models(data)
+        return [model_name for model_name in models if model_name]
 
     def health(self) -> bool:
         try:
-            response = self._client.get("/api/tags")
-            response.raise_for_status()
+            self._client.list()
             return True
-        except httpx.HTTPError:
+        except (ResponseError, Exception):
             return False
 
     def _build_payload(
@@ -146,29 +141,41 @@ class OllamaClient(InferenceClient):
         return payload
 
     @staticmethod
-    def _build_chunk(
-        *,
-        request_id: str,
-        created: int,
-        model: str,
-        content: str | None,
-        finish_reason: str | None,
-        usage: Mapping[str, int] | None = None,
-    ) -> Dict[str, Any]:
-        delta = {"content": content} if content is not None else {}
-        chunk: Dict[str, Any] = {
-            "id": request_id,
-            "object": "chat.completion.chunk",
-            "created": created,
-            "model": model,
-            "choices": [
-                {
-                    "index": 0,
-                    "delta": delta,
-                    "finish_reason": finish_reason,
-                }
-            ],
-        }
-        if usage is not None:
-            chunk["usage"] = usage
-        return chunk
+    def _coerce_mapping(chunk: Any) -> Dict[str, Any]:
+        if isinstance(chunk, Mapping):
+            return dict(chunk)
+
+        if hasattr(chunk, "model_dump"):
+            try:
+                return dict(chunk.model_dump())
+            except TypeError:
+                return chunk.model_dump()
+
+        if hasattr(chunk, "dict"):
+            try:
+                return dict(chunk.dict())
+            except TypeError:
+                return chunk.dict()
+
+        try:
+            return dict(chunk)
+        except TypeError:
+            return chunk
+
+    @staticmethod
+    def _extract_models(data: Any) -> Sequence[str]:
+        if isinstance(data, Mapping):
+            models = data.get("models") or []
+        else:
+            models = getattr(data, "models", [])
+
+        names: list[str] = []
+        for model in models:
+            if isinstance(model, Mapping):
+                name = model.get("model") or model.get("name")
+            else:
+                name = getattr(model, "model", None) or getattr(model, "name", None)
+            if name:
+                names.append(name)
+        return names
+

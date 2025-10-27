@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any, Mapping, MutableMapping, Optional, Sequence
+from typing import Any, MutableMapping, Optional
 
 
 class Platform(str, Enum):
@@ -91,7 +91,6 @@ class DatasetRecord:
     answer: str
     subject: str
     dataset_metadata: MutableMapping[str, Any] = field(default_factory=dict)
-    model_metrics: MutableMapping[str, Any] = field(default_factory=dict)
 
 
 @dataclass(slots=True)

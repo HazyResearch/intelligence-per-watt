@@ -14,7 +14,6 @@ This document proposes a modular, extensible architecture for the Mindi Profiler
 
 1. **Plugin-based Architecture** - Registry pattern for clients and collectors
 2. **Clear Extension Points** - Abstract base classes with minimal requirements
-3. **Configuration-Driven** - Models defined in YAML, no code changes needed
 4. **Auto-Discovery** - Automatic detection of available components
 5. **Service Agnostic** - Works with any OpenAI-compatible API
 6. **Minimal Dependencies** - Core requires only HTTP client, numpy, click
@@ -464,7 +463,7 @@ class MyClient(InferenceClient):
         self.base_url = base_url
         # Your initialization
     
-    def stream_chat_completion(self, model, messages, **params):
+    def stream_chat_completion(self, model, prompt, **params):
         # Your implementation
         return {...}  # OpenAI-compatible format
     

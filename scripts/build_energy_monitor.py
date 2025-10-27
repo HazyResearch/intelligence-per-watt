@@ -11,7 +11,7 @@ from pathlib import Path
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 ENERGY_MONITOR_ROOT = PROJECT_ROOT / "mindi-energy-monitor"
-BIN_ROOT = PROJECT_ROOT / "mindi" / "src" / "mindi" / "cli" / "bin"
+BIN_ROOT = PROJECT_ROOT / "mindi" / "src" / "mindi_profiler" / "execution" / "bin"
 
 # Mapping from sys.platform / machine combos to folder names under cli/bin/
 PLATFORM_ALIASES = {

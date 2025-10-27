@@ -7,13 +7,8 @@ import from a single namespace.
 
 from .core.client import InferenceClient
 from .core.collector import HardwareCollector
-from .core.dataset import (
-    DatasetProvider,
-    get_dataset_provider,
-    list_dataset_providers,
-    register_dataset,
-)
-from .core.registry import ClientRegistry
+from .core.dataset import DatasetProvider
+from .core.registry import ClientRegistry, DatasetRegistry
 from .core.types import (
     ChatUsage,
     DatasetRecord,
@@ -26,17 +21,15 @@ from .core.types import (
     TelemetryReading,
 )
 from .clients import OllamaClient
-from .telemetry_collectors import EnergyMonitorCollector
+from .telemetry_collectors import MindiEnergyMonitorCollector
 from .datasets import TrafficBenchDataset
 
 __all__ = [
     "InferenceClient",
     "HardwareCollector",
     "DatasetProvider",
-    "register_dataset",
-    "get_dataset_provider",
-    "list_dataset_providers",
     "ClientRegistry",
+    "DatasetRegistry",
     "ChatUsage",
     "GpuInfo",
     "HardwareInfo",
@@ -47,6 +40,6 @@ __all__ = [
     "TelemetryReading",
     "DatasetRecord",
     "OllamaClient",
-    "EnergyMonitorCollector",
+    "MindiEnergyMonitorCollector",
     "TrafficBenchDataset",
 ]

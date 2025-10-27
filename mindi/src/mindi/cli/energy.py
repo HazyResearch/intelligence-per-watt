@@ -3,15 +3,17 @@
 from __future__ import annotations
 
 import time
-from typing import Tuple
+from typing import Any, Tuple, cast
 
 import click
 import grpc
-from google.protobuf import descriptor_pb2, descriptor_pool, message_factory
+from google.protobuf import descriptor_pb2 as _descriptor_pb2, descriptor_pool, message_factory
 
 from ._binaries import run_attached
 from ._console import console, success
 from ._group import OrderedGroup
+
+descriptor_pb2 = cast(Any, _descriptor_pb2)
 
 
 # ---------------------------------------------------------------------------
@@ -28,7 +30,7 @@ def energy() -> None:
 @click.argument("args", nargs=-1)
 def start(args: Tuple[str, ...]) -> None:
     exit_code = run_attached("mindi-energy-monitor", list(args))
-    raise click.exceptions.Exit(exit_code)
+    raise click.Exit(exit_code)
 
 
 @energy.command("monitor", help="Stream telemetry directly from mindi-energy-monitor (gRPC).")
@@ -68,7 +70,8 @@ def energy_monitor(url: str, interval: float) -> None:
         platform = getattr(health, "platform", "unknown")
         success(f"Connected to energy monitor ({status}, platform: {platform})")
     except grpc.RpcError as exc:
-        raise click.ClickException(f"Health check failed: {exc.code().name} {exc.details()}") from exc
+        message = _describe_rpc_error(exc)
+        raise click.ClickException(f"Health check failed: {message}") from exc
 
     console.print("Energy Monitoring Dashboard (Ctrl+C to stop)")
     console.print(
@@ -107,7 +110,8 @@ def energy_monitor(url: str, interval: float) -> None:
     except KeyboardInterrupt:
         console.print("\nStopping monitor")
     except grpc.RpcError as exc:
-        raise click.ClickException(f"Telemetry stream failed: {exc.code().name} {exc.details()}") from exc
+        message = _describe_rpc_error(exc)
+        raise click.ClickException(f"Telemetry stream failed: {message}") from exc
     finally:
         channel.close()
 
@@ -284,6 +288,35 @@ def _build_energy_stub():
     _HEALTH_REQUEST_CLS = HealthRequestCls
 
     return EnergyMonitorStub, TelemetryReadingCls, StreamRequestCls, HealthRequestCls
+
+
+def _describe_rpc_error(exc: grpc.RpcError) -> str:
+    code_attr = getattr(exc, "code", None)
+    code_name = None
+    if callable(code_attr):
+        try:
+            code_value = code_attr()
+        except Exception:
+            code_value = None
+        if code_value is not None:
+            code_name = getattr(code_value, "name", str(code_value))
+    elif code_attr is not None:
+        code_name = str(code_attr)
+
+    details_attr = getattr(exc, "details", None)
+    details_text = None
+    if callable(details_attr):
+        try:
+            details_text = details_attr()
+        except Exception:
+            details_text = None
+    elif details_attr is not None:
+        details_text = str(details_attr)
+
+    parts = [part for part in (code_name, details_text) if part]
+    if parts:
+        return " ".join(parts)
+    return exc.__class__.__name__
 
 
 def _add_field(message, name, number, field_type, *, type_name=None, label=descriptor_pb2.FieldDescriptorProto.LABEL_OPTIONAL):

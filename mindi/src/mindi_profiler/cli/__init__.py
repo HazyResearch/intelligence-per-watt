@@ -4,12 +4,11 @@ from __future__ import annotations
 
 import click
 
-from ._group import OrderedGroup
 from .energy import energy
 from .profile import profile
 
 
-@click.group(cls=OrderedGroup, help="Mindi development CLI tool")
+@click.group(help="Mindi development CLI tool")
 def cli() -> None:
     """Top-level CLI group."""
 

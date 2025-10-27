@@ -1,12 +1,12 @@
-"""Helpers for launching bundled Mindi service binaries."""
+"""Helpers for locating and spawning bundled Mindi service binaries."""
 
 from __future__ import annotations
 
 import os
-import subprocess
 import platform
+import subprocess
 from pathlib import Path
-from typing import Iterable, NoReturn, Sequence
+from typing import Mapping, Sequence
 
 _PLATFORM_ALIASES = {
     ("Darwin", "arm64"): "macos-arm64",
@@ -59,23 +59,15 @@ def binary_path(name: str) -> Path:
     return binary
 
 
-def run_attached(name: str, args: Sequence[str] | None = None) -> int:
+def launch(name: str, args: Sequence[str] | None = None, *, env: Mapping[str, str] | None = None) -> subprocess.Popen:
+    """Launch the named binary and return the running process."""
+
     binary = binary_path(name)
     cmd: list[str] = [str(binary), *(args or [])]
-    completed = subprocess.run(cmd, check=False)
-    return completed.returncode
+    full_env = os.environ.copy()
+    if env:
+        full_env.update(env)
+    return subprocess.Popen(cmd, env=full_env)
 
 
-def run_detached(name: str, args: Sequence[str] | None = None, *, env: dict[str, str] | None = None) -> int:
-    binary = binary_path(name)
-    cmd: list[str] = [str(binary), *(args or [])]
-    process = subprocess.Popen(cmd, env={**os.environ, **(env or {})})
-    return process.pid
-
-
-def forward_exec(name: str, argv: Iterable[str]) -> NoReturn:
-    binary = binary_path(name)
-    os.execv(str(binary), [str(binary), *argv])
-
-
-__all__ = ["binary_path", "run_attached", "run_detached", "forward_exec"]
+__all__ = ["binary_path", "launch"]
