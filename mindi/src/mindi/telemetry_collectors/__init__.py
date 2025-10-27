@@ -3,4 +3,6 @@
 Collectors register themselves with ``mindi.core.CollectorRegistry``.
 """
 
-__all__ = []
+from . import mindi
+
+__all__ = ["mindi"]

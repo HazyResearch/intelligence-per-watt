@@ -3,4 +3,6 @@
 Datasets register themselves with ``mindi.core.DatasetRegistry``.
 """
 
-__all__ = []
+from . import trafficbench
+
+__all__ = ["trafficbench"]

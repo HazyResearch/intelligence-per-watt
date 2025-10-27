@@ -4,6 +4,11 @@ from __future__ import annotations
 
 import click
 
+# Import to trigger registry decorators
+from mindi import clients  # noqa: F401
+from mindi import datasets  # noqa: F401
+from mindi import telemetry_collectors  # noqa: F401
+
 from .energy import energy
 from .profile import profile
 

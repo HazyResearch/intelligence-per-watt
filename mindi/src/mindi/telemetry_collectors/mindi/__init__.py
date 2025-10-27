@@ -2,4 +2,4 @@
 
 from .collector import MindiEnergyMonitorCollector
 
-__all__: list[str] = ["MindiEnergyMonitorCollector"]
+__all__: [] = ["MindiEnergyMonitorCollector"]

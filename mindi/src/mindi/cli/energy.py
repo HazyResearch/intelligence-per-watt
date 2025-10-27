@@ -15,7 +15,6 @@ from ._console import console, success
 
 
 def _get_collector(name: str) -> Type[HardwareCollector]:
-    print(CollectorRegistry.items())
     try:
         return CollectorRegistry.get(name)
     except KeyError as exc:

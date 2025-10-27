@@ -1,3 +1,5 @@
 """TrafficBench dataset provider and bundled data."""
 
-__all__: []
+from .trafficbench import TrafficBenchDataset
+
+__all__ = ["TrafficBenchDataset"]

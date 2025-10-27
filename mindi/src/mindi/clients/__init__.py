@@ -3,4 +3,6 @@
 Clients register themselves with ``mindi.core.ClientRegistry``.
 """
 
-__all__ = []
+from .ollama import OllamaClient
+
+__all__ = ["OllamaClient"]
