@@ -6,12 +6,12 @@ use std::sync::Arc;
 use tokio::sync::mpsc;
 use tokio_stream::wrappers::UnboundedReceiverStream;
 use tonic::{Request, Response, Status, transport::Server};
-use tracing::{error, info, warn};
+use tracing::{error, info};
 
 use crate::collectors::{CollectorSample, TelemetryCollector};
 use crate::config::Config;
 use crate::energy::{
-    HealthRequest, HealthResponse, ResetRequest, ResetResponse, StreamRequest, SystemInfo,
+    HealthRequest, HealthResponse, StreamRequest, SystemInfo,
     energy_monitor_server::{EnergyMonitor, EnergyMonitorServer},
 };
 use crate::host::get_system_info;
@@ -98,14 +98,6 @@ impl EnergyMonitor for EnergyMonitorService {
         });
 
         Ok(Response::new(Box::pin(UnboundedReceiverStream::new(rx))))
-    }
-
-    async fn reset_energy_baseline(
-        &self,
-        _request: Request<ResetRequest>,
-    ) -> Result<Response<ResetResponse>, Status> {
-        warn!("ResetEnergyBaseline called but collectors no longer support resetting baselines");
-        Ok(Response::new(ResetResponse { success: false }))
     }
 }
 

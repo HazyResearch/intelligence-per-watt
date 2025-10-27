@@ -3,10 +3,6 @@ name = "mindi-energy-monitor"
 version = "0.1.0"
 edition = "2024"
 
-[lib]
-name = "mindi_energy_monitor"
-path = "src/lib.rs"
-
 [dependencies]
 # Core dependencies
 anyhow = "1.0"

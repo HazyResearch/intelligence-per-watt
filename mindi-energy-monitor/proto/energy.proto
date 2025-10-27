@@ -51,9 +51,6 @@ service EnergyMonitor {
   
   // Live telemetry stream (50ms intervals) - always broadcasting everything
   rpc StreamTelemetry(StreamRequest) returns (stream TelemetryReading);
-  
-  // Reset energy baseline
-  rpc ResetEnergyBaseline(ResetRequest) returns (ResetResponse);
 }
 
 // Request/Response messages
@@ -64,8 +61,3 @@ message HealthResponse {
 }
 
 message StreamRequest {}  // No parameters - always 50ms intervals
-
-message ResetRequest {}
-message ResetResponse {
-  bool success = 1;
-}
