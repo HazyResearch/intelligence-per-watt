@@ -10,6 +10,7 @@ from mindi import datasets  # noqa: F401
 from mindi import telemetry_collectors  # noqa: F401
 
 from .energy import energy
+from .list import list_cmd
 from .profile import profile
 
 
@@ -19,6 +20,7 @@ def cli() -> None:
 
 
 cli.add_command(energy, "energy")
+cli.add_command(list_cmd, "list")
 cli.add_command(profile, "profile")
 
 

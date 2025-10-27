@@ -20,10 +20,11 @@ def _normalize_base_url(base_url: str) -> str:
 class OllamaClient(InferenceClient):
     client_id = "ollama"
     client_name = "Ollama"
+    DEFAULT_BASE_URL = "http://127.0.0.1:11434"
 
     def __init__(
         self,
-        base_url: str,
+        base_url: str | None = None,
         *,
         timeout: float = 60.0,
         options: Mapping[str, Any] | None = None,
@@ -31,8 +32,9 @@ class OllamaClient(InferenceClient):
         verify: bool | str = True,
         **config: Any,
     ) -> None:
-        super().__init__(base_url, **config)
-        self._base_url = _normalize_base_url(base_url)
+        resolved = _normalize_base_url(base_url or self.DEFAULT_BASE_URL)
+        super().__init__(resolved, **config)
+        self._base_url = resolved
         self._timeout = timeout
         self._default_options: Dict[str, Any] = dict(options or {})
         self._default_headers: Dict[str, str] = dict(headers or {})
