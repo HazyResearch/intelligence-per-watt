@@ -1,5 +1,6 @@
-"""Inference client implementations."""
+"""Inference client implementations.
 
-from .ollama import OllamaClient
+Clients register themselves with ``mindi.core.ClientRegistry``.
+"""
 
-__all__ = ["OllamaClient"]
+__all__ = []

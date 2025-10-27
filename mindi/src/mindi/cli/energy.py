@@ -15,6 +15,7 @@ from ._console import console, success
 
 
 def _get_collector(name: str) -> Type[HardwareCollector]:
+    print(CollectorRegistry.items())
     try:
         return CollectorRegistry.get(name)
     except KeyError as exc:
@@ -41,13 +42,6 @@ def _get_collector(name: str) -> Type[HardwareCollector]:
     default="mindi-energy-monitor",
     show_default=True,
     help="Hardware collector identifier",
-)
-@click.option(
-    "--timeout",
-    type=float,
-    default=5.0,
-    show_default=True,
-    help="Seconds to wait for readiness checks",
 )
 def energy(
     target: str,

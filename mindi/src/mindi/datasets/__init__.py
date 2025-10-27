@@ -1,5 +1,6 @@
-"""Dataset implementations bundled with Mindi."""
+"""Dataset implementations bundled with Mindi.
 
-from .trafficbench.trafficbench import TrafficBenchDataset
+Datasets register themselves with ``mindi.core.DatasetRegistry``.
+"""
 
-__all__ = ["TrafficBenchDataset"]
+__all__ = []

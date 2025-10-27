@@ -1,9 +1,6 @@
-"""Telemetry collector implementations bundled with Mindi Profiler."""
+"""Telemetry collector implementations bundled with Mindi.
 
-from .mindi import (
-    MindiEnergyMonitorCollector,
-)
+Collectors register themselves with ``mindi.core.CollectorRegistry``.
+"""
 
-__all__ = [
-    "MindiEnergyMonitorCollector",
-]
+__all__ = []

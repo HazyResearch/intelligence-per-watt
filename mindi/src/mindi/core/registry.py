@@ -9,7 +9,7 @@ from .dataset import DatasetProvider
 T = TypeVar("T")
 
 class RegistryBase(Generic[T]):
-    """Minimal decorator-based registry helper."""
+    """Registry helper"""
 
     @classmethod
     def _entries(cls) -> Dict[str, T]:
