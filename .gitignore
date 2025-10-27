@@ -90,3 +90,4 @@ Desktop.ini
 *.bak
 *.tmp
 
+.pytest_cache/
