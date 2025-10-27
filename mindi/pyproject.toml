@@ -3,9 +3,9 @@ requires = ["uv_build>=0.9.2,<0.10.0"]
 build-backend = "uv_build"
 
 [project]
-name = "trafficbench"
+name = "mindi"
 version = "0.1.0"
-description = "Trafficbench Profiling System"
+description = "mindi profiling system"
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [

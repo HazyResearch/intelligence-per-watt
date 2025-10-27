@@ -44,7 +44,7 @@ mindi-profiler/
 ├── README.md
 ├── CONTRIBUTING.md
 ├── src/
-│   └── mindi_profiler/
+│   └── mindi/
 │       ├── core/                      # Core abstractions
 │       │   ├── client.py              # Base client interface
 │       │   ├── collector.py           # Base hardware collector
@@ -447,12 +447,12 @@ Generate plots:
 
 **Step-by-Step:**
 
-1. Create file: `src/mindi_profiler/clients/myclient.py`
+1. Create file: `src/mindi/clients/myclient.py`
 
 2. Implement client:
 ```python
-from mindi_profiler.core.client import InferenceClient
-from mindi_profiler.core.registry import ClientRegistry
+from mindi.core.client import InferenceClient
+from mindi.core.registry import ClientRegistry
 
 @ClientRegistry.register("myclient")
 class MyClient(InferenceClient):
@@ -501,7 +501,7 @@ class MyClient(InferenceClient):
 5. Document any required permissions or tooling in the Rust crate README.
 
 **Python Impact:**
-- No changes are required in `mindi_profiler` beyond ensuring the gRPC target is reachable.
+- No changes are required in `mindi` beyond ensuring the gRPC target is reachable.
 - The existing `EnergyMonitorCollector` bridge will surface new telemetry automatically.
 
 ---

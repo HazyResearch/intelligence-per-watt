@@ -1,4 +1,4 @@
-"""Built-in inference client implementations."""
+"""Inference client implementations."""
 
 from .ollama import OllamaClient
 

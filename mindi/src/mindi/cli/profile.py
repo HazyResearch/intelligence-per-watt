@@ -4,11 +4,9 @@ from __future__ import annotations
 
 import click
 
-from ._group import OrderedGroup
 
 
 @click.group(
-    cls=OrderedGroup,
     help="Profile node performance over a dataset with telemetry regressions.",
 )
 def profile() -> None:

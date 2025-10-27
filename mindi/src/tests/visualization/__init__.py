@@ -1,0 +1,2 @@
+"""Tests for mindi.visualization."""
+

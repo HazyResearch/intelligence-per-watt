@@ -6,8 +6,8 @@ from typing import Iterable, Optional, Tuple
 
 import grpc
 
-from mindi_profiler.core.collector import HardwareCollector
-from mindi_profiler.core.types import GpuInfo, SystemInfo, TelemetryReading
+from mindi.core.collector import HardwareCollector
+from mindi.core.types import GpuInfo, SystemInfo, TelemetryReading
 
 from .launcher import DEFAULT_TARGET, normalize_target, wait_for_ready
 from .proto import get_stub_bundle
