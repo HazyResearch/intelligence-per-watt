@@ -13,7 +13,7 @@ import grpc
 from . import _binaries
 from .proto import get_stub_bundle
 
-DEFAULT_TARGET = "127.0.0.1:50052"
+DEFAULT_TARGET = "127.0.0.1:50053"
 
 
 def normalize_target(target: str) -> str:

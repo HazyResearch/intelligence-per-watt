@@ -27,3 +27,6 @@ dependencies = [
 
 [project.scripts]
 mindi = "mindi.cli:main"
+
+[tool.uv_build]
+package-data = {"mindi.telemetry_collectors.mindi" = ["bin/**"], "mindi.datasets.trafficbench" = ["data/**"]}

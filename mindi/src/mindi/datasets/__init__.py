@@ -1,5 +1,5 @@
-"""Dataset implementations bundled with Mindi Profiler."""
+"""Dataset implementations bundled with Mindi."""
 
-from .trafficbench import TrafficBenchDataset
+from .trafficbench.trafficbench import TrafficBenchDataset
 
 __all__ = ["TrafficBenchDataset"]

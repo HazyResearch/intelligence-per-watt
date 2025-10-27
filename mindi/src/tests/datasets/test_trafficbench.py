@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import pytest
 
-from mindi.datasets.trafficbench import TrafficBenchDataset
+from mindi.datasets import TrafficBenchDataset
 
 
 @pytest.fixture(scope="module")

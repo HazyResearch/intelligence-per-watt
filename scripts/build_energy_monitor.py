@@ -11,7 +11,15 @@ from pathlib import Path
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 ENERGY_MONITOR_ROOT = PROJECT_ROOT / "mindi-energy-monitor"
-BIN_ROOT = PROJECT_ROOT / "mindi" / "src" / "mindi" / "execution" / "bin"
+BIN_ROOT = (
+    PROJECT_ROOT
+    / "mindi"
+    / "src"
+    / "mindi"
+    / "telemetry_collectors"
+    / "mindi"
+    / "bin"
+)
 
 # Mapping from sys.platform / machine combos to folder names under cli/bin/
 PLATFORM_ALIASES = {
