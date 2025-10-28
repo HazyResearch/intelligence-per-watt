@@ -9,8 +9,10 @@ from mindi import clients  # noqa: F401
 from mindi import datasets  # noqa: F401
 from mindi import telemetry_collectors  # noqa: F401
 
+from .analyze import analyze
 from .energy import energy
 from .list import list_cmd
+from .plot import plot
 from .profile import profile
 
 
@@ -19,9 +21,11 @@ def cli() -> None:
     """Top-level CLI group."""
 
 
-cli.add_command(energy, "energy")
-cli.add_command(list_cmd, "list")
 cli.add_command(profile, "profile")
+cli.add_command(analyze, "analyze")
+cli.add_command(plot, "plot")
+cli.add_command(list_cmd, "list")
+cli.add_command(energy, "energy")
 
 
 def main() -> None:
