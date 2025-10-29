@@ -1,7 +1,8 @@
 from __future__ import annotations
 
 import time
-from typing import Any, Dict, MutableMapping, Sequence, Mapping
+from collections.abc import Mapping, MutableMapping, Sequence
+from typing import Any
 
 from ollama import Client, ResponseError
 
@@ -34,14 +35,11 @@ class OllamaClient(InferenceClient):
     ) -> None:
         resolved = _normalize_base_url(base_url or self.DEFAULT_BASE_URL)
         super().__init__(resolved, **config)
-        self._base_url = resolved
-        self._timeout = timeout
-        self._default_options: Dict[str, Any] = dict(options or {})
-        self._default_headers: Dict[str, str] = dict(headers or {})
+        self._default_options = self._as_plain_dict(options)
         self._client = Client(
-            host=self._base_url,
+            host=resolved,
             timeout=timeout,
-            headers=self._default_headers or None,
+            headers=dict(headers) if headers else None,
             verify=verify,
         )
 
@@ -54,8 +52,8 @@ class OllamaClient(InferenceClient):
 
         try:
             stream = self._client.chat(**payload)
-        except (ResponseError, Exception) as exc:
-            raise RuntimeError(f"Ollama error: {getattr(exc, 'error', str(exc))}") from exc
+        except ResponseError as exc:
+            raise RuntimeError(f"Ollama error: {exc}") from exc
 
         content_parts: list[str] = []
         prompt_tokens = 0
@@ -63,53 +61,49 @@ class OllamaClient(InferenceClient):
         ttft_ms: float | None = None
 
         for chunk in stream:
-            data = self._coerce_mapping(chunk)
-
-            if error := data.get("error"):
-                raise RuntimeError(f"Ollama error: {error}")
-
-            message = data.get("message") or {}
-            content_piece = message.get("content")
+            message = getattr(chunk, "message", None)
+            content_piece = getattr(message, "content", None)
             if content_piece:
                 if ttft_ms is None:
                     ttft_ms = (time.perf_counter() - start_time) * 1000
                 content_parts.append(content_piece)
 
-            if data.get("done"):
-                prompt_tokens = int(data.get("prompt_eval_count") or prompt_tokens)
-                completion_tokens = int(data.get("eval_count") or completion_tokens)
-                break
-
-        total_tokens = prompt_tokens + completion_tokens
-        usage = ChatUsage(
-            prompt_tokens=prompt_tokens,
-            completion_tokens=completion_tokens,
-            total_tokens=total_tokens,
-        )
+            if getattr(chunk, "done", False):
+                if chunk.prompt_eval_count is not None:
+                    prompt_tokens = int(chunk.prompt_eval_count)
+                if chunk.eval_count is not None:
+                    completion_tokens = int(chunk.eval_count)
 
         if ttft_ms is None:
             ttft_ms = 0.0
 
         return Response(
             content="".join(content_parts),
-            usage=usage,
+            usage=ChatUsage(
+                prompt_tokens=prompt_tokens,
+                completion_tokens=completion_tokens,
+                total_tokens=prompt_tokens + completion_tokens,
+            ),
             time_to_first_token_ms=ttft_ms,
         )
 
     def list_models(self) -> Sequence[str]:
         try:
-            data = self._client.list()
-        except (ResponseError, Exception) as exc:
-            raise RuntimeError(f"Ollama error: {getattr(exc, 'error', str(exc))}") from exc
+            response = self._client.list()
+        except ResponseError as exc:
+            raise RuntimeError(f"Ollama error: {exc}") from exc
 
-        models = self._extract_models(data)
-        return [model_name for model_name in models if model_name]
+        return [
+            str(model.model)
+            for model in response.models
+            if getattr(model, "model", None)
+        ]
 
     def health(self) -> bool:
         try:
             self._client.list()
             return True
-        except (ResponseError, Exception):
+        except ResponseError:
             return False
 
     def _build_payload(
@@ -117,67 +111,39 @@ class OllamaClient(InferenceClient):
         model: str,
         prompt: str,
         params: MutableMapping[str, Any],
-    ) -> Dict[str, Any]:
-        payload: Dict[str, Any] = {
-            "model": model,
-            "stream": True,
-        }
+    ) -> dict[str, Any]:
+        payload = dict(params)
+        payload.pop("stream", None)
+        payload["model"] = model
+        payload["stream"] = True
 
-        external_messages = params.pop("messages", None)
-        if external_messages is not None:
-            payload["messages"] = external_messages
+        messages = payload.pop("messages", None)
+        if messages is None:
+            payload["messages"] = [{"role": "user", "content": prompt}]
+        elif isinstance(messages, (str, bytes)):
+            payload["messages"] = [{"role": "user", "content": str(messages)}]
         else:
-            payload["messages"] = [
-                {"role": "user", "content": prompt}
-            ]
+            payload["messages"] = messages
 
-        merged_options: Dict[str, Any] = dict(self._default_options)
-        if "options" in params:
-            merged_options.update(params.pop("options") or {})
-        if merged_options:
-            payload["options"] = merged_options
-
-        if params:
-            payload.update(params)
+        options = dict(self._default_options)
+        override = payload.pop("options", None)
+        if override:
+            options.update(self._as_plain_dict(override))
+        options = {k: v for k, v in options.items() if v is not None}
+        if options:
+            payload["options"] = options
 
         return payload
 
     @staticmethod
-    def _coerce_mapping(chunk: Any) -> Dict[str, Any]:
-        if isinstance(chunk, Mapping):
-            return dict(chunk)
-
-        if hasattr(chunk, "model_dump"):
-            try:
-                return dict(chunk.model_dump())
-            except TypeError:
-                return chunk.model_dump()
-
-        if hasattr(chunk, "dict"):
-            try:
-                return dict(chunk.dict())
-            except TypeError:
-                return chunk.dict()
-
-        try:
-            return dict(chunk)
-        except TypeError:
-            return chunk
-
-    @staticmethod
-    def _extract_models(data: Any) -> Sequence[str]:
-        if isinstance(data, Mapping):
-            models = data.get("models") or []
-        else:
-            models = getattr(data, "models", [])
-
-        names: list[str] = []
-        for model in models:
-            if isinstance(model, Mapping):
-                name = model.get("model") or model.get("name")
-            else:
-                name = getattr(model, "model", None) or getattr(model, "name", None)
-            if name:
-                names.append(name)
-        return names
-
+    def _as_plain_dict(value: Mapping[str, Any] | Any | None) -> dict[str, Any]:
+        if value is None:
+            return {}
+        if hasattr(value, "model_dump"):
+            return {
+                k: v
+                for k, v in value.model_dump(exclude_none=True, exclude_unset=True).items()
+            }
+        if isinstance(value, Mapping):
+            return dict(value)
+        return dict(value)
