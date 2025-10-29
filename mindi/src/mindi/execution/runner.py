@@ -11,6 +11,7 @@ from pathlib import Path
 from typing import Any, Iterable, Mapping, MutableMapping, Optional, Sequence
 
 from datasets import Dataset
+from tqdm.auto import tqdm
 
 from ..core.client import InferenceClient
 from ..core.registry import ClientRegistry, DatasetRegistry
@@ -33,11 +34,34 @@ from ..core.types import (
     GpuInfo,
 )
 from ..telemetry import MindiEnergyMonitorCollector
+from .hardware import derive_hardware_label
 from .telemetry import TelemetrySession, TelemetrySample
 
 
 class ProfilerRunner:
     """Coordinate dataset iteration, inference calls, telemetry capture, and persistence."""
+
+    # The runner is intentionally a slim orchestrator, but it still handles a
+    # fair amount of coordination work:
+    #
+    # 1. Resolve dataset / client implementations from the registries so that we
+    #    only depend on the registry surface, not the old resolution helpers.
+    # 2. Spin up the `TelemetrySession`, which hides the threaded sampling loop
+    #    that continuously pulls energy/power/memory readings into a rolling
+    #    buffer while the run executes.
+    # 3. For each dataset record, send the request to the client, collect the
+    #    telemetry samples that overlap the query window, and transform the raw
+    #    response + telemetry into the strongly typed `ProfilingRecord` payload
+    #    defined in `mindi.core.types`.
+    # 4. Accumulate all records in-memory and write a HuggingFace dataset to the
+    #    configured output directory once the run completes, along with a
+    #    `summary.json` containing run metadata and aggregate energy totals.
+    #
+    # The actual measurements and conversions stay localized to helper methods
+    # (`_compute_energy_metrics`, `_stat_summary`, etc.) so that the control flow
+    # remains readable. Any future refactor (e.g., streaming writes or different
+    # telemetry aggregation) should only need to touch the helpers and the final
+    # persistence step.
 
     def __init__(self, config: ProfilerConfig) -> None:
         self._config = config
@@ -78,11 +102,9 @@ class ProfilerRunner:
             "model": self._config.model,
             "dataset": getattr(dataset, "dataset_id", self._config.dataset_id),
             "dataset_name": getattr(dataset, "dataset_name", None),
-            "run_id": self._config.run_id,
             "hardware_label": self._hardware_label,
             "generated_at": time.time(),
             "total_queries": len(self._records),
-            "total_energy_joules": self._compute_total_energy(),
             "system_info": asdict(self._system_info) if self._system_info else None,
             "gpu_info": asdict(self._gpu_info) if self._gpu_info else None,
             "output_dir": str(output_path),
@@ -96,17 +118,20 @@ class ProfilerRunner:
         client,
         telemetry: TelemetrySession,
     ) -> None:
-        total = self._config.max_queries or dataset.size()
-        for index, record in enumerate(dataset):
-            if index >= total:
-                break
-            start = time.time()
-            response = self._invoke_client(client, record)
-            end = time.time()
-            samples = list(telemetry.window(start, end))
-            built = self._build_record(index, record, response, samples, start, end)
-            if built is not None:
-                self._records.append(built)
+        total_queries = self._config.max_queries or dataset.size()
+        iterator = enumerate(dataset)
+        with tqdm(total=total_queries, desc="Profiling", unit="query") as progress:
+            for index, record in iterator:
+                if index >= total_queries:
+                    break
+                start = time.time()
+                response = self._invoke_client(client, record)
+                end = time.time()
+                samples = list(telemetry.window(start, end))
+                built = self._build_record(index, record, response, samples, start, end)
+                if built is not None:
+                    self._records.append(built)
+                progress.update(1)
 
     def _build_record(
         self,
@@ -228,7 +253,7 @@ class ProfilerRunner:
             if reading.gpu_info is not None:
                 self._gpu_info = reading.gpu_info
 
-        candidate = _derive_hardware_label(self._system_info, self._gpu_info)
+        candidate = derive_hardware_label(self._system_info, self._gpu_info)
         if candidate and (self._hardware_label in (None, "UNKNOWN_HW")):
             self._hardware_label = candidate
 
@@ -238,13 +263,11 @@ class ProfilerRunner:
 
         hardware_label = self._hardware_label or "UNKNOWN_HW"
         model_slug = _slugify_model(self._config.model)
-        base_dir = self._config.output_dir or Path.cwd() / "runs"
+        default_runs_dir = Path(__file__).resolve().parents[4] / "runs"
+        base_dir = self._config.output_dir or default_runs_dir
         profile_dir = f"profile_{hardware_label}_{model_slug}".strip("_")
 
-        if self._config.run_id:
-            output_path = Path(base_dir) / self._config.run_id / profile_dir
-        else:
-            output_path = Path(base_dir) / profile_dir
+        output_path = Path(base_dir) / profile_dir
 
         self._hardware_label = hardware_label
         self._output_path = output_path
@@ -313,64 +336,3 @@ def _stat_summary(values: Iterable[Optional[float]]) -> MetricStats:
 
 def _slugify_model(model: str) -> str:
     return "".join(c if c.isalnum() else "_" for c in model).strip("_") or "model"
-
-
-def _derive_hardware_label(
-    system_info: Optional[SystemInfo | Mapping[str, Any]],
-    gpu_info: Optional[GpuInfo | Mapping[str, Any]],
-) -> str:
-    def _sanitize(raw: Optional[str]) -> Sequence[str]:
-        if not raw:
-            return []
-        tokens = []
-        current = ""
-        for ch in raw:
-            if ch.isalnum():
-                current += ch
-            else:
-                if current:
-                    tokens.append(current)
-                current = ""
-        if current:
-            tokens.append(current)
-        return tokens
-
-    def _pick(tokens: Sequence[str]) -> Optional[str]:
-        for token in tokens:
-            if any(ch.isalpha() for ch in token) and any(ch.isdigit() for ch in token):
-                return token.upper()
-        for token in tokens:
-            if token.isalpha():
-                return token.upper()
-        if tokens:
-            return tokens[-1].upper()
-        return None
-
-    gpu_candidate: Optional[str] = None
-    if gpu_info:
-        if isinstance(gpu_info, Mapping):
-            raw_name = str(gpu_info.get("name", ""))
-        else:
-            raw_name = getattr(gpu_info, "name", "")
-        gpu_candidate = _pick(_sanitize(raw_name))
-        if gpu_candidate and any(ch.isdigit() for ch in gpu_candidate):
-            return gpu_candidate
-
-    cpu_candidate: Optional[str] = None
-    if system_info:
-        if isinstance(system_info, Mapping):
-            raw_cpu = str(system_info.get("cpu_brand", ""))
-        else:
-            raw_cpu = getattr(system_info, "cpu_brand", "")
-        cpu_candidate = _pick(_sanitize(raw_cpu))
-        if cpu_candidate:
-            if any(ch.isdigit() for ch in cpu_candidate):
-                return cpu_candidate
-            if not gpu_candidate:
-                return cpu_candidate
-
-    if gpu_candidate:
-        return gpu_candidate
-    if cpu_candidate:
-        return cpu_candidate
-    return "UNKNOWN_HW"

@@ -32,7 +32,6 @@ def _collect_params(ctx, param, values):
 @click.option("--client-base-url", help="Client base URL")
 @click.option("--dataset-param", multiple=True, callback=_collect_params, help="Dataset params key=value")
 @click.option("--client-param", multiple=True, callback=_collect_params, help="Client params key=value")
-@click.option("--run-id", help="Run identifier")
 @click.option("--output-dir", type=click.Path())
 @click.option("--max-queries", type=int)
 def profile(
@@ -42,7 +41,6 @@ def profile(
     model: str,
     dataset_param,
     client_param,
-    run_id: str | None,
     output_dir: str | None,
     max_queries: int | None,
 ) -> None:
@@ -54,7 +52,6 @@ def profile(
         dataset_params=dataset_param,
         client_params=client_param,
         model=model,
-        run_id=run_id or "",
         max_queries=max_queries,
         output_dir=Path(output_dir) if output_dir else None,
     )

@@ -41,7 +41,6 @@ class ProfilerConfig:
     dataset_params: Mapping[str, Any] = field(default_factory=dict)
     client_params: Mapping[str, Any] = field(default_factory=dict)
     model: str = ""
-    run_id: str = ""
     output_dir: Path | None = None
     batch_size: int = 1
     max_queries: int | None = None
