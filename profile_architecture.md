@@ -12,8 +12,8 @@ This document proposes a modular, extensible architecture for the Mindi Profiler
 
 ### Key Design Principles
 
-1. **Plugin-based Architecture** - Registry pattern for clients and collectors
-2. **Clear Extension Points** - Abstract base classes with minimal requirements
+1. **Plugin-based Architecture** - Registry pattern for clients (datasets remain pluggable); telemetry relies on the bundled Mindi collector
+2. **Clear Extension Points** - Abstract base classes with minimal requirements for clients and datasets; telemetry uses a concrete collector
 4. **Auto-Discovery** - Automatic detection of available components
 5. **Service Agnostic** - Works with any OpenAI-compatible API
 6. **Minimal Dependencies** - Core requires only HTTP client, numpy, click
@@ -25,7 +25,7 @@ This document proposes a modular, extensible architecture for the Mindi Profiler
 1. [Architecture Overview](#architecture-overview)
 2. [Core Components](#core-components)
 3. [Extensible Client System](#extensible-client-system)
-4. [Extensible Hardware Collectors](#extensible-hardware-collectors)
+4. [Telemetry Collector Integration](#telemetry-collector-integration)
 5. [Configuration-Driven Model Registry](#configuration-driven-model-registry)
 6. [Execution Engine](#execution-engine)
 7. [Analysis Pipeline](#analysis-pipeline)
@@ -47,7 +47,6 @@ mindi-profiler/
 │   └── mindi/
 │       ├── core/                      # Core abstractions
 │       │   ├── client.py              # Base client interface
-│       │   ├── collector.py           # Base hardware collector
 │       │   ├── registry.py            # Plugin registry
 │       │   └── types.py               # Shared types
 │       │
@@ -58,7 +57,8 @@ mindi-profiler/
 │       │   
 │       │   
 │       │
-│       ├── energy_monitor/            # gRPC bridge to Rust collectors
+│       ├── telemetry/                # Bundled telemetry integrations
+│       │   ├── collector.py          # Mindi energy monitor collector
 │       ├── execution/                 # Profiling engine
 │       ├── analysis/                  # Statistical analysis
 │       ├── datasets/                  # Dataset management
@@ -67,7 +67,6 @@ mindi-profiler/
 │
 ├── examples/                          # Extension examples
 │   ├── custom_client.py
-│   ├── custom_collector.py
 │   └── custom_model.py
 │
 └── tests/
@@ -132,20 +131,21 @@ The `core/` module provides base interfaces that all plugins must implement:
 
 
 
-#### HardwareCollector (Base Interface)
+#### MindiEnergyMonitorCollector (Concrete Implementation)
 
-**Purpose:** Lightweight Python bridge to the Rust energy-monitor service.
+**Purpose:** Lightweight Python bridge to the Rust energy-monitor service shipped with the profiler.
 
-**Required Methods:**
-- `is_available()` - Confirm the gRPC bridge can reach the Rust service
-- `stream_readings()` - Yield telemetry readings from the Rust collectors
+**Behavior Highlights:**
+- `is_available()` - Confirms the gRPC bridge can reach the service.
+- `start()` - Context manager that launches the monitor on demand.
+- `stream_readings()` - Yields telemetry readings from the energy monitor.
 
 
 
 
 ### 2.2 Registry Pattern
 
-**ClientRegistry** provides:
+**ClientRegistry** and **DatasetRegistry** provide:
 - Component registration via decorators
 - Factory methods for instantiation
 - Listing available clients for discovery
@@ -213,9 +213,11 @@ class VLLMClient(InferenceClient):
 
 ---
 
-## 4. Extensible Hardware Collectors
+## 4. Telemetry Collector Integration
 
 ### 4.1 Design Goals
+
+Even though the registry abstraction has been removed, the bundled collector still targets the same outcomes:
 
 1. **Platform Detection** - Auto-detect available hardware inside the Rust energy monitor
 2. **Graceful Degradation** - Work without telemetry when the monitor is unavailable
@@ -490,7 +492,7 @@ class MyClient(InferenceClient):
 - Override `capabilities()` for feature declaration
 - Override `validate_config()` for config validation
 
-### 8.2 Adding a New Hardware Collector (Rust)
+### 8.2 Extending the Rust Energy Monitor
 
 **Step-by-Step:**
 
@@ -502,7 +504,7 @@ class MyClient(InferenceClient):
 
 **Python Impact:**
 - No changes are required in `mindi` beyond ensuring the gRPC target is reachable.
-- The existing `EnergyMonitorCollector` bridge will surface new telemetry automatically.
+- The existing `MindiEnergyMonitorCollector` bridge will surface new telemetry automatically.
 
 ---
 

@@ -3,7 +3,6 @@ from __future__ import annotations
 from typing import Any, Callable, Dict, Generic, Type, TypeVar
 
 from .client import InferenceClient
-from .collector import HardwareCollector
 from .dataset import DatasetProvider
 
 T = TypeVar("T")
@@ -70,6 +69,3 @@ class ClientRegistry(RegistryBase[Type["InferenceClient"]]):
 class DatasetRegistry(RegistryBase[Type["DatasetProvider"]]):
     """Registry for dataset providers."""
 
-
-class CollectorRegistry(RegistryBase[Type["HardwareCollector"]]):
-    """Registry for telemetry collectors."""

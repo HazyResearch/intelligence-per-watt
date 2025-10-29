@@ -1,24 +1,15 @@
-"""Energy CLI backed by abstract telemetry collectors."""
+"""Energy CLI backed by the bundled Mindi telemetry collector."""
 
 from __future__ import annotations
 
 import time
-from typing import Type
 
 import click
 
-from mindi.core.collector import HardwareCollector
-from mindi.core.registry import CollectorRegistry
 from mindi.core.types import TelemetryReading
+from mindi.telemetry import MindiEnergyMonitorCollector
 
 from ._console import console, success
-
-
-def _get_collector(name: str) -> Type[HardwareCollector]:
-    try:
-        return CollectorRegistry.get(name)
-    except KeyError as exc:
-        raise click.ClickException(f"Unknown collector '{name}'") from exc
 
 
 @click.command(help="Ensure an energy monitor can run and stream telemetry.")
@@ -35,20 +26,11 @@ def _get_collector(name: str) -> Type[HardwareCollector]:
     show_default=True,
     help="Seconds between printed samples",
 )
-@click.option(
-    "--collector",
-    type=str,
-    default="mindi-energy-monitor",
-    show_default=True,
-    help="Hardware collector identifier",
-)
 def energy(
     target: str,
     interval: float,
-    collector: str,
 ) -> None:
-    collector_cls = _get_collector(collector)
-    collector_instance = collector_cls(target=target or "")
+    collector_instance = MindiEnergyMonitorCollector(target=target or "")
 
     try:
         with collector_instance.start():
@@ -57,7 +39,7 @@ def energy(
         raise click.ClickException(str(exc)) from exc
 
 
-def _run_monitor(collector: HardwareCollector, interval: float) -> None:
+def _run_monitor(collector: MindiEnergyMonitorCollector, interval: float) -> None:
     success(f"Streaming telemetry via collector '{collector.collector_name}'")
 
     console.print(
@@ -115,5 +97,3 @@ def _format_metric(value: float | None, *, width: int, precision: int) -> str:
 
 
 __all__ = ["energy"]
-
-

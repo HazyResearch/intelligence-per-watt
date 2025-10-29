@@ -94,12 +94,10 @@ class DatasetRecord:
 @dataclass(slots=True)
 class ProfilerConfig:
     dataset_id: str
-    collector_id: str
     client_id: str
     client_base_url: str | None = None
 
     dataset_params: Mapping[str, Any] = field(default_factory=dict)
-    collector_params: Mapping[str, Any] = field(default_factory=dict)
     client_params: Mapping[str, Any] = field(default_factory=dict)
     model: str = ""
     run_id: str = ""

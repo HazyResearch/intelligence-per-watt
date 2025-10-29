@@ -9,8 +9,8 @@ from contextlib import AbstractContextManager
 from dataclasses import dataclass
 from typing import Deque, Iterable, Iterator, Optional
 
-from ..core.collector import HardwareCollector
 from ..core.types import TelemetryReading
+from ..telemetry import MindiEnergyMonitorCollector
 
 
 @dataclass
@@ -24,7 +24,7 @@ class TelemetrySession(AbstractContextManager["TelemetrySession"]):
 
     def __init__(
         self,
-        collector: HardwareCollector,
+        collector: MindiEnergyMonitorCollector,
         *,
         buffer_seconds: float = 30.0,
         max_samples: int = 10_000,
@@ -76,4 +76,3 @@ class TelemetrySession(AbstractContextManager["TelemetrySession"]):
         for sample in list(self._samples):
             if start_time <= sample.timestamp <= end_time:
                 yield sample
-

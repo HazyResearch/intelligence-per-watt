@@ -7,7 +7,7 @@ import click
 # Import to trigger registry decorators
 from mindi import clients  # noqa: F401
 from mindi import datasets  # noqa: F401
-from mindi import telemetry_collectors  # noqa: F401
+from mindi import telemetry  # noqa: F401
 
 from .analyze import analyze
 from .energy import energy

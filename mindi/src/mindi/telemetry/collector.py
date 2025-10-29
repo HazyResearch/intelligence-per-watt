@@ -7,17 +7,13 @@ from typing import Iterable, Optional, Tuple
 
 import grpc
 
-from mindi.core.collector import HardwareCollector
-from mindi.core.registry import CollectorRegistry
 from mindi.core.types import GpuInfo, SystemInfo, TelemetryReading
 
 from .launcher import DEFAULT_TARGET, ensure_monitor, normalize_target, wait_for_ready
 from .proto import get_stub_bundle
 
 
-@CollectorRegistry.register("mindi-energy-monitor")
-class MindiEnergyMonitorCollector(HardwareCollector):
-    collector_id = "mindi-energy-monitor"
+class MindiEnergyMonitorCollector:
     collector_name = "Mindi Energy Monitor"
 
     def __init__(
@@ -107,4 +103,3 @@ def _safe_float(value) -> Optional[float]:
 
 
 __all__ = ["MindiEnergyMonitorCollector"]
-

@@ -5,7 +5,7 @@ import time
 
 import pytest
 
-from mindi.telemetry_collectors.mindi import (
+from mindi.telemetry import (
     MindiEnergyMonitorCollector,
     ensure_monitor,
     wait_for_ready,
@@ -45,4 +45,3 @@ def test_stream_readings_produces_samples(monitor_target: str) -> None:
     sample = samples[0]
     assert sample.timestamp_nanos is None or isinstance(sample.timestamp_nanos, int)
     assert sample.platform is None or isinstance(sample.platform, str)
-

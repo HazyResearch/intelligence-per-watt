@@ -8,11 +8,11 @@ from pathlib import Path
 from typing import Iterable, Iterator, List, Mapping, MutableMapping, Optional
 
 from ..core.types import DatasetRecord, ProfilerConfig, Response
+from ..telemetry import MindiEnergyMonitorCollector
 from .resolution import (
     ResolutionError,
     ensure_client_ready,
     resolve_client,
-    resolve_collector,
     resolve_dataset,
 )
 from .sink import JsonlResultSink, ResultSink
@@ -57,10 +57,7 @@ class ProfilerRunner:
             self._config.client_params,
         )
 
-        collector = resolve_collector(
-            self._config.collector_id,
-            self._config.collector_params,
-        )
+        collector = MindiEnergyMonitorCollector()
 
         ensure_client_ready(client)
 
@@ -130,4 +127,3 @@ def _snapshot_config(config: ProfilerConfig) -> Mapping[str, object]:
         else:
             serialized[key] = value
     return dict(serialized)
-
