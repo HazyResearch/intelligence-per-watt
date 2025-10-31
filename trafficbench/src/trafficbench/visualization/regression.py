@@ -69,6 +69,15 @@ def _infer_hardware_label(dataset, model_name: str) -> str:
     return "Unknown"
 
 
+def _safe_get(obj, key):
+    """Safely get a value from dict or dataclass."""
+    if isinstance(obj, dict):
+        return obj.get(key)
+    elif hasattr(obj, key):
+        return getattr(obj, key)
+    return None
+
+
 def _extract_regression_samples(
     dataset, model_name: str, x_key_path: Sequence[str], y_key_path: Sequence[str]
 ) -> Tuple[list[float], list[float]]:
@@ -81,27 +90,28 @@ def _extract_regression_samples(
         if not model_metrics:
             continue
 
-        # Navigate nested dict for x value
+        # Navigate nested dict/dataclass for x value
         x_val = model_metrics
         for key in x_key_path:
-            x_val = x_val.get(key, {}) if isinstance(x_val, dict) else None
             if x_val is None:
                 break
+            x_val = _safe_get(x_val, key)
 
         # Backward compatibility: compute total tokens if not stored
         if x_val is None and x_key_path == ["token_metrics", "total"]:
-            token_metrics = model_metrics.get("token_metrics", {})
-            input_tokens = token_metrics.get("input")
-            output_tokens = token_metrics.get("output")
-            if input_tokens is not None or output_tokens is not None:
-                x_val = (input_tokens or 0.0) + (output_tokens or 0.0)
+            token_metrics = _safe_get(model_metrics, "token_metrics")
+            if token_metrics is not None:
+                input_tokens = _safe_get(token_metrics, "input")
+                output_tokens = _safe_get(token_metrics, "output")
+                if input_tokens is not None or output_tokens is not None:
+                    x_val = (input_tokens or 0.0) + (output_tokens or 0.0)
 
-        # Navigate nested dict for y value
+        # Navigate nested dict/dataclass for y value
         y_val = model_metrics
         for key in y_key_path:
-            y_val = y_val.get(key, {}) if isinstance(y_val, dict) else None
             if y_val is None:
                 break
+            y_val = _safe_get(y_val, key)
 
         if x_val is not None and y_val is not None:
             try:
