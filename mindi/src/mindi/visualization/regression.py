@@ -88,6 +88,14 @@ def _extract_regression_samples(
             if x_val is None:
                 break
 
+        # Backward compatibility: compute total tokens if not stored
+        if x_val is None and x_key_path == ["token_metrics", "total"]:
+            token_metrics = model_metrics.get("token_metrics", {})
+            input_tokens = token_metrics.get("input")
+            output_tokens = token_metrics.get("output")
+            if input_tokens is not None or output_tokens is not None:
+                x_val = (input_tokens or 0.0) + (output_tokens or 0.0)
+
         # Navigate nested dict for y value
         y_val = model_metrics
         for key in y_key_path:

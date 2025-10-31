@@ -55,6 +55,7 @@ class PowerMetrics:
 class TokenMetrics:
     input: Optional[int] = None
     output: Optional[int] = None
+    total: Optional[int] = None
 
 
 @dataclass(slots=True)

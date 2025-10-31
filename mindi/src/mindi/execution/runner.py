@@ -197,6 +197,7 @@ class ProfilerRunner:
             token_metrics=TokenMetrics(
                 input=usage.prompt_tokens,
                 output=usage.completion_tokens,
+                total=usage.prompt_tokens + usage.completion_tokens,
             ),
             gpu_info=self._gpu_info,
             system_info=self._system_info,

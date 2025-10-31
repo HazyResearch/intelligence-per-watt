@@ -239,7 +239,9 @@ class RegressionAnalysis(AnalysisProvider):
 
             prompt_tokens = to_float(token_metrics.get("input"))
             completion_tokens = to_float(token_metrics.get("output"))
-            total_tokens = derive_total_tokens(prompt_tokens, completion_tokens)
+            total_tokens = to_float(token_metrics.get("total"))
+            if total_tokens is None:
+                total_tokens = derive_total_tokens(prompt_tokens, completion_tokens)
 
             ttft_value = to_float(latency_metrics.get("time_to_first_token_seconds"))
             total_latency_value = to_float(latency_metrics.get("total_query_seconds"))

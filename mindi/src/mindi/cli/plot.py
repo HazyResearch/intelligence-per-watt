@@ -9,7 +9,7 @@ import click
 
 from ..core.registry import VisualizationRegistry
 from ..visualization.base import VisualizationContext
-from ._console import console, error, info, success, warning
+from ._console import error, info, success, warning
 
 
 def _collect_options(ctx, param, values):
@@ -71,11 +71,7 @@ def plot(
     # Determine output directory
     if output_dir is None:
         output_dir = results_dir / "plots"
-
-    info(f"Running visualization: {visualization_id}")
-    info(f"Results directory: {results_dir}")
-    info(f"Output directory: {output_dir}")
-
+    
     # Create context and run visualization
     context = VisualizationContext(
         results_dir=results_dir,
@@ -87,25 +83,24 @@ def plot(
     result = provider.render(context)
 
     # Display results
-    console.print(f"\n[bold]Visualization:[/bold] {result.visualization}")
+    info(f"Visualization: {result.visualization}")
 
     if result.artifacts:
-        console.print("\n[bold]Generated artifacts:[/bold]")
+        info("\nGenerated artifacts:")
         for name, path in result.artifacts.items():
-            console.print(f"  • {name}: {path}")
-        success(f"Generated {len(result.artifacts)} plot(s)")
+            info(f"  {name}: {path}")
     else:
         warning("No artifacts generated")
 
     if result.warnings:
-        console.print("\n[bold yellow]Warnings:[/bold yellow]")
+        info("\nWarnings:")
         for warn in result.warnings:
-            warning(warn)
+            warning(f"  {warn}")
 
     if result.metadata:
-        console.print("\n[bold]Metadata:[/bold]")
+        info("\nMetadata:")
         for key, value in result.metadata.items():
-            console.print(f"  {key}: {value}")
+            info(f"  {key}: {value}")
 
 
 __all__ = ["plot"]

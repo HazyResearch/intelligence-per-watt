@@ -9,7 +9,7 @@ import click
 from mindi.core.types import TelemetryReading
 from mindi.telemetry import MindiEnergyMonitorCollector
 
-from ._console import console, success
+from ._console import info, success
 
 
 @click.command(help="Ensure an energy monitor can run and stream telemetry.")
@@ -42,7 +42,7 @@ def energy(
 def _run_monitor(collector: MindiEnergyMonitorCollector, interval: float) -> None:
     success(f"Streaming telemetry via collector '{collector.collector_name}'")
 
-    console.print(
+    info(
         "{:>12} {:>10} {:>10} {:>10} {:>10} {:>8}".format(
             "Time",
             "Energy(J)",
@@ -52,7 +52,7 @@ def _run_monitor(collector: MindiEnergyMonitorCollector, interval: float) -> Non
             "CPU MB",
         )
     )
-    console.print("-" * 68)
+    info("-" * 68)
 
     start = time.time()
     last_emit = start - interval
@@ -63,9 +63,9 @@ def _run_monitor(collector: MindiEnergyMonitorCollector, interval: float) -> Non
             if now - last_emit < max(interval, 0.05):
                 continue
             last_emit = now
-            console.print(_format_line(now - start, reading))
+            info(_format_line(now - start, reading))
     except KeyboardInterrupt:
-        console.print("\nStopping monitor")
+        info("\nStopping monitor")
 
 
 def _format_line(elapsed: float, reading: TelemetryReading) -> str:

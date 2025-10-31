@@ -11,7 +11,7 @@ import click
 
 from ..analysis.base import AnalysisContext, AnalysisResult
 from ..core.registry import AnalysisRegistry
-from ._console import console
+from ._console import info, warning
 
 
 def _collect_options(ctx, param, values):
@@ -79,35 +79,35 @@ def analyze(
 
 
 def _print_result(result: AnalysisResult, *, verbose: bool) -> None:
-    console.print(f"Analysis: {result.analysis}")
+    info(f"Analysis: {result.analysis}")
 
     if result.summary:
-        console.print()
-        console.print("Summary:")
+        info("")
+        info("Summary:")
         for key, value in result.summary.items():
-            console.print(f"  {key}: {value}")
+            info(f"  {key}: {value}")
 
     if result.warnings:
-        console.print()
-        console.print("Warnings:")
-        for warning in result.warnings:
-            console.print(f"  - {warning}")
+        info("")
+        info("Warnings:")
+        for warn_msg in result.warnings:
+            warning(f"  {warn_msg}")
 
     if result.artifacts:
-        console.print()
-        console.print("Artifacts:")
+        info("")
+        info("Artifacts:")
         for name, path in result.artifacts.items():
-            console.print(f"  {name}: {path}")
+            info(f"  {name}: {path}")
 
     if verbose and result.data:
-        console.print()
-        console.print("Data:")
-        console.print(textwrap.indent(json.dumps(result.data, indent=2, default=str), "  "))
+        info("")
+        info("Data:")
+        info(textwrap.indent(json.dumps(result.data, indent=2, default=str), "  "))
 
     if verbose and result.metadata:
-        console.print()
-        console.print("Metadata:")
-        console.print(textwrap.indent(json.dumps(result.metadata, indent=2, default=str), "  "))
+        info("")
+        info("Metadata:")
+        info(textwrap.indent(json.dumps(result.metadata, indent=2, default=str), "  "))
 
 
 __all__ = ["analyze"]
