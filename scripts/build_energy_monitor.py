@@ -35,6 +35,23 @@ CRATES = [
 ]
 
 
+def check_cargo_installed() -> None:
+    """Check if cargo is installed and available."""
+    try:
+        subprocess.run(
+            ["cargo", "--version"],
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+    except FileNotFoundError:
+        raise SystemExit(
+            "Error: cargo not found. Please install Rust and Cargo from https://rustup.rs/"
+        )
+    except subprocess.CalledProcessError:
+        raise SystemExit("Error: cargo command failed. Please check your Rust installation.")
+
+
 def run(cmd: list[str], env: dict[str, str] | None = None, cwd: Path | None = None) -> None:
     subprocess.run(cmd, check=True, cwd=cwd or PROJECT_ROOT, env=env)
 
@@ -96,6 +113,7 @@ def main() -> None:
     profile_dir = "release" if args.profile == "release" else "debug"
 
     if not args.skip_build:
+        check_cargo_installed()
         for crate, _ in CRATES:
             print(f"Building {crate} ({args.profile})")
             cmd = ["cargo", "build"]
