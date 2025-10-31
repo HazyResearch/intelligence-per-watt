@@ -76,3 +76,4 @@ class TelemetrySession(AbstractContextManager["TelemetrySession"]):
         for sample in list(self._samples):
             if start_time <= sample.timestamp <= end_time:
                 yield sample
+

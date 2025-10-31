@@ -19,7 +19,7 @@ from ..core.registry import ClientRegistry, DatasetRegistry
 from ..core.types import DatasetRecord, ProfilerConfig, Response, TelemetryReading, SystemInfo, GpuInfo
 from ..telemetry import EnergyMonitorCollector
 from .hardware import derive_hardware_label
-from .telemetry import TelemetrySession, TelemetrySample
+from .telemetry_session import TelemetrySession, TelemetrySample
 from .types import (
     ComputeMetrics,
     EnergyMetrics,
