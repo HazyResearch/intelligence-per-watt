@@ -46,9 +46,19 @@ class MindiEnergyMonitorCollector:
             for raw in stream:
                 yield self._convert(raw)
         except grpc.RpcError as exc:
-            raise RuntimeError(
-                f"Energy monitor stream failed: {exc.code().name} {exc.details()}"
-            ) from exc
+            code_name = "UNKNOWN"
+            details = ""
+            if isinstance(exc, grpc.Call):
+                status = exc.code()
+                if status is not None:
+                    code_name = getattr(status, "name", str(status))
+                detail_text = exc.details()
+                if detail_text:
+                    details = detail_text
+            message = f"Energy monitor stream failed: {code_name}"
+            if details:
+                message = f"{message} {details}"
+            raise RuntimeError(message) from exc
         finally:
             channel.close()
 

@@ -2,7 +2,8 @@
 
 from __future__ import annotations
 
-from typing import Mapping, Optional, Sequence
+from collections.abc import Mapping as MappingABC
+from typing import Mapping, Optional, Sequence, cast
 
 from ..core.types import GpuInfo, SystemInfo
 
@@ -44,8 +45,10 @@ def derive_hardware_label(
 
     gpu_candidate: Optional[str] = None
     if gpu_info:
-        if isinstance(gpu_info, Mapping):
-            raw_name = str(gpu_info.get("name", ""))
+        if isinstance(gpu_info, MappingABC):
+            mapping_info = cast(Mapping[str, object], gpu_info)
+            name_value = mapping_info.get("name")
+            raw_name = str(name_value) if name_value is not None else ""
         else:
             raw_name = getattr(gpu_info, "name", "")
         gpu_candidate = _pick(_sanitize(raw_name))
@@ -54,8 +57,10 @@ def derive_hardware_label(
 
     cpu_candidate: Optional[str] = None
     if system_info:
-        if isinstance(system_info, Mapping):
-            raw_cpu = str(system_info.get("cpu_brand", ""))
+        if isinstance(system_info, MappingABC):
+            system_mapping = cast(Mapping[str, object], system_info)
+            cpu_value = system_mapping.get("cpu_brand")
+            raw_cpu = str(cpu_value) if cpu_value is not None else ""
         else:
             raw_cpu = getattr(system_info, "cpu_brand", "")
         cpu_candidate = _pick(_sanitize(raw_cpu))
@@ -70,4 +75,3 @@ def derive_hardware_label(
     if cpu_candidate:
         return cpu_candidate
     return "UNKNOWN_HW"
-

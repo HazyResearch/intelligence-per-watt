@@ -10,7 +10,7 @@ class DummyEntry:
         self.value = value
 
 
-class DummyRegistry(RegistryBase[DummyEntry]):
+class DummyRegistry(RegistryBase[type[DummyEntry] | DummyEntry]):
     pass
 
 
@@ -71,5 +71,3 @@ def test_client_registry_independent_from_dataset_registry() -> None:
 
     assert ClientRegistry.get("client") is Client
     assert DatasetRegistry.get("dataset") is Dataset
-
-

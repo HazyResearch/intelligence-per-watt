@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import itertools
 import time
+from collections.abc import Iterator
 
 import pytest
 
@@ -13,7 +14,7 @@ from mindi.telemetry import (
 
 
 @pytest.fixture(scope="module")
-def monitor_target() -> str:
+def monitor_target() -> Iterator[str]:
     try:
         with ensure_monitor(timeout=15.0) as target:
             # Give the monitor a moment to begin streaming metrics

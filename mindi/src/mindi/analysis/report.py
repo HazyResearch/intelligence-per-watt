@@ -6,7 +6,7 @@ import json
 import time
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Dict, Iterable, Mapping, Optional
+from typing import Any, Dict, Mapping, Optional
 
 from ..execution.hardware import derive_hardware_label
 from .loader import collect_run_metadata, iter_model_entries, load_metrics_dataset, resolve_model_name
