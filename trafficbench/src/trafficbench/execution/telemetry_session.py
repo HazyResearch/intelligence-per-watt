@@ -56,7 +56,9 @@ class TelemetrySession(AbstractContextManager["TelemetrySession"]):
         try:
             for reading in self._collector.stream_readings():
                 timestamp = time.time()
-                self._samples.append(TelemetrySample(timestamp=timestamp, reading=reading))
+                self._samples.append(
+                    TelemetrySample(timestamp=timestamp, reading=reading)
+                )
                 self._trim(timestamp)
                 if self._stop_event.is_set():
                     break
@@ -76,4 +78,3 @@ class TelemetrySession(AbstractContextManager["TelemetrySession"]):
         for sample in list(self._samples):
             if start_time <= sample.timestamp <= end_time:
                 yield sample
-

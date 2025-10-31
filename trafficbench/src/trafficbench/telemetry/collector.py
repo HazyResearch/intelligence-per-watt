@@ -33,7 +33,6 @@ class EnergyMonitorCollector:
         with ensure_monitor(self._target, timeout=self._timeout, launch=True):
             yield
 
-
     @classmethod
     def is_available(cls) -> bool:
         return wait_for_ready(DEFAULT_TARGET, timeout=1.0)
@@ -90,9 +89,15 @@ class EnergyMonitorCollector:
         return TelemetryReading(
             power_watts=_safe_float(getattr(message, "power_watts", None)),
             energy_joules=_safe_float(getattr(message, "energy_joules", None)),
-            temperature_celsius=_safe_float(getattr(message, "temperature_celsius", None)),
-            gpu_memory_usage_mb=_safe_float(getattr(message, "gpu_memory_usage_mb", None)),
-            cpu_memory_usage_mb=_safe_float(getattr(message, "cpu_memory_usage_mb", None)),
+            temperature_celsius=_safe_float(
+                getattr(message, "temperature_celsius", None)
+            ),
+            gpu_memory_usage_mb=_safe_float(
+                getattr(message, "gpu_memory_usage_mb", None)
+            ),
+            cpu_memory_usage_mb=_safe_float(
+                getattr(message, "cpu_memory_usage_mb", None)
+            ),
             platform=getattr(message, "platform", None),
             timestamp_nanos=getattr(message, "timestamp_nanos", None),
             system_info=system,

@@ -23,4 +23,5 @@ class DatasetProvider(ABC):
     def size(self) -> int:
         """Return the number of records."""
 
+
 __all__ = ["DatasetProvider"]

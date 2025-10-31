@@ -6,7 +6,11 @@ from dataclasses import dataclass
 from typing import Any, Type, cast
 
 import grpc
-from google.protobuf import descriptor_pb2 as _descriptor_pb2, descriptor_pool, message_factory
+from google.protobuf import (
+    descriptor_pb2 as _descriptor_pb2,
+    descriptor_pool,
+    message_factory,
+)
 
 descriptor_pb2 = cast(Any, _descriptor_pb2)
 
@@ -80,30 +84,72 @@ def _register_proto_descriptors(pool: descriptor_pool.DescriptorPool) -> None:
 
     system_info = file_proto.message_type.add()
     system_info.name = "SystemInfo"
-    _add_field(system_info, "os_name", 1, descriptor_pb2.FieldDescriptorProto.TYPE_STRING)
-    _add_field(system_info, "os_version", 2, descriptor_pb2.FieldDescriptorProto.TYPE_STRING)
-    _add_field(system_info, "kernel_version", 3, descriptor_pb2.FieldDescriptorProto.TYPE_STRING)
-    _add_field(system_info, "host_name", 4, descriptor_pb2.FieldDescriptorProto.TYPE_STRING)
-    _add_field(system_info, "cpu_count", 5, descriptor_pb2.FieldDescriptorProto.TYPE_UINT32)
-    _add_field(system_info, "cpu_brand", 6, descriptor_pb2.FieldDescriptorProto.TYPE_STRING)
+    _add_field(
+        system_info, "os_name", 1, descriptor_pb2.FieldDescriptorProto.TYPE_STRING
+    )
+    _add_field(
+        system_info, "os_version", 2, descriptor_pb2.FieldDescriptorProto.TYPE_STRING
+    )
+    _add_field(
+        system_info,
+        "kernel_version",
+        3,
+        descriptor_pb2.FieldDescriptorProto.TYPE_STRING,
+    )
+    _add_field(
+        system_info, "host_name", 4, descriptor_pb2.FieldDescriptorProto.TYPE_STRING
+    )
+    _add_field(
+        system_info, "cpu_count", 5, descriptor_pb2.FieldDescriptorProto.TYPE_UINT32
+    )
+    _add_field(
+        system_info, "cpu_brand", 6, descriptor_pb2.FieldDescriptorProto.TYPE_STRING
+    )
 
     gpu_info = file_proto.message_type.add()
     gpu_info.name = "GpuInfo"
     _add_field(gpu_info, "name", 1, descriptor_pb2.FieldDescriptorProto.TYPE_STRING)
     _add_field(gpu_info, "vendor", 2, descriptor_pb2.FieldDescriptorProto.TYPE_STRING)
-    _add_field(gpu_info, "device_id", 3, descriptor_pb2.FieldDescriptorProto.TYPE_UINT64)
-    _add_field(gpu_info, "device_type", 4, descriptor_pb2.FieldDescriptorProto.TYPE_STRING)
+    _add_field(
+        gpu_info, "device_id", 3, descriptor_pb2.FieldDescriptorProto.TYPE_UINT64
+    )
+    _add_field(
+        gpu_info, "device_type", 4, descriptor_pb2.FieldDescriptorProto.TYPE_STRING
+    )
     _add_field(gpu_info, "backend", 5, descriptor_pb2.FieldDescriptorProto.TYPE_STRING)
 
     telemetry = file_proto.message_type.add()
     telemetry.name = "TelemetryReading"
-    _add_field(telemetry, "power_watts", 1, descriptor_pb2.FieldDescriptorProto.TYPE_DOUBLE)
-    _add_field(telemetry, "energy_joules", 2, descriptor_pb2.FieldDescriptorProto.TYPE_DOUBLE)
-    _add_field(telemetry, "temperature_celsius", 3, descriptor_pb2.FieldDescriptorProto.TYPE_DOUBLE)
-    _add_field(telemetry, "gpu_memory_usage_mb", 4, descriptor_pb2.FieldDescriptorProto.TYPE_DOUBLE)
-    _add_field(telemetry, "cpu_memory_usage_mb", 5, descriptor_pb2.FieldDescriptorProto.TYPE_DOUBLE)
-    _add_field(telemetry, "platform", 6, descriptor_pb2.FieldDescriptorProto.TYPE_STRING)
-    _add_field(telemetry, "timestamp_nanos", 7, descriptor_pb2.FieldDescriptorProto.TYPE_INT64)
+    _add_field(
+        telemetry, "power_watts", 1, descriptor_pb2.FieldDescriptorProto.TYPE_DOUBLE
+    )
+    _add_field(
+        telemetry, "energy_joules", 2, descriptor_pb2.FieldDescriptorProto.TYPE_DOUBLE
+    )
+    _add_field(
+        telemetry,
+        "temperature_celsius",
+        3,
+        descriptor_pb2.FieldDescriptorProto.TYPE_DOUBLE,
+    )
+    _add_field(
+        telemetry,
+        "gpu_memory_usage_mb",
+        4,
+        descriptor_pb2.FieldDescriptorProto.TYPE_DOUBLE,
+    )
+    _add_field(
+        telemetry,
+        "cpu_memory_usage_mb",
+        5,
+        descriptor_pb2.FieldDescriptorProto.TYPE_DOUBLE,
+    )
+    _add_field(
+        telemetry, "platform", 6, descriptor_pb2.FieldDescriptorProto.TYPE_STRING
+    )
+    _add_field(
+        telemetry, "timestamp_nanos", 7, descriptor_pb2.FieldDescriptorProto.TYPE_INT64
+    )
     _add_field(
         telemetry,
         "system_info",
@@ -127,7 +173,9 @@ def _register_proto_descriptors(pool: descriptor_pool.DescriptorPool) -> None:
     health_res = file_proto.message_type.add()
     health_res.name = "HealthResponse"
     _add_field(health_res, "healthy", 1, descriptor_pb2.FieldDescriptorProto.TYPE_BOOL)
-    _add_field(health_res, "platform", 2, descriptor_pb2.FieldDescriptorProto.TYPE_STRING)
+    _add_field(
+        health_res, "platform", 2, descriptor_pb2.FieldDescriptorProto.TYPE_STRING
+    )
 
     service = file_proto.service.add()
     service.name = "EnergyMonitor"
@@ -156,7 +204,7 @@ def _add_field(
     label: int = descriptor_pb2.FieldDescriptorProto.LABEL_OPTIONAL,
 ) -> None:
     """Add a field descriptor to a protobuf message.
-    
+
     Args:
         message: The protobuf message descriptor to add the field to
         name: Field name
@@ -175,4 +223,3 @@ def _add_field(
 
 
 __all__ = ["StubBundle", "get_stub_bundle"]
-

@@ -18,7 +18,9 @@ class VLLMClient(InferenceClient):
     def __init__(self, base_url: str | None = None, **config: Any) -> None:
         super().__init__(base_url or self.DEFAULT_BASE_URL, **config)
 
-    def stream_chat_completion(self, model: str, prompt: str, **params: Any) -> Response:
+    def stream_chat_completion(
+        self, model: str, prompt: str, **params: Any
+    ) -> Response:
         raise NotImplementedError
 
     def list_models(self) -> Sequence[str]:

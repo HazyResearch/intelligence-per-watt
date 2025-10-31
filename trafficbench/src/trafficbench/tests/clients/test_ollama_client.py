@@ -41,5 +41,3 @@ def test_stream_chat_completion_live() -> None:
     assert response.content
     assert response.usage.total_tokens >= 0
     assert response.time_to_first_token_ms >= 0
-
-

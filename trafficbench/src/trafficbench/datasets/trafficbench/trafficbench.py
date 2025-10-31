@@ -16,7 +16,11 @@ _DEFAULT_DATASET_DIR = "mixed_1k_seed1_base"
 
 
 def _default_dataset_path() -> Path:
-    base = resources.files("trafficbench.datasets.trafficbench") / "data" / _DEFAULT_DATASET_DIR
+    base = (
+        resources.files("trafficbench.datasets.trafficbench")
+        / "data"
+        / _DEFAULT_DATASET_DIR
+    )
     return Path(base)
 
 
@@ -84,7 +88,12 @@ class TrafficBenchDataset(DatasetProvider):
         )
 
     def _is_valid(self, record: DatasetRecord) -> bool:
-        return bool(record.problem and record.answer and record.subject and record.dataset_metadata)
+        return bool(
+            record.problem
+            and record.answer
+            and record.subject
+            and record.dataset_metadata
+        )
 
     def size(self) -> int:
         return len(self._records)

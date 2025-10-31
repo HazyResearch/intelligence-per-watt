@@ -71,11 +71,11 @@ def _infer_hardware_label(dataset, model_name: str) -> str:
 
 def _safe_get(obj: Any, key: str) -> Any:
     """Safely get a value from dict or dataclass.
-    
+
     Args:
         obj: Dictionary or dataclass instance to extract value from
         key: Attribute or key name to retrieve
-        
+
     Returns:
         The value if found, None otherwise
     """
@@ -202,7 +202,9 @@ def _create_scatter_plot(
         line = _generate_linear_fit(xs, slope, intercept)
         if line:
             x_line, y_line = line
-            label = f"linear fit (slope={slope:.3g}, r²={r2:.3f})" if r2 else "linear fit"
+            label = (
+                f"linear fit (slope={slope:.3g}, r²={r2:.3f})" if r2 else "linear fit"
+            )
             ax.plot(x_line, y_line, color="#d62728", linewidth=2.0, label=label)
 
     # Optional log fit
@@ -361,4 +363,3 @@ class RegressionVisualization(VisualizationProvider):
 
 
 __all__ = ["RegressionVisualization"]
-

@@ -20,13 +20,17 @@ def load_metrics_dataset(results_dir: Path) -> Dataset:
         dataset = data
 
     if not isinstance(dataset, Dataset):
-        raise RuntimeError(f"Unsupported dataset object returned for {results_dir!s}: {type(dataset)!r}")
+        raise RuntimeError(
+            f"Unsupported dataset object returned for {results_dir!s}: {type(dataset)!r}"
+        )
     if len(dataset) == 0:
         raise RuntimeError(f"Empty dataset at {results_dir!s}")
     return dataset
 
 
-def resolve_model_name(dataset: Dataset, requested: str | None, results_dir: Path) -> str:
+def resolve_model_name(
+    dataset: Dataset, requested: str | None, results_dir: Path
+) -> str:
     """Determine which model within the dataset should be analyzed."""
 
     available = _collect_available_models(dataset)
@@ -56,11 +60,15 @@ def resolve_model_name(dataset: Dataset, requested: str | None, results_dir: Pat
     )
 
 
-def iter_model_entries(dataset: Dataset, model_name: str) -> Iterator[Mapping[str, object]]:
+def iter_model_entries(
+    dataset: Dataset, model_name: str
+) -> Iterator[Mapping[str, object]]:
     """Yield the per-record metrics for the requested model."""
 
     for example in dataset:
-        metrics_map = example.get("model_metrics") if isinstance(example, Mapping) else None
+        metrics_map = (
+            example.get("model_metrics") if isinstance(example, Mapping) else None
+        )
         if not isinstance(metrics_map, Mapping):
             continue
         entry = metrics_map.get(model_name)
@@ -68,7 +76,9 @@ def iter_model_entries(dataset: Dataset, model_name: str) -> Iterator[Mapping[st
             yield entry
 
 
-def collect_run_metadata(entries: Iterable[Mapping[str, object]]) -> tuple[dict[str, object], dict[str, object]]:
+def collect_run_metadata(
+    entries: Iterable[Mapping[str, object]],
+) -> tuple[dict[str, object], dict[str, object]]:
     """Collect the first non-empty system and GPU metadata structures."""
 
     system_info: dict[str, object] = {}
@@ -92,7 +102,9 @@ def collect_run_metadata(entries: Iterable[Mapping[str, object]]) -> tuple[dict[
 def _collect_available_models(dataset: Dataset) -> Sequence[str]:
     models: list[str] = []
     for example in dataset:
-        metrics_map = example.get("model_metrics") if isinstance(example, Mapping) else None
+        metrics_map = (
+            example.get("model_metrics") if isinstance(example, Mapping) else None
+        )
         if not isinstance(metrics_map, Mapping):
             continue
         for key, value in metrics_map.items():

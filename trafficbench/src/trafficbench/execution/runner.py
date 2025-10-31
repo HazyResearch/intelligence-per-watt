@@ -16,7 +16,14 @@ from tqdm.auto import tqdm
 
 from ..clients.base import InferenceClient
 from ..core.registry import ClientRegistry, DatasetRegistry
-from ..core.types import DatasetRecord, ProfilerConfig, Response, TelemetryReading, SystemInfo, GpuInfo
+from ..core.types import (
+    DatasetRecord,
+    ProfilerConfig,
+    Response,
+    TelemetryReading,
+    SystemInfo,
+    GpuInfo,
+)
 from ..telemetry import EnergyMonitorCollector
 from .hardware import derive_hardware_label
 from .telemetry_session import TelemetrySession, TelemetrySample
@@ -70,7 +77,9 @@ class ProfilerRunner:
         self._last_energy_total: Optional[float] = None
 
     def run(self) -> None:
-        dataset = self._resolve_dataset(self._config.dataset_id, self._config.dataset_params)
+        dataset = self._resolve_dataset(
+            self._config.dataset_id, self._config.dataset_params
+        )
         client = self._resolve_client(
             self._config.client_id,
             self._config.client_base_url,
@@ -142,7 +151,9 @@ class ProfilerRunner:
         telemetry_readings = [sample.reading for sample in samples]
 
         energy_metrics = self._compute_energy_metrics(telemetry_readings)
-        power_stats = _stat_summary([reading.power_watts for reading in telemetry_readings])
+        power_stats = _stat_summary(
+            [reading.power_watts for reading in telemetry_readings]
+        )
         temperature_stats = _stat_summary(
             [reading.temperature_celsius for reading in telemetry_readings]
         )
@@ -155,11 +166,13 @@ class ProfilerRunner:
 
         usage = response.usage
         total_seconds = max(end_time - start_time, 0.0)
-        
+
         # Defensive: ensure token counts are valid integers
         prompt_tokens = usage.prompt_tokens if usage.prompt_tokens is not None else 0
-        completion_tokens = usage.completion_tokens if usage.completion_tokens is not None else 0
-        
+        completion_tokens = (
+            usage.completion_tokens if usage.completion_tokens is not None else 0
+        )
+
         per_token_ms = None
         throughput_tokens = None
         if completion_tokens > 0 and total_seconds > 0:
@@ -190,12 +203,12 @@ class ProfilerRunner:
             power_metrics=PowerMetrics(
                 gpu=PowerComponentMetrics(
                     per_query_watts=power_stats,
-                total_watts=MetricStats(
-                    avg=power_stats.avg,
-                    max=power_stats.max,
-                    median=power_stats.median,
-                    min=power_stats.min,
-                ),
+                    total_watts=MetricStats(
+                        avg=power_stats.avg,
+                        max=power_stats.max,
+                        median=power_stats.median,
+                        min=power_stats.min,
+                    ),
                 )
             ),
             temperature_metrics=temperature_stats,
@@ -221,13 +234,19 @@ class ProfilerRunner:
 
         return record_payload
 
-    def _compute_energy_metrics(self, readings: Sequence[TelemetryReading]) -> EnergyMetrics:
+    def _compute_energy_metrics(
+        self, readings: Sequence[TelemetryReading]
+    ) -> EnergyMetrics:
         """Compute energy metrics from telemetry readings.
-        
+
         Energy values should be monotonically increasing cumulative counters.
         Negative deltas indicate counter reset or data anomaly and are treated as None.
         """
-        energy_values = [reading.energy_joules for reading in readings if reading.energy_joules is not None]
+        energy_values = [
+            reading.energy_joules
+            for reading in readings
+            if reading.energy_joules is not None
+        ]
         if not energy_values:
             return EnergyMetrics()
 
@@ -235,12 +254,17 @@ class ProfilerRunner:
         end_value = energy_values[-1]
 
         # Validate energy values are finite and non-negative
-        if not (math.isfinite(start_value) and math.isfinite(end_value) and start_value >= 0 and end_value >= 0):
+        if not (
+            math.isfinite(start_value)
+            and math.isfinite(end_value)
+            and start_value >= 0
+            and end_value >= 0
+        ):
             return EnergyMetrics()
 
         if self._baseline_energy is None:
             self._baseline_energy = start_value
-            
+
         per_query = None
         if self._last_energy_total is None:
             # First query - use delta within this query
@@ -299,8 +323,9 @@ class ProfilerRunner:
 
     def _invoke_client(self, client, record: DatasetRecord) -> Response:
         payload: MutableMapping[str, object] = dict(self._config.additional_parameters)
-        return client.stream_chat_completion(self._config.model, record.problem, **payload)
-
+        return client.stream_chat_completion(
+            self._config.model, record.problem, **payload
+        )
 
     def _resolve_dataset(self, dataset_id: str, params: Mapping[str, Any]):
         try:

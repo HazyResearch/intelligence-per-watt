@@ -9,10 +9,12 @@ from .base import InferenceClient
 from ..core.registry import ClientRegistry
 from ..core.types import ChatUsage, Response
 
+
 def _normalize_base_url(base_url: str) -> str:
     if not base_url.startswith(("http://", "https://")):
         base_url = f"http://{base_url}"
     return base_url.rstrip("/")
+
 
 @ClientRegistry.register("ollama")
 class OllamaClient(InferenceClient):
@@ -24,7 +26,9 @@ class OllamaClient(InferenceClient):
         super().__init__(host, **config)
         self._client = Client(host=host)
 
-    def stream_chat_completion(self, model: str, prompt: str, **params: Any) -> Response:
+    def stream_chat_completion(
+        self, model: str, prompt: str, **params: Any
+    ) -> Response:
         payload = self._build_payload(model, prompt, params)
         start = time.perf_counter()
         try:
@@ -62,7 +66,11 @@ class OllamaClient(InferenceClient):
             response = self._client.list()
         except ResponseError as exc:
             raise RuntimeError(f"Ollama error: {exc}") from exc
-        return [str(model.model) for model in response.models if getattr(model, "model", None)]
+        return [
+            str(model.model)
+            for model in response.models
+            if getattr(model, "model", None)
+        ]
 
     def health(self) -> bool:
         try:
@@ -71,7 +79,9 @@ class OllamaClient(InferenceClient):
         except ResponseError:
             return False
 
-    def _build_payload(self, model: str, prompt: str, params: Mapping[str, Any]) -> dict[str, Any]:
+    def _build_payload(
+        self, model: str, prompt: str, params: Mapping[str, Any]
+    ) -> dict[str, Any]:
         payload = dict(params)
         payload["model"] = model
         payload.setdefault("messages", [{"role": "user", "content": prompt}])

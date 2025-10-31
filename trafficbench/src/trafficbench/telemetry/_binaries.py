@@ -54,12 +54,19 @@ def binary_path(name: str) -> Path:
     if not binary.exists():
         raise FileNotFoundError(
             "Bundled binary not found for platform '{platform}'. "
-            "Run scripts/build_cli_binaries.py to bundle the latest build.".format(platform=platform_id)
+            "Run scripts/build_cli_binaries.py to bundle the latest build.".format(
+                platform=platform_id
+            )
         )
     return binary
 
 
-def launch(name: str, args: Sequence[str] | None = None, *, env: Mapping[str, str] | None = None) -> subprocess.Popen:
+def launch(
+    name: str,
+    args: Sequence[str] | None = None,
+    *,
+    env: Mapping[str, str] | None = None,
+) -> subprocess.Popen:
     """Launch the named binary and return the running process."""
 
     binary = binary_path(name)

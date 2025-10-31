@@ -30,10 +30,22 @@ def _collect_params(ctx, param, values):
 @click.command(help="Run profiling against an inference client.")
 @click.option("--client", "client_id", required=True, help="Client identifier")
 @click.option("--model", required=True, help="Model name to invoke")
-@click.option("--dataset", "dataset_id", default="trafficbench", help="Dataset identifier")
+@click.option(
+    "--dataset", "dataset_id", default="trafficbench", help="Dataset identifier"
+)
 @click.option("--client-base-url", help="Client base URL")
-@click.option("--dataset-param", multiple=True, callback=_collect_params, help="Dataset params key=value")
-@click.option("--client-param", multiple=True, callback=_collect_params, help="Client params key=value")
+@click.option(
+    "--dataset-param",
+    multiple=True,
+    callback=_collect_params,
+    help="Dataset params key=value",
+)
+@click.option(
+    "--client-param",
+    multiple=True,
+    callback=_collect_params,
+    help="Client params key=value",
+)
 @click.option("--output-dir", type=click.Path())
 @click.option("--max-queries", type=int)
 def profile(

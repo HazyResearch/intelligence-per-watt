@@ -71,7 +71,7 @@ def plot(
     # Determine output directory
     if output_dir is None:
         output_dir = results_dir / "plots"
-    
+
     # Create context and run visualization
     context = VisualizationContext(
         results_dir=results_dir,

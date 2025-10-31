@@ -48,7 +48,9 @@ class RegistryBase(Generic[T]):
         try:
             return cls._entries()[key]
         except KeyError as exc:
-            raise KeyError(f"{cls.__name__} does not have an entry for '{key}'") from exc
+            raise KeyError(
+                f"{cls.__name__} does not have an entry for '{key}'"
+            ) from exc
 
     @classmethod
     def create(cls, key: str, *args: Any, **kwargs: Any) -> Any:

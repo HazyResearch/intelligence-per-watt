@@ -74,16 +74,28 @@ def register_regression_sample(
         zero_counts["total_tokens"] += 1
 
     if prompt_tokens is not None and ttft_seconds is not None:
-        regressions["input_tokens_vs_ttft"].append(RegressionSample(prompt_tokens, ttft_seconds))
+        regressions["input_tokens_vs_ttft"].append(
+            RegressionSample(prompt_tokens, ttft_seconds)
+        )
 
     if total_tokens is not None and per_query_joules is not None:
-        regressions["total_tokens_vs_energy"].append(RegressionSample(total_tokens, per_query_joules))
+        regressions["total_tokens_vs_energy"].append(
+            RegressionSample(total_tokens, per_query_joules)
+        )
 
     if total_tokens is not None and total_latency_seconds is not None:
-        regressions["total_tokens_vs_latency"].append(RegressionSample(total_tokens, total_latency_seconds))
+        regressions["total_tokens_vs_latency"].append(
+            RegressionSample(total_tokens, total_latency_seconds)
+        )
 
-    if total_tokens is not None and per_query_watts is not None and abs(per_query_watts) >= ZERO_EPSILON:
-        regressions["total_tokens_vs_power"].append(RegressionSample(total_tokens, per_query_watts))
+    if (
+        total_tokens is not None
+        and per_query_watts is not None
+        and abs(per_query_watts) >= ZERO_EPSILON
+    ):
+        regressions["total_tokens_vs_power"].append(
+            RegressionSample(total_tokens, per_query_watts)
+        )
 
 
 def finalize_regressions(
@@ -92,10 +104,18 @@ def finalize_regressions(
     include_power_log: bool = True,
 ) -> Dict[str, Dict[str, Optional[float]]]:
     results: Dict[str, Dict[str, Optional[float]]] = {
-        "input_tokens_vs_ttft": _regression_with_average(regressions["input_tokens_vs_ttft"]),
-        "total_tokens_vs_energy": _regression_with_average(regressions["total_tokens_vs_energy"]),
-        "total_tokens_vs_latency": _regression_with_average(regressions["total_tokens_vs_latency"]),
-        "total_tokens_vs_power": _regression_with_average(regressions["total_tokens_vs_power"]),
+        "input_tokens_vs_ttft": _regression_with_average(
+            regressions["input_tokens_vs_ttft"]
+        ),
+        "total_tokens_vs_energy": _regression_with_average(
+            regressions["total_tokens_vs_energy"]
+        ),
+        "total_tokens_vs_latency": _regression_with_average(
+            regressions["total_tokens_vs_latency"]
+        ),
+        "total_tokens_vs_power": _regression_with_average(
+            regressions["total_tokens_vs_power"]
+        ),
     }
     if include_power_log:
         results["total_tokens_vs_power_log"] = _regression_with_average(
@@ -103,8 +123,6 @@ def finalize_regressions(
             log_x=True,
         )
     return results
-
-
 
 
 def _regression_with_average(
@@ -173,6 +191,7 @@ def _compute_average(samples: Sequence[RegressionSample]) -> Optional[float]:
         return None
     y_values = [s.y for s in samples]
     return float(np.mean(y_values))
+
 
 def build_zero_warnings(zero_counts: ZeroCountDict, *, context: str = "") -> List[str]:
     warnings: List[str] = []
@@ -320,11 +339,13 @@ def _extract_power_value(power_metrics: Mapping[str, Any]) -> Optional[float]:
 
 
 def _filter_none_regressions(
-    regressions: Mapping[str, Mapping[str, Optional[float]]]
+    regressions: Mapping[str, Mapping[str, Optional[float]]],
 ) -> Dict[str, Dict[str, Optional[float]]]:
     filtered: Dict[str, Dict[str, Optional[float]]] = {}
     for name, stats in regressions.items():
-        if any(stats.get(field) is None for field in ("slope", "intercept", "r2", "avg_y")):
+        if any(
+            stats.get(field) is None for field in ("slope", "intercept", "r2", "avg_y")
+        ):
             continue
         filtered[name] = dict(stats)
     return filtered
