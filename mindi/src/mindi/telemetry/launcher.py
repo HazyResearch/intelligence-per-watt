@@ -1,4 +1,4 @@
-"""Process management helpers for the bundled Mindi energy monitor."""
+"""Process management helpers for the bundled energy monitor."""
 
 from __future__ import annotations
 
@@ -75,7 +75,7 @@ def launch_monitor(
     if not _has_flag("--bind-address"):
         launch_args.extend(["--bind-address", host])
 
-    process = _binaries.launch("mindi-energy-monitor", launch_args, env=env)
+    process = _binaries.launch("energy-monitor", launch_args, env=env)
     deadline = time.monotonic() + timeout
     while time.monotonic() < deadline:
         if wait_for_ready(normalized, timeout=0.5):

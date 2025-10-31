@@ -1,0 +1,43 @@
+[package]
+name = "energy-monitor"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+# Core dependencies
+anyhow = "1.0"
+async-trait = "0.1"
+tokio = { version = "1.41", features = ["full"] }
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter", "json"] }
+parking_lot = "0.12"
+sysinfo = "0.37.2"
+num_cpus = "1.16"
+
+# gRPC dependencies
+tonic = "0.14.2"
+prost = "0.14.1"
+tonic-prost = "0.14.2"
+tokio-stream = "0.1"
+
+# CLI
+clap = { version = "4.5", features = ["derive"] }
+
+# Platform-specific dependencies
+[target.'cfg(all(not(target_os = "macos"), not(target_os = "windows")))'.dependencies]
+rocm_smi_lib = "0.3"
+
+[target.'cfg(not(target_os = "macos"))'.dependencies]
+nvml-wrapper = "0.11.0"
+
+[target.'cfg(target_os = "macos")'.dependencies]
+async-process = "2.3"
+futures = "0.3"
+plist = "1.7"
+
+[build-dependencies]
+tonic-prost-build = "0.14.2"
+
+[[bin]]
+name = "energy-monitor"
+path = "src/main.rs"

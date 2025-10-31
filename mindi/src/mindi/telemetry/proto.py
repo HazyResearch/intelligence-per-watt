@@ -1,4 +1,4 @@
-"""Dynamic protobuf helpers for the Mindi energy monitor API."""
+"""Dynamic protobuf helpers for the energy monitor API."""
 
 from __future__ import annotations
 
@@ -38,27 +38,27 @@ def get_stub_bundle() -> StubBundle:
         _register_proto_descriptors(pool)
 
     TelemetryReadingCls = message_factory.GetMessageClass(
-        pool.FindMessageTypeByName("mindi.energy.TelemetryReading")
+        pool.FindMessageTypeByName("energy.TelemetryReading")
     )
     StreamRequestCls = message_factory.GetMessageClass(
-        pool.FindMessageTypeByName("mindi.energy.StreamRequest")
+        pool.FindMessageTypeByName("energy.StreamRequest")
     )
     HealthRequestCls = message_factory.GetMessageClass(
-        pool.FindMessageTypeByName("mindi.energy.HealthRequest")
+        pool.FindMessageTypeByName("energy.HealthRequest")
     )
     HealthResponseCls = message_factory.GetMessageClass(
-        pool.FindMessageTypeByName("mindi.energy.HealthResponse")
+        pool.FindMessageTypeByName("energy.HealthResponse")
     )
 
     class EnergyMonitorStub:
         def __init__(self, channel: grpc.Channel) -> None:
             self.Health = channel.unary_unary(
-                "/mindi.energy.EnergyMonitor/Health",
+                "/energy.EnergyMonitor/Health",
                 request_serializer=HealthRequestCls.SerializeToString,
                 response_deserializer=HealthResponseCls.FromString,
             )
             self.StreamTelemetry = channel.unary_stream(
-                "/mindi.energy.EnergyMonitor/StreamTelemetry",
+                "/energy.EnergyMonitor/StreamTelemetry",
                 request_serializer=StreamRequestCls.SerializeToString,
                 response_deserializer=TelemetryReadingCls.FromString,
             )
@@ -75,7 +75,7 @@ def get_stub_bundle() -> StubBundle:
 def _register_proto_descriptors(pool: descriptor_pool.DescriptorPool) -> None:
     file_proto = descriptor_pb2.FileDescriptorProto()
     file_proto.name = "energy.proto"
-    file_proto.package = "mindi.energy"
+    file_proto.package = "energy"
     file_proto.syntax = "proto3"
 
     system_info = file_proto.message_type.add()
@@ -109,14 +109,14 @@ def _register_proto_descriptors(pool: descriptor_pool.DescriptorPool) -> None:
         "system_info",
         8,
         descriptor_pb2.FieldDescriptorProto.TYPE_MESSAGE,
-        type_name=".mindi.energy.SystemInfo",
+        type_name=".energy.SystemInfo",
     )
     _add_field(
         telemetry,
         "gpu_info",
         9,
         descriptor_pb2.FieldDescriptorProto.TYPE_MESSAGE,
-        type_name=".mindi.energy.GpuInfo",
+        type_name=".energy.GpuInfo",
     )
 
     file_proto.message_type.add().name = "StreamRequest"
@@ -134,13 +134,13 @@ def _register_proto_descriptors(pool: descriptor_pool.DescriptorPool) -> None:
 
     health_method = service.method.add()
     health_method.name = "Health"
-    health_method.input_type = ".mindi.energy.HealthRequest"
-    health_method.output_type = ".mindi.energy.HealthResponse"
+    health_method.input_type = ".energy.HealthRequest"
+    health_method.output_type = ".energy.HealthResponse"
 
     stream_method = service.method.add()
     stream_method.name = "StreamTelemetry"
-    stream_method.input_type = ".mindi.energy.StreamRequest"
-    stream_method.output_type = ".mindi.energy.TelemetryReading"
+    stream_method.input_type = ".energy.StreamRequest"
+    stream_method.output_type = ".energy.TelemetryReading"
     stream_method.server_streaming = True
 
     pool.Add(file_proto)

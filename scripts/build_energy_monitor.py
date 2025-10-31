@@ -10,7 +10,7 @@ import subprocess
 from pathlib import Path
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
-ENERGY_MONITOR_ROOT = PROJECT_ROOT / "mindi-energy-monitor"
+ENERGY_MONITOR_ROOT = PROJECT_ROOT / "energy-monitor"
 BIN_ROOT = PROJECT_ROOT / "mindi" / "src" / "mindi" / "telemetry" / "bin"
 
 # Mapping from sys.platform / machine combos to folder names under cli/bin/
@@ -31,7 +31,7 @@ TARGET_ALIASES = {
 }
 
 CRATES = [
-    ("mindi-energy-monitor", "mindi-energy-monitor"),
+    ("energy-monitor", "energy-monitor"),
 ]
 
 

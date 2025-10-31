@@ -7,7 +7,7 @@ from collections.abc import Iterator
 import pytest
 
 from mindi.telemetry import (
-    MindiEnergyMonitorCollector,
+    EnergyMonitorCollector,
     ensure_monitor,
     wait_for_ready,
 )
@@ -31,7 +31,7 @@ def test_wait_for_ready_returns_true(monitor_target: str) -> None:
 
 
 def test_stream_readings_produces_samples(monitor_target: str) -> None:
-    collector = MindiEnergyMonitorCollector(target=monitor_target)
+    collector = EnergyMonitorCollector(target=monitor_target)
     assert collector.is_available()
 
     readings = collector.stream_readings()

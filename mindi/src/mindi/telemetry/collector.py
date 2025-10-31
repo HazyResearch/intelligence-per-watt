@@ -1,4 +1,4 @@
-"""Hardware collector implementation backed by the Mindi energy monitor."""
+"""Hardware collector implementation backed by the energy monitor."""
 
 from __future__ import annotations
 
@@ -13,8 +13,8 @@ from .launcher import DEFAULT_TARGET, ensure_monitor, normalize_target, wait_for
 from .proto import get_stub_bundle
 
 
-class MindiEnergyMonitorCollector:
-    collector_name = "Mindi Energy Monitor"
+class EnergyMonitorCollector:
+    collector_name = "Energy Monitor"
 
     def __init__(
         self,
@@ -112,4 +112,4 @@ def _safe_float(value) -> Optional[float]:
     return value
 
 
-__all__ = ["MindiEnergyMonitorCollector"]
+__all__ = ["EnergyMonitorCollector"]

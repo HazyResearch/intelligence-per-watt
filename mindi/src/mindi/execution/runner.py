@@ -16,7 +16,7 @@ from tqdm.auto import tqdm
 from ..clients.base import InferenceClient
 from ..core.registry import ClientRegistry, DatasetRegistry
 from ..core.types import DatasetRecord, ProfilerConfig, Response, TelemetryReading, SystemInfo, GpuInfo
-from ..telemetry import MindiEnergyMonitorCollector
+from ..telemetry import EnergyMonitorCollector
 from .hardware import derive_hardware_label
 from .telemetry import TelemetrySession, TelemetrySample
 from .types import (
@@ -76,7 +76,7 @@ class ProfilerRunner:
             self._config.client_params,
         )
 
-        collector = MindiEnergyMonitorCollector()
+        collector = EnergyMonitorCollector()
 
         self._ensure_client_ready(client)
 

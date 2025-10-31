@@ -76,7 +76,7 @@ class GpuInfo:
 @dataclass(slots=True)
 class TelemetryReading:
     """
-    Field names and semantics match `mindi-energy-monitor/proto/energy.proto`.
+    Field names and semantics match `energy-monitor/proto/energy.proto`.
     The Rust service publishes -1 or 0 for unavailable metrics; Python callers
     may additionally use ``None`` to indicate a missing reading.
     """

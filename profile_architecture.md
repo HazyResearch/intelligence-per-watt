@@ -58,7 +58,7 @@ mindi-profiler/
 │       │   
 │       │
 │       ├── telemetry/                # Bundled telemetry integrations
-│       │   ├── collector.py          # Mindi energy monitor collector
+│       │   ├── collector.py          # Energy monitor collector
 │       ├── execution/                 # Profiling engine
 │       ├── analysis/                  # Statistical analysis
 │       ├── datasets/                  # Dataset management
@@ -131,7 +131,7 @@ The `clients/base.py` and `datasets/base.py` modules provide the base interfaces
 
 
 
-#### MindiEnergyMonitorCollector (Concrete Implementation)
+#### EnergyMonitorCollector (Concrete Implementation)
 
 **Purpose:** Lightweight Python bridge to the Rust energy-monitor service shipped with the profiler.
 
@@ -496,15 +496,15 @@ class MyClient(InferenceClient):
 
 **Step-by-Step:**
 
-1. Create a new module inside `mindi-energy-monitor/src/collectors/`, e.g. `nvidia.rs` or `macos.rs`.
+1. Create a new module inside `energy-monitor/src/collectors/`, e.g. `nvidia.rs` or `macos.rs`.
 2. Implement the collector trait with `is_available()`, `detect_hardware()`, and telemetry streaming for that platform.
-3. Expose the module from `mindi-energy-monitor/src/collectors/mod.rs` so it participates in auto-detection.
-4. Add platform-specific tests under `mindi-energy-monitor/tests/` (or gated unit tests inside the module).
+3. Expose the module from `energy-monitor/src/collectors/mod.rs` so it participates in auto-detection.
+4. Add platform-specific tests under `energy-monitor/tests/` (or gated unit tests inside the module).
 5. Document any required permissions or tooling in the Rust crate README.
 
 **Python Impact:**
 - No changes are required in `mindi` beyond ensuring the gRPC target is reachable.
-- The existing `MindiEnergyMonitorCollector` bridge will surface new telemetry automatically.
+- The existing `EnergyMonitorCollector` bridge will surface new telemetry automatically.
 
 ---
 

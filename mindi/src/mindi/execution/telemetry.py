@@ -10,7 +10,7 @@ from dataclasses import dataclass
 from typing import Deque, Iterable, Iterator, Optional
 
 from ..core.types import TelemetryReading
-from ..telemetry import MindiEnergyMonitorCollector
+from ..telemetry import EnergyMonitorCollector
 
 
 @dataclass
@@ -24,7 +24,7 @@ class TelemetrySession(AbstractContextManager["TelemetrySession"]):
 
     def __init__(
         self,
-        collector: MindiEnergyMonitorCollector,
+        collector: EnergyMonitorCollector,
         *,
         buffer_seconds: float = 30.0,
         max_samples: int = 10_000,

@@ -1,4 +1,4 @@
-"""Energy CLI backed by the bundled Mindi telemetry collector."""
+"""Energy CLI backed by the bundled telemetry collector."""
 
 from __future__ import annotations
 
@@ -7,7 +7,7 @@ import time
 import click
 
 from mindi.core.types import TelemetryReading
-from mindi.telemetry import MindiEnergyMonitorCollector
+from mindi.telemetry import EnergyMonitorCollector
 
 from ._console import info, success
 
@@ -30,7 +30,7 @@ def energy(
     target: str,
     interval: float,
 ) -> None:
-    collector_instance = MindiEnergyMonitorCollector(target=target or "")
+    collector_instance = EnergyMonitorCollector(target=target or "")
 
     try:
         with collector_instance.start():
@@ -39,7 +39,7 @@ def energy(
         raise click.ClickException(str(exc)) from exc
 
 
-def _run_monitor(collector: MindiEnergyMonitorCollector, interval: float) -> None:
+def _run_monitor(collector: EnergyMonitorCollector, interval: float) -> None:
     success(f"Streaming telemetry via collector '{collector.collector_name}'")
 
     info(
