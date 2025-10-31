@@ -1,6 +1,9 @@
-"""Analysis helpers for profiling outputs."""
+"""Analysis implementations bundled with Mindi.
 
-from .report import RegressionReport, build_regression_report
+Analyses register themselves with ``mindi.core.AnalysisRegistry``.
+"""
 
-__all__ = ["RegressionReport", "build_regression_report"]
+from .base import AnalysisProvider, AnalysisContext, AnalysisResult
+from . import regression
 
+__all__ = ["AnalysisProvider", "AnalysisContext", "AnalysisResult", "regression"]

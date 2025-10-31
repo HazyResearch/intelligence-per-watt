@@ -1,15 +1,94 @@
-"""Regression utilities for profiling analysis."""
+"""Regression utilities and default analysis implementation."""
 
 from __future__ import annotations
 
+import json
+from collections.abc import Mapping as MappingABC
 from dataclasses import dataclass
-from typing import Dict, List, Optional, Sequence, Tuple
+from typing import Any, Dict, List, Mapping, Optional, Sequence, Tuple, cast
 
 import numpy as np
+
+from ..core.registry import AnalysisRegistry
+from ..core.types import GpuInfo, SystemInfo
+from .base import AnalysisProvider, AnalysisContext, AnalysisResult
+from .helpers import (
+    collect_run_metadata,
+    iter_model_entries,
+    load_metrics_dataset,
+    resolve_model_name,
+)
 
 RegressionDict = Dict[str, List["RegressionSample"]]
 ZeroCountDict = Dict[str, int]
 ZERO_EPSILON = 1e-12
+
+
+def derive_hardware_label(
+    system_info: Optional[SystemInfo | Mapping[str, object]],
+    gpu_info: Optional[GpuInfo | Mapping[str, object]],
+) -> str:
+    """Return a concise hardware label using GPU or CPU identifiers."""
+
+    def _sanitize(raw: Optional[str]) -> Sequence[str]:
+        if not raw:
+            return []
+        tokens: list[str] = []
+        current = ""
+        for ch in raw:
+            if ch.isalnum():
+                current += ch
+            else:
+                if current:
+                    tokens.append(current)
+                current = ""
+        if current:
+            tokens.append(current)
+        return tokens
+
+    def _pick(tokens: Sequence[str]) -> Optional[str]:
+        for token in tokens:
+            if any(ch.isalpha() for ch in token) and any(ch.isdigit() for ch in token):
+                return token.upper()
+        for token in tokens:
+            if token.isalpha():
+                return token.upper()
+        if tokens:
+            return tokens[-1].upper()
+        return None
+
+    gpu_candidate: Optional[str] = None
+    if gpu_info:
+        if isinstance(gpu_info, MappingABC):
+            mapping_info = cast(Mapping[str, object], gpu_info)
+            name_value = mapping_info.get("name")
+            raw_name = str(name_value) if name_value is not None else ""
+        else:
+            raw_name = getattr(gpu_info, "name", "")
+        gpu_candidate = _pick(_sanitize(raw_name))
+        if gpu_candidate and any(ch.isdigit() for ch in gpu_candidate):
+            return gpu_candidate
+
+    cpu_candidate: Optional[str] = None
+    if system_info:
+        if isinstance(system_info, MappingABC):
+            system_mapping = cast(Mapping[str, object], system_info)
+            cpu_value = system_mapping.get("cpu_brand")
+            raw_cpu = str(cpu_value) if cpu_value is not None else ""
+        else:
+            raw_cpu = getattr(system_info, "cpu_brand", "")
+        cpu_candidate = _pick(_sanitize(raw_cpu))
+        if cpu_candidate:
+            if any(ch.isdigit() for ch in cpu_candidate):
+                return cpu_candidate
+            if not gpu_candidate:
+                return cpu_candidate
+
+    if gpu_candidate:
+        return gpu_candidate
+    if cpu_candidate:
+        return cpu_candidate
+    return "UNKNOWN_HW"
 
 
 @dataclass(slots=True)
@@ -96,37 +175,6 @@ def finalize_regressions(
     return results
 
 
-def build_zero_warnings(zero_counts: ZeroCountDict, *, context: str = "") -> List[str]:
-    warnings: List[str] = []
-    if zero_counts["energy"]:
-        warnings.append(
-            f"encountered {zero_counts['energy']} per-query energy samples equal to 0.0{context}"
-        )
-    if zero_counts["power"]:
-        warnings.append(
-            f"encountered {zero_counts['power']} per-query power samples equal to 0.0{context}"
-        )
-    if zero_counts["ttft"]:
-        warnings.append(
-            f"encountered {zero_counts['ttft']} TTFT samples equal to 0.0{context}"
-        )
-    if zero_counts["latency"]:
-        warnings.append(
-            f"encountered {zero_counts['latency']} latency samples equal to 0.0{context}"
-        )
-    if zero_counts["output_tokens"]:
-        warnings.append(
-            f"encountered {zero_counts['output_tokens']} completion-token samples equal to 0.0{context}"
-        )
-    if zero_counts["prompt_tokens"]:
-        warnings.append(
-            f"encountered {zero_counts['prompt_tokens']} prompt-token samples equal to 0.0{context}"
-        )
-    if zero_counts["total_tokens"]:
-        warnings.append(
-            f"encountered {zero_counts['total_tokens']} total-token samples equal to 0.0{context}"
-        )
-    return warnings
 
 
 def _regression_with_average(
@@ -175,6 +223,7 @@ def _compute_regression(
         slope, intercept = np.polyfit(x, y, 1)
     except np.linalg.LinAlgError:
         return {"count": int(len(x)), "slope": None, "intercept": None, "r2": None}
+
     predictions = slope * x + intercept
     residuals = y - predictions
     ss_res = float(np.sum(residuals**2))
@@ -195,8 +244,196 @@ def _compute_average(samples: Sequence[RegressionSample]) -> Optional[float]:
     y_values = [s.y for s in samples]
     return float(np.mean(y_values))
 
+def build_zero_warnings(zero_counts: ZeroCountDict, *, context: str = "") -> List[str]:
+    warnings: List[str] = []
+    if zero_counts["energy"]:
+        warnings.append(
+            f"encountered {zero_counts['energy']} per-query energy samples equal to 0.0{context}"
+        )
+    if zero_counts["power"]:
+        warnings.append(
+            f"encountered {zero_counts['power']} per-query power samples equal to 0.0{context}"
+        )
+    if zero_counts["ttft"]:
+        warnings.append(
+            f"encountered {zero_counts['ttft']} TTFT samples equal to 0.0{context}"
+        )
+    if zero_counts["latency"]:
+        warnings.append(
+            f"encountered {zero_counts['latency']} latency samples equal to 0.0{context}"
+        )
+    if zero_counts["output_tokens"]:
+        warnings.append(
+            f"encountered {zero_counts['output_tokens']} completion-token samples equal to 0.0{context}"
+        )
+    if zero_counts["prompt_tokens"]:
+        warnings.append(
+            f"encountered {zero_counts['prompt_tokens']} prompt-token samples equal to 0.0{context}"
+        )
+    if zero_counts["total_tokens"]:
+        warnings.append(
+            f"encountered {zero_counts['total_tokens']} total-token samples equal to 0.0{context}"
+        )
+    return warnings
+
+
+@AnalysisRegistry.register("regression")
+class RegressionAnalysis(AnalysisProvider):
+    """Default analysis computing regression statistics for metrics runs."""
+
+    analysis_id = "regression"
+
+    def run(self, context: AnalysisContext) -> AnalysisResult:
+        results_dir = context.results_dir
+        options = dict(context.options)
+        requested_model = options.get("model")
+        skip_zeroes = bool(options.get("skip_zeroes", False))
+
+        dataset = load_metrics_dataset(results_dir)
+        active_model = resolve_model_name(dataset, requested_model, results_dir)
+
+        entries = list(iter_model_entries(dataset, active_model))
+        if not entries:
+            raise RuntimeError(
+                f"No usable metrics found for model '{active_model}' in dataset at '{results_dir}'."
+            )
+
+        system_info, gpu_info = collect_run_metadata(entries)
+        regressions, zero_counts = create_regression_containers()
+
+        samples_collected = 0
+        for entry in entries:
+            token_metrics = _get_mapping(entry.get("token_metrics"))
+            latency_metrics = _get_mapping(entry.get("latency_metrics"))
+            energy_metrics = _get_mapping(entry.get("energy_metrics"))
+            power_metrics = _get_mapping(entry.get("power_metrics"))
+
+            prompt_tokens = to_float(token_metrics.get("input"))
+            completion_tokens = to_float(token_metrics.get("output"))
+            total_tokens = derive_total_tokens(prompt_tokens, completion_tokens)
+
+            ttft_value = to_float(latency_metrics.get("time_to_first_token_seconds"))
+            total_latency_value = to_float(latency_metrics.get("total_query_seconds"))
+
+            energy_value = to_float(energy_metrics.get("per_query_joules"))
+            power_value = _extract_power_value(power_metrics)
+
+            register_regression_sample(
+                regressions,
+                zero_counts,
+                prompt_tokens=prompt_tokens,
+                completion_tokens=completion_tokens,
+                total_tokens=total_tokens,
+                ttft_seconds=ttft_value,
+                total_latency_seconds=total_latency_value,
+                per_query_joules=energy_value,
+                per_query_watts=power_value,
+            )
+            samples_collected += 1
+
+        if samples_collected == 0:
+            raise RuntimeError(
+                f"No usable metrics found for model '{active_model}' in dataset at '{results_dir}'."
+            )
+
+        regression_results = finalize_regressions(regressions)
+        if skip_zeroes:
+            regression_results = _filter_none_regressions(regression_results)
+
+        hardware_label = derive_hardware_label(system_info or None, gpu_info or None)
+        warnings = build_zero_warnings(zero_counts, context=" in dataset")
+
+        summary_payload = {
+            "model": active_model,
+            "hardware_label": hardware_label,
+            "total_samples": samples_collected,
+        }
+        data_payload: Dict[str, Any] = {
+            "regressions": dict(regression_results),
+            "system_info": system_info or None,
+            "gpu_info": gpu_info or None,
+            "skip_zeroes": skip_zeroes,
+            "zero_counts": dict(zero_counts),
+        }
+
+        artifact_payload = {
+            "analysis": self.analysis_id,
+            "summary": summary_payload,
+            "warnings": list(warnings),
+            "data": data_payload,
+            "metadata": {
+                "requested_model": requested_model,
+            },
+        }
+
+        artifact_dir = results_dir / "analysis"
+        artifact_dir.mkdir(parents=True, exist_ok=True)
+        artifact_path = artifact_dir / f"{self.analysis_id}.json"
+        artifact_path.write_text(json.dumps(artifact_payload, indent=2, default=str))
+
+        return AnalysisResult(
+            analysis=self.analysis_id,
+            summary=summary_payload,
+            data=data_payload,
+            warnings=tuple(warnings),
+            artifacts={"report": artifact_path},
+            metadata={
+                "requested_model": requested_model,
+            },
+        )
+
+
+def _get_mapping(value: Any) -> Mapping[str, Any]:
+    if isinstance(value, Mapping):
+        return value
+    return {}
+
+
+def _extract_power_value(power_metrics: Mapping[str, Any]) -> Optional[float]:
+    gpu_metrics = power_metrics.get("gpu")
+    if isinstance(gpu_metrics, Mapping):
+        per_query = gpu_metrics.get("per_query_watts")
+        if isinstance(per_query, Mapping):
+            for key in ("avg", "median", "max", "min"):
+                candidate = to_float(per_query.get(key))
+                if candidate is not None:
+                    return candidate
+    return None
+
+
+def _filter_none_regressions(
+    regressions: Mapping[str, Mapping[str, Optional[float]]]
+) -> Dict[str, Dict[str, Optional[float]]]:
+    filtered: Dict[str, Dict[str, Optional[float]]] = {}
+    for name, stats in regressions.items():
+        if any(stats.get(field) is None for field in ("slope", "intercept", "r2", "avg_y")):
+            continue
+        filtered[name] = dict(stats)
+    return filtered
+
+
+def to_float(value: Any) -> Optional[float]:
+    if value is None:
+        return None
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return None
+
+
+def derive_total_tokens(
+    prompt_tokens: Optional[float],
+    completion_tokens: Optional[float],
+) -> Optional[float]:
+    if prompt_tokens is None and completion_tokens is None:
+        return None
+    prompt_val = prompt_tokens or 0.0
+    completion_val = completion_tokens or 0.0
+    return prompt_val + completion_val
+
 
 __all__ = [
+    "RegressionAnalysis",
     "RegressionDict",
     "RegressionSample",
     "ZeroCountDict",
@@ -205,5 +442,6 @@ __all__ = [
     "create_regression_containers",
     "finalize_regressions",
     "register_regression_sample",
+    "to_float",
+    "derive_total_tokens",
 ]
-

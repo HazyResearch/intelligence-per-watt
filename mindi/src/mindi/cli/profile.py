@@ -10,6 +10,8 @@ import click
 from mindi.core.types import ProfilerConfig
 from mindi.execution import ProfilerRunner
 
+from ._console import success
+
 
 def _collect_params(ctx, param, values):
     collected: Dict[str, str] = {}
@@ -58,7 +60,7 @@ def profile(
 
     runner = ProfilerRunner(config)
     runner.run()
-    click.echo("Profiling run completed")
+    success("Profiling run completed")
 
 
 __all__ = ["profile"]

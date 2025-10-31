@@ -1,11 +1,14 @@
 from __future__ import annotations
 
-from typing import Any, Callable, Dict, Generic, Type, TypeVar
+from typing import Any, Callable, Dict, Generic, Type, TypeVar, TYPE_CHECKING
 
-from .client import InferenceClient
-from .dataset import DatasetProvider
+if TYPE_CHECKING:
+    from ..analysis.base import AnalysisProvider
+    from ..clients.base import InferenceClient
+    from ..datasets.base import DatasetProvider
 
 T = TypeVar("T")
+
 
 class RegistryBase(Generic[T]):
     """Registry helper"""
@@ -69,3 +72,6 @@ class ClientRegistry(RegistryBase[Type["InferenceClient"]]):
 class DatasetRegistry(RegistryBase[Type["DatasetProvider"]]):
     """Registry for dataset providers."""
 
+
+class AnalysisRegistry(RegistryBase[Type["AnalysisProvider"]]):
+    """Registry for analysis providers."""

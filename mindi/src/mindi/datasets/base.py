@@ -3,7 +3,7 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 from typing import Iterable, Iterator
 
-from .types import DatasetRecord
+from ..core.types import DatasetRecord
 
 
 class DatasetProvider(ABC):
@@ -22,4 +22,5 @@ class DatasetProvider(ABC):
     @abstractmethod
     def size(self) -> int:
         """Return the number of records."""
+
 __all__ = ["DatasetProvider"]

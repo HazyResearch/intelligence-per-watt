@@ -8,25 +8,25 @@ from typing import Iterable, Iterator, Mapping, Sequence
 from datasets import Dataset, DatasetDict, load_from_disk
 
 
-def load_metrics_dataset(metrics_dir: Path) -> Dataset:
+def load_metrics_dataset(results_dir: Path) -> Dataset:
     """Load the profiler metrics dataset stored on disk."""
 
-    data = load_from_disk(str(metrics_dir))
+    data = load_from_disk(str(results_dir))
     if isinstance(data, DatasetDict):
         if not data:
-            raise RuntimeError(f"No splits found in dataset at {metrics_dir!s}")
+            raise RuntimeError(f"No splits found in dataset at {results_dir!s}")
         dataset = next(iter(data.values()))
     else:
         dataset = data
 
     if not isinstance(dataset, Dataset):
-        raise RuntimeError(f"Unsupported dataset object returned for {metrics_dir!s}: {type(dataset)!r}")
+        raise RuntimeError(f"Unsupported dataset object returned for {results_dir!s}: {type(dataset)!r}")
     if len(dataset) == 0:
-        raise RuntimeError(f"Empty dataset at {metrics_dir!s}")
+        raise RuntimeError(f"Empty dataset at {results_dir!s}")
     return dataset
 
 
-def resolve_model_name(dataset: Dataset, requested: str | None, metrics_dir: Path) -> str:
+def resolve_model_name(dataset: Dataset, requested: str | None, results_dir: Path) -> str:
     """Determine which model within the dataset should be analyzed."""
 
     available = _collect_available_models(dataset)
@@ -37,10 +37,10 @@ def resolve_model_name(dataset: Dataset, requested: str | None, metrics_dir: Pat
         if available:
             models_text = ", ".join(sorted(available))
             raise RuntimeError(
-                f"Model '{requested}' not found in dataset at '{metrics_dir}'. Available models: {models_text}."
+                f"Model '{requested}' not found in dataset at '{results_dir}'. Available models: {models_text}."
             )
         raise RuntimeError(
-            f"Model '{requested}' not found in dataset at '{metrics_dir}', and the dataset does not contain model metrics."
+            f"Model '{requested}' not found in dataset at '{results_dir}', and the dataset does not contain model metrics."
         )
 
     unique_models = list(dict.fromkeys(available))
@@ -48,11 +48,11 @@ def resolve_model_name(dataset: Dataset, requested: str | None, metrics_dir: Pat
         return unique_models[0]
     if not unique_models:
         raise RuntimeError(
-            f"Could not infer model name from dataset at '{metrics_dir}'. Specify a model explicitly."
+            f"Could not infer model name from dataset at '{results_dir}'. Specify a model explicitly."
         )
     models_text = ", ".join(sorted(unique_models))
     raise RuntimeError(
-        f"Dataset at '{metrics_dir}' contains metrics for multiple models ({models_text}). Specify a model to choose one."
+        f"Dataset at '{results_dir}' contains metrics for multiple models ({models_text}). Specify a model to choose one."
     )
 
 

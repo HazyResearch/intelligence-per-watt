@@ -117,7 +117,7 @@ User CLI Command
 
 ### 2.1 Core Abstractions
 
-The `core/` module provides base interfaces that all plugins must implement:
+The `clients/base.py` and `datasets/base.py` modules provide the base interfaces that all plugins must implement:
 
 #### InferenceClient (Base Interface)
 
@@ -453,7 +453,7 @@ Generate plots:
 
 2. Implement client:
 ```python
-from mindi.core.client import InferenceClient
+from mindi.clients.base import InferenceClient
 from mindi.core.registry import ClientRegistry
 
 @ClientRegistry.register("myclient")

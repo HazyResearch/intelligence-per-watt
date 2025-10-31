@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Any, Sequence
 
-from ..core.client import InferenceClient
+from .base import InferenceClient
 from ..core.registry import ClientRegistry
 from ..core.types import Response
 
@@ -26,4 +26,3 @@ class VLLMClient(InferenceClient):
 
     def health(self) -> bool:
         raise NotImplementedError
-

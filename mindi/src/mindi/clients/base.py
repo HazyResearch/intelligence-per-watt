@@ -2,7 +2,8 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from typing import Any, Sequence
-from .types import Response
+
+from ..core.types import Response
 
 
 class InferenceClient(ABC):

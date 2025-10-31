@@ -13,11 +13,14 @@ from typing import Any, Iterable, Mapping, MutableMapping, Optional, Sequence
 from datasets import Dataset
 from tqdm.auto import tqdm
 
-from ..core.client import InferenceClient
+from ..clients.base import InferenceClient
 from ..core.registry import ClientRegistry, DatasetRegistry
-from ..core.types import (
+from ..core.types import DatasetRecord, ProfilerConfig, Response, TelemetryReading, SystemInfo, GpuInfo
+from ..telemetry import MindiEnergyMonitorCollector
+from .hardware import derive_hardware_label
+from .telemetry import TelemetrySession, TelemetrySample
+from .types import (
     ComputeMetrics,
-    DatasetRecord,
     EnergyMetrics,
     LatencyMetrics,
     MemoryMetrics,
@@ -26,16 +29,8 @@ from ..core.types import (
     PowerComponentMetrics,
     PowerMetrics,
     ProfilingRecord,
-    ProfilerConfig,
-    Response,
-    TelemetryReading,
-    SystemInfo,
     TokenMetrics,
-    GpuInfo,
 )
-from ..telemetry import MindiEnergyMonitorCollector
-from .hardware import derive_hardware_label
-from .telemetry import TelemetrySession, TelemetrySample
 
 
 class ProfilerRunner:
@@ -52,7 +47,7 @@ class ProfilerRunner:
     # 3. For each dataset record, send the request to the client, collect the
     #    telemetry samples that overlap the query window, and transform the raw
     #    response + telemetry into the strongly typed `ProfilingRecord` payload
-    #    defined in `mindi.core.types`.
+    #    defined in `mindi.execution.types`.
     # 4. Accumulate all records in-memory and write a HuggingFace dataset to the
     #    configured output directory once the run completes, along with a
     #    `summary.json` containing run metadata and aggregate energy totals.

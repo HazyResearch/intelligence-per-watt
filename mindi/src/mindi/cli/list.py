@@ -1,10 +1,10 @@
-"""List registered components (clients and datasets)."""
+"""List registered components (clients, datasets, and analyses)."""
 
 from __future__ import annotations
 
 import click
 
-from mindi.core.registry import ClientRegistry, DatasetRegistry
+from mindi.core.registry import AnalysisRegistry, ClientRegistry, DatasetRegistry
 
 from ._console import error, info
 
@@ -42,14 +42,30 @@ def list_datasets() -> None:
         info(f"  {dataset_id}")
 
 
+@list_cmd.command("analyses", help="List available analysis providers")
+def list_analyses() -> None:
+    """List all registered analysis providers."""
+    items = AnalysisRegistry.items()
+
+    if not items:
+        error("No analyses registered")
+        return
+
+    info("Analyses:")
+    for analysis_id, analysis_cls in items:
+        info(f"  {analysis_id}")
+
+
 @list_cmd.command("all", help="List all available components")
 def list_all() -> None:
-    """List all registered components (clients and datasets)."""
+    """List all registered components (clients, datasets, and analyses)."""
     ctx = click.get_current_context()
 
     ctx.invoke(list_clients)
     info("")
     ctx.invoke(list_datasets)
+    info("")
+    ctx.invoke(list_analyses)
     info("")
 
 

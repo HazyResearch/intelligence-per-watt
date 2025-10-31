@@ -7,7 +7,7 @@ from typing import Any, Dict, Iterable, Iterator, MutableMapping
 
 from datasets import load_from_disk
 
-from ...core.dataset import DatasetProvider
+from ..base import DatasetProvider
 from ...core.registry import DatasetRegistry
 from ...core.types import DatasetRecord
 

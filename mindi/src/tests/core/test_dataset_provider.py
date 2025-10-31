@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Iterable
 
-from mindi.core.dataset import DatasetProvider
+from mindi.datasets.base import DatasetProvider
 from mindi.core.types import DatasetRecord
 
 
@@ -31,4 +31,3 @@ def test_dataset_provider_iter_delegates() -> None:
 
     assert list(provider) == list(records)
     assert provider.size() == 2
-

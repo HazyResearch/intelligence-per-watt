@@ -1,8 +1,11 @@
 from __future__ import annotations
+
 import time
 from typing import Any, Mapping
+
 from ollama import Client, ResponseError
-from ..core.client import InferenceClient
+
+from .base import InferenceClient
 from ..core.registry import ClientRegistry
 from ..core.types import ChatUsage, Response
 

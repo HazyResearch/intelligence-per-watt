@@ -5,6 +5,7 @@ from __future__ import annotations
 import click
 
 # Import to trigger registry decorators
+from mindi import analysis  # noqa: F401
 from mindi import clients  # noqa: F401
 from mindi import datasets  # noqa: F401
 from mindi import telemetry  # noqa: F401
