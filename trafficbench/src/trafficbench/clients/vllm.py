@@ -4,9 +4,9 @@ from __future__ import annotations
 
 from typing import Any, Sequence
 
-from .base import InferenceClient
 from ..core.registry import ClientRegistry
 from ..core.types import Response
+from .base import InferenceClient
 
 
 @ClientRegistry.register("vllm")

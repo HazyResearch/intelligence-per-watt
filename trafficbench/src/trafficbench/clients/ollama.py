@@ -5,9 +5,9 @@ from typing import Any, Mapping
 
 from ollama import Client, ResponseError
 
-from .base import InferenceClient
 from ..core.registry import ClientRegistry
 from ..core.types import ChatUsage, Response
+from .base import InferenceClient
 
 
 def _normalize_base_url(base_url: str) -> str:

@@ -6,7 +6,6 @@ import pytest
 
 from trafficbench.clients.ollama import OllamaClient
 
-
 OLLAMA_URL = os.environ.get("OLLAMA_URL", "http://localhost:11434")
 
 

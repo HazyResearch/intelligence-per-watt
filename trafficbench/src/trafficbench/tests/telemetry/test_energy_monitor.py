@@ -6,11 +6,8 @@ from collections.abc import Iterator
 
 import pytest
 
-from trafficbench.telemetry import (
-    EnergyMonitorCollector,
-    ensure_monitor,
-    wait_for_ready,
-)
+from trafficbench.telemetry import (EnergyMonitorCollector, ensure_monitor,
+                                    wait_for_ready)
 
 
 @pytest.fixture(scope="module")

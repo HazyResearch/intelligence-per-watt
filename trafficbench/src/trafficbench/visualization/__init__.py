@@ -3,8 +3,9 @@
 Visualizations register themselves with ``trafficbench.core.VisualizationRegistry``.
 """
 
-from .base import VisualizationProvider, VisualizationContext, VisualizationResult
 from . import output_kde, regression
+from .base import (VisualizationContext, VisualizationProvider,
+                   VisualizationResult)
 
 __all__ = [
     "VisualizationProvider",

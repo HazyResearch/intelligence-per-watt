@@ -4,12 +4,8 @@ from __future__ import annotations
 
 import click
 
-from trafficbench.core.registry import (
-    AnalysisRegistry,
-    ClientRegistry,
-    DatasetRegistry,
-    VisualizationRegistry,
-)
+from trafficbench.core.registry import (AnalysisRegistry, ClientRegistry,
+                                        DatasetRegistry, VisualizationRegistry)
 
 from ._console import error, info
 

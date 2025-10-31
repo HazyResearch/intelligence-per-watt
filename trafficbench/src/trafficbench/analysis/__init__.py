@@ -3,7 +3,7 @@
 Analyses register themselves with ``trafficbench.core.AnalysisRegistry``.
 """
 
-from .base import AnalysisProvider, AnalysisContext, AnalysisResult
 from . import regression
+from .base import AnalysisContext, AnalysisProvider, AnalysisResult
 
 __all__ = ["AnalysisProvider", "AnalysisContext", "AnalysisResult", "regression"]

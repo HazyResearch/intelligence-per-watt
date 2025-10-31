@@ -6,11 +6,8 @@ from dataclasses import dataclass
 from typing import Any, Type, cast
 
 import grpc
-from google.protobuf import (
-    descriptor_pb2 as _descriptor_pb2,
-    descriptor_pool,
-    message_factory,
-)
+from google.protobuf import descriptor_pb2 as _descriptor_pb2
+from google.protobuf import descriptor_pool, message_factory
 
 descriptor_pb2 = cast(Any, _descriptor_pb2)
 

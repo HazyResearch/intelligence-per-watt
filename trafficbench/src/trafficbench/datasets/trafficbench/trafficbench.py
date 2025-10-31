@@ -7,10 +7,9 @@ from typing import Any, Dict, Iterable, Iterator, MutableMapping
 
 from datasets import load_from_disk
 
-from ..base import DatasetProvider
 from ...core.registry import DatasetRegistry
 from ...core.types import DatasetRecord
-
+from ..base import DatasetProvider
 
 _DEFAULT_DATASET_DIR = "mixed_1k_seed1_base"
 

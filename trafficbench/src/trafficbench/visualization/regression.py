@@ -7,16 +7,16 @@ import math
 from pathlib import Path
 from typing import Any, List, Mapping, Optional, Sequence, Tuple
 
-import numpy as np
-
 # Force non-interactive backend for headless environments
 import matplotlib
+import numpy as np
 
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt  # noqa: E402
 
 from ..core.registry import VisualizationRegistry
-from .base import VisualizationContext, VisualizationProvider, VisualizationResult
+from .base import (VisualizationContext, VisualizationProvider,
+                   VisualizationResult)
 
 
 def _load_regression_data(results_dir: Path) -> Mapping[str, Any]:

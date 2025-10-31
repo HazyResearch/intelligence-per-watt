@@ -5,16 +5,16 @@ from __future__ import annotations
 import math
 from pathlib import Path
 
-import numpy as np
-
 # Force non-interactive backend for headless environments
 import matplotlib
+import numpy as np
 
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt  # noqa: E402
 
 from ..core.registry import VisualizationRegistry
-from .base import VisualizationContext, VisualizationProvider, VisualizationResult
+from .base import (VisualizationContext, VisualizationProvider,
+                   VisualizationResult)
 
 
 def _load_dataset(results_dir: Path):

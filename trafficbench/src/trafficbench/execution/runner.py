@@ -16,29 +16,15 @@ from tqdm.auto import tqdm
 
 from ..clients.base import InferenceClient
 from ..core.registry import ClientRegistry, DatasetRegistry
-from ..core.types import (
-    DatasetRecord,
-    ProfilerConfig,
-    Response,
-    TelemetryReading,
-    SystemInfo,
-    GpuInfo,
-)
+from ..core.types import (DatasetRecord, GpuInfo, ProfilerConfig, Response,
+                          SystemInfo, TelemetryReading)
 from ..telemetry import EnergyMonitorCollector
 from .hardware import derive_hardware_label
-from .telemetry_session import TelemetrySession, TelemetrySample
-from .types import (
-    ComputeMetrics,
-    EnergyMetrics,
-    LatencyMetrics,
-    MemoryMetrics,
-    MetricStats,
-    ModelMetrics,
-    PowerComponentMetrics,
-    PowerMetrics,
-    ProfilingRecord,
-    TokenMetrics,
-)
+from .telemetry_session import TelemetrySample, TelemetrySession
+from .types import (ComputeMetrics, EnergyMetrics, LatencyMetrics,
+                    MemoryMetrics, MetricStats, ModelMetrics,
+                    PowerComponentMetrics, PowerMetrics, ProfilingRecord,
+                    TokenMetrics)
 
 
 class ProfilerRunner:

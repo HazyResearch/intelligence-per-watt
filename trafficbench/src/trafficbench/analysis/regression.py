@@ -9,12 +9,9 @@ from typing import Any, Dict, List, Mapping, Optional, Sequence, Tuple
 import numpy as np
 
 from ..core.registry import AnalysisRegistry
-from .base import AnalysisProvider, AnalysisContext, AnalysisResult
-from .helpers import (
-    iter_model_entries,
-    load_metrics_dataset,
-    resolve_model_name,
-)
+from .base import AnalysisContext, AnalysisProvider, AnalysisResult
+from .helpers import (iter_model_entries, load_metrics_dataset,
+                      resolve_model_name)
 
 RegressionDict = Dict[str, List["RegressionSample"]]
 ZeroCountDict = Dict[str, int]

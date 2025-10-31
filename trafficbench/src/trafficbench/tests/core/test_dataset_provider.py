@@ -2,8 +2,8 @@ from __future__ import annotations
 
 from typing import Iterable
 
-from trafficbench.datasets.base import DatasetProvider
 from trafficbench.core.types import DatasetRecord
+from trafficbench.datasets.base import DatasetProvider
 
 
 class ExampleProvider(DatasetProvider):

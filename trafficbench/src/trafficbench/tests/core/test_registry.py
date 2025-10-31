@@ -2,7 +2,8 @@ from __future__ import annotations
 
 import pytest
 
-from trafficbench.core.registry import ClientRegistry, DatasetRegistry, RegistryBase
+from trafficbench.core.registry import (ClientRegistry, DatasetRegistry,
+                                        RegistryBase)
 
 
 class DummyEntry:

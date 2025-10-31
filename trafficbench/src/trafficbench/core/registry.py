@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Any, Callable, Dict, Generic, Type, TypeVar, TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, Callable, Dict, Generic, Type, TypeVar
 
 if TYPE_CHECKING:
     from ..analysis.base import AnalysisProvider
