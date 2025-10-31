@@ -9,7 +9,7 @@ import click
 
 from ..core.registry import VisualizationRegistry
 from ..visualization.base import VisualizationContext
-from ._console import error, info, success, warning
+from ._console import error, info, warning
 
 
 def _collect_options(ctx, param, values):
