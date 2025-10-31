@@ -1,10 +1,15 @@
-"""List registered components (clients, datasets, and analyses)."""
+"""List registered components (clients, datasets, analyses, and visualizations)."""
 
 from __future__ import annotations
 
 import click
 
-from mindi.core.registry import AnalysisRegistry, ClientRegistry, DatasetRegistry
+from mindi.core.registry import (
+    AnalysisRegistry,
+    ClientRegistry,
+    DatasetRegistry,
+    VisualizationRegistry,
+)
 
 from ._console import error, info
 
@@ -56,9 +61,23 @@ def list_analyses() -> None:
         info(f"  {analysis_id}")
 
 
+@list_cmd.command("visualizations", help="List available visualization providers")
+def list_visualizations() -> None:
+    """List all registered visualization providers."""
+    items = VisualizationRegistry.items()
+
+    if not items:
+        error("No visualizations registered")
+        return
+
+    info("Visualizations:")
+    for visualization_id, visualization_cls in items:
+        info(f"  {visualization_id}")
+
+
 @list_cmd.command("all", help="List all available components")
 def list_all() -> None:
-    """List all registered components (clients, datasets, and analyses)."""
+    """List all registered components (clients, datasets, analyses, and visualizations)."""
     ctx = click.get_current_context()
 
     ctx.invoke(list_clients)
@@ -66,6 +85,8 @@ def list_all() -> None:
     ctx.invoke(list_datasets)
     info("")
     ctx.invoke(list_analyses)
+    info("")
+    ctx.invoke(list_visualizations)
     info("")
 
 

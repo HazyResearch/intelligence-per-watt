@@ -6,6 +6,7 @@ if TYPE_CHECKING:
     from ..analysis.base import AnalysisProvider
     from ..clients.base import InferenceClient
     from ..datasets.base import DatasetProvider
+    from ..visualization.base import VisualizationProvider
 
 T = TypeVar("T")
 
@@ -75,3 +76,7 @@ class DatasetRegistry(RegistryBase[Type["DatasetProvider"]]):
 
 class AnalysisRegistry(RegistryBase[Type["AnalysisProvider"]]):
     """Registry for analysis providers."""
+
+
+class VisualizationRegistry(RegistryBase[Type["VisualizationProvider"]]):
+    """Registry for visualization providers."""
