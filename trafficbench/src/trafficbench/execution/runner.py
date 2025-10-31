@@ -88,6 +88,7 @@ class ProfilerRunner:
         output_path.parent.mkdir(parents=True, exist_ok=True)
         dataset_obj = Dataset.from_list([asdict(record) for record in self._records])
         dataset_obj.save_to_disk(str(output_path))
+        output_path.mkdir(parents=True, exist_ok=True)
 
         summary = {
             "model": self._config.model,

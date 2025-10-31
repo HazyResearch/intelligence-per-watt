@@ -76,7 +76,7 @@ class OllamaClient(InferenceClient):
         try:
             self._client.list()
             return True
-        except ResponseError:
+        except Exception:
             return False
 
     def _build_payload(

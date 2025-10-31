@@ -20,58 +20,115 @@ def derive_hardware_label(
         if not raw:
             return []
         tokens: list[str] = []
-        current = ""
+        current = []
         for ch in raw:
             if ch.isalnum():
-                current += ch
+                current.append(ch)
             else:
                 if current:
-                    tokens.append(current)
-                current = ""
+                    tokens.append("".join(current))
+                    current.clear()
         if current:
-            tokens.append(current)
+            tokens.append("".join(current))
         return tokens
 
-    def _pick(tokens: Sequence[str]) -> Optional[str]:
-        for token in tokens:
-            if any(ch.isalpha() for ch in token) and any(ch.isdigit() for ch in token):
-                return token.upper()
-        for token in tokens:
-            if token.isalpha():
-                return token.upper()
-        if tokens:
-            return tokens[-1].upper()
-        return None
+    def _has_alpha(value: str) -> bool:
+        return any(ch.isalpha() for ch in value)
 
-    gpu_candidate: Optional[str] = None
-    if gpu_info:
-        if isinstance(gpu_info, MappingABC):
-            mapping_info = cast(Mapping[str, object], gpu_info)
-            name_value = mapping_info.get("name")
-            raw_name = str(name_value) if name_value is not None else ""
-        else:
-            raw_name = getattr(gpu_info, "name", "")
-        gpu_candidate = _pick(_sanitize(raw_name))
-        if gpu_candidate and any(ch.isdigit() for ch in gpu_candidate):
-            return gpu_candidate
+    def _has_digit(value: str) -> bool:
+        return any(ch.isdigit() for ch in value)
 
-    cpu_candidate: Optional[str] = None
-    if system_info:
-        if isinstance(system_info, MappingABC):
-            system_mapping = cast(Mapping[str, object], system_info)
-            cpu_value = system_mapping.get("cpu_brand")
-            raw_cpu = str(cpu_value) if cpu_value is not None else ""
-        else:
-            raw_cpu = getattr(system_info, "cpu_brand", "")
-        cpu_candidate = _pick(_sanitize(raw_cpu))
-        if cpu_candidate:
-            if any(ch.isdigit() for ch in cpu_candidate):
-                return cpu_candidate
-            if not gpu_candidate:
-                return cpu_candidate
+    def _normalize(label: str) -> str:
+        if not label:
+            return label
+        alpha_chars = [ch for ch in label if ch.isalpha()]
+        if alpha_chars and not any(ch.isupper() for ch in alpha_chars):
+            return label.upper()
+        return label
 
-    if gpu_candidate:
-        return gpu_candidate
-    if cpu_candidate:
-        return cpu_candidate
+    def _should_pair(token: str) -> bool:
+        """Return True when token should be combined with the next token."""
+        if not _has_alpha(token):
+            return False
+        if len(token) > 4 and not _has_digit(token):
+            return False
+        if token.isupper() or token.islower() or _has_digit(token):
+            return True
+        return False
+
+    def _combine(token: str, next_token: Optional[str]) -> Optional[str]:
+        if not next_token:
+            return None
+        if not _has_digit(next_token):
+            return None
+        if not (_has_alpha(next_token) or _has_alpha(token)):
+            return None
+        if _has_digit(token) and not _has_alpha(token):
+            return None
+        if not _should_pair(token) and not _has_digit(token):
+            return None
+        return token + next_token
+
+    def _derive_label(tokens: Sequence[str]) -> tuple[Optional[str], bool]:
+        if not tokens:
+            return None, False
+
+        first_digit_candidate: Optional[str] = None
+        alpha_fallback: Optional[str] = None
+
+        for index, token in enumerate(tokens):
+            next_token = tokens[index + 1] if index + 1 < len(tokens) else None
+            combined = _combine(token, next_token)
+            if combined:
+                label = _normalize(combined)
+                return label, _has_digit(label)
+
+            if first_digit_candidate is None and _has_digit(token):
+                first_digit_candidate = token
+
+            if _has_alpha(token):
+                alpha_fallback = token
+
+        if first_digit_candidate is not None:
+            label = _normalize(first_digit_candidate)
+            return label, _has_digit(label)
+
+        if alpha_fallback is not None:
+            label = _normalize(alpha_fallback)
+            return label, _has_digit(label)
+
+        label = _normalize(tokens[-1])
+        return label, _has_digit(label)
+
+    def _extract_field(
+        obj: Optional[object], attr: str
+    ) -> str:
+        if obj is None:
+            return ""
+        if isinstance(obj, MappingABC):
+            mapping = cast(Mapping[str, object], obj)
+            value = mapping.get(attr)
+            return str(value) if value is not None else ""
+        return str(getattr(obj, attr, "") or "")
+
+    gpu_label: Optional[str] = None
+    gpu_has_digit = False
+    raw_gpu = _extract_field(gpu_info, "name")
+    if raw_gpu:
+        gpu_label, gpu_has_digit = _derive_label(_sanitize(raw_gpu))
+        if gpu_label and gpu_has_digit:
+            return gpu_label
+
+    cpu_label: Optional[str] = None
+    cpu_has_digit = False
+    raw_cpu = _extract_field(system_info, "cpu_brand")
+    if raw_cpu:
+        cpu_label, cpu_has_digit = _derive_label(_sanitize(raw_cpu))
+        if cpu_label and cpu_has_digit and not gpu_has_digit:
+            return cpu_label
+
+    if gpu_label:
+        return gpu_label
+    if cpu_label:
+        return cpu_label
     return "UNKNOWN_HW"
