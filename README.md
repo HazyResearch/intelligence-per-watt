@@ -97,18 +97,20 @@ trafficbench plot ./runs/profile_H200_model
 List available components.
 
 ```bash
-trafficbench list [clients|datasets|analyses|visualizations]
+trafficbench list <subcommand>
 ```
 
-Options:
+Subcommands:
 - `clients` - List available inference clients
 - `datasets` - List available datasets
 - `analyses` - List available analysis types
 - `visualizations` - List available visualization types
+- `all` - List all components
 
-Example:
+Examples:
 ```bash
 trafficbench list clients
+trafficbench list all
 ```
 
 ### energy
