@@ -129,10 +129,6 @@ Example:
 trafficbench energy --interval 2.0
 ```
 
-Note: Energy monitor binary must be running separately (requires sudo for hardware access):
-```bash
-./trafficbench/src/trafficbench/telemetry/bin/macos-arm64/energy-monitor
-```
 
 ## Workflow
 
@@ -147,8 +143,6 @@ trafficbench list datasets
 trafficbench profile \
   --client ollama \
   --model llama3.2:1b \
-  --client-base-url http://localhost:11434 \
-  --max-queries 500
 ```
 
 3. Analyze results:
