@@ -7,7 +7,7 @@ from typing import Iterable, Optional, Tuple
 
 import grpc
 
-from mindi.core.types import GpuInfo, SystemInfo, TelemetryReading
+from trafficbench.core.types import GpuInfo, SystemInfo, TelemetryReading
 
 from .launcher import DEFAULT_TARGET, ensure_monitor, normalize_target, wait_for_ready
 from .proto import get_stub_bundle

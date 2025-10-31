@@ -720,45 +720,6 @@ wheels = [
 ]
 
 [[package]]
-name = "mindi"
-version = "0.1.0"
-source = { editable = "." }
-dependencies = [
-    { name = "aiohttp" },
-    { name = "click" },
-    { name = "datasets" },
-    { name = "grpcio" },
-    { name = "httpx" },
-    { name = "matplotlib" },
-    { name = "numpy" },
-    { name = "ollama" },
-    { name = "protobuf" },
-    { name = "pyarrow" },
-    { name = "pytest" },
-    { name = "requests" },
-    { name = "rich" },
-    { name = "tqdm" },
-]
-
-[package.metadata]
-requires-dist = [
-    { name = "aiohttp", specifier = ">=3.12.15" },
-    { name = "click", specifier = ">=8" },
-    { name = "datasets", specifier = ">=2.20" },
-    { name = "grpcio", specifier = ">=1.62" },
-    { name = "httpx", specifier = ">=0.27" },
-    { name = "matplotlib", specifier = ">=3.9" },
-    { name = "numpy", specifier = ">=1.26" },
-    { name = "ollama" },
-    { name = "protobuf", specifier = ">=5" },
-    { name = "pyarrow", specifier = ">=15" },
-    { name = "pytest", specifier = ">=8" },
-    { name = "requests", specifier = ">=2" },
-    { name = "rich", specifier = ">=13" },
-    { name = "tqdm", specifier = ">=4.66" },
-]
-
-[[package]]
 name = "multidict"
 version = "6.7.0"
 source = { registry = "https://pypi.org/simple" }
@@ -1435,6 +1396,45 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/a8/4b/29b4ef32e036bb34e4ab51796dd745cdba7ed47ad142a9f4a1eb8e0c744d/tqdm-4.67.1.tar.gz", hash = "sha256:f8aef9c52c08c13a65f30ea34f4e5aac3fd1a34959879d7e59e63027286627f2", size = 169737, upload-time = "2024-11-24T20:12:22.481Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/d0/30/dc54f88dd4a2b5dc8a0279bdd7270e735851848b762aeb1c1184ed1f6b14/tqdm-4.67.1-py3-none-any.whl", hash = "sha256:26445eca388f82e72884e0d580d5464cd801a3ea01e63e5601bdff9ba6a48de2", size = 78540, upload-time = "2024-11-24T20:12:19.698Z" },
+]
+
+[[package]]
+name = "trafficbench"
+version = "0.1.0"
+source = { editable = "." }
+dependencies = [
+    { name = "aiohttp" },
+    { name = "click" },
+    { name = "datasets" },
+    { name = "grpcio" },
+    { name = "httpx" },
+    { name = "matplotlib" },
+    { name = "numpy" },
+    { name = "ollama" },
+    { name = "protobuf" },
+    { name = "pyarrow" },
+    { name = "pytest" },
+    { name = "requests" },
+    { name = "rich" },
+    { name = "tqdm" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "aiohttp", specifier = ">=3.12.15" },
+    { name = "click", specifier = ">=8" },
+    { name = "datasets", specifier = ">=2.20" },
+    { name = "grpcio", specifier = ">=1.62" },
+    { name = "httpx", specifier = ">=0.27" },
+    { name = "matplotlib", specifier = ">=3.9" },
+    { name = "numpy", specifier = ">=1.26" },
+    { name = "ollama" },
+    { name = "protobuf", specifier = ">=5" },
+    { name = "pyarrow", specifier = ">=15" },
+    { name = "pytest", specifier = ">=8" },
+    { name = "requests", specifier = ">=2" },
+    { name = "rich", specifier = ">=13" },
+    { name = "tqdm", specifier = ">=4.66" },
 ]
 
 [[package]]

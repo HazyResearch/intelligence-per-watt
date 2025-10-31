@@ -4,7 +4,7 @@ from typing import NoReturn
 
 import pytest
 
-from mindi.datasets.trafficbench import TrafficBenchDataset
+from trafficbench.datasets.trafficbench import TrafficBenchDataset
 
 
 def _skip_missing_dataset(exc: FileNotFoundError) -> NoReturn:

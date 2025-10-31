@@ -1,1 +1,1 @@
-"""Tests for mindi.telemetry."""
+"""Tests for trafficbench.telemetry."""

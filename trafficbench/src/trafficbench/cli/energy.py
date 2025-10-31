@@ -6,8 +6,8 @@ import time
 
 import click
 
-from mindi.core.types import TelemetryReading
-from mindi.telemetry import EnergyMonitorCollector
+from trafficbench.core.types import TelemetryReading
+from trafficbench.telemetry import EnergyMonitorCollector
 
 from ._console import info, success
 

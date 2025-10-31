@@ -1,6 +1,6 @@
-"""Dataset implementations bundled with Mindi.
+"""Dataset implementations bundled with TrafficBench.
 
-Datasets register themselves with ``mindi.core.DatasetRegistry``.
+Datasets register themselves with ``trafficbench.core.DatasetRegistry``.
 """
 
 from . import trafficbench

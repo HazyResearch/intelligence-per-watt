@@ -1,2 +1,2 @@
-"""Tests for mindi.clients."""
+"""Tests for trafficbench.clients."""
 

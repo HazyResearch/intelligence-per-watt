@@ -1,6 +1,6 @@
 """
-Core package for the Mindi profiler implementation.
+Core package for the TrafficBench profiler implementation.
 
 Prefer importing concrete components from their specific submodules; use the
-registries exposed under ``mindi.core`` for discovery.
+registries exposed under ``trafficbench.core`` for discovery.
 """

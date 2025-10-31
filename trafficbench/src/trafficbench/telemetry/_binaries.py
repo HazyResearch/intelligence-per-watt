@@ -1,4 +1,4 @@
-"""Helpers for locating and spawning bundled Mindi service binaries."""
+"""Helpers for locating and spawning bundled service binaries."""
 
 from __future__ import annotations
 

@@ -7,8 +7,8 @@ from typing import Dict
 
 import click
 
-from mindi.core.types import ProfilerConfig
-from mindi.execution import ProfilerRunner
+from trafficbench.core.types import ProfilerConfig
+from trafficbench.execution import ProfilerRunner
 
 from ._console import success
 

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import click
 
-from mindi.core.registry import (
+from trafficbench.core.registry import (
     AnalysisRegistry,
     ClientRegistry,
     DatasetRegistry,

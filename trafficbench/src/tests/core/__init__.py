@@ -1,2 +1,2 @@
-"""Tests for mindi.core."""
+"""Tests for trafficbench.core."""
 

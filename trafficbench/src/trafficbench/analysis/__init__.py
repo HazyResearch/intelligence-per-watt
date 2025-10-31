@@ -1,6 +1,6 @@
-"""Analysis implementations bundled with Mindi.
+"""Analysis implementations bundled with TrafficBench.
 
-Analyses register themselves with ``mindi.core.AnalysisRegistry``.
+Analyses register themselves with ``trafficbench.core.AnalysisRegistry``.
 """
 
 from .base import AnalysisProvider, AnalysisContext, AnalysisResult

@@ -1,4 +1,4 @@
-# Mindi Profiler: Extensible Architecture Proposal
+# TrafficBench Profiler: Extensible Architecture Proposal
 
 **Version:** 1.0  
 **Date:** October 24, 2025  
@@ -8,11 +8,11 @@
 
 ## Executive Summary
 
-This document proposes a modular, extensible architecture for the Mindi Profiler—a standalone performance profiling package for inference services. The design prioritizes **extensibility** as the primary goal, enabling contributors to easily add support for new inference clients (vLLM, Ollama, MLX, SGLang), hardware platforms (NVIDIA, AMD, Apple Silicon, Intel), and model configurations without modifying core code.
+This document proposes a modular, extensible architecture for the TrafficBench Profiler—a standalone performance profiling package for inference services. The design prioritizes **extensibility** as the primary goal, enabling contributors to easily add support for new inference clients (vLLM, Ollama, MLX, SGLang), hardware platforms (NVIDIA, AMD, Apple Silicon, Intel), and model configurations without modifying core code.
 
 ### Key Design Principles
 
-1. **Plugin-based Architecture** - Registry pattern for clients (datasets remain pluggable); telemetry relies on the bundled Mindi collector
+1. **Plugin-based Architecture** - Registry pattern for clients (datasets remain pluggable); telemetry relies on the bundled energy monitor collector
 2. **Clear Extension Points** - Abstract base classes with minimal requirements for clients and datasets; telemetry uses a concrete collector
 4. **Auto-Discovery** - Automatic detection of available components
 5. **Service Agnostic** - Works with any OpenAI-compatible API
@@ -39,12 +39,12 @@ This document proposes a modular, extensible architecture for the Mindi Profiler
 ### 1.1 Package Structure
 
 ```
-mindi-profiler/
+trafficbench/
 ├── pyproject.toml
 ├── README.md
 ├── CONTRIBUTING.md
 ├── src/
-│   └── mindi/
+│   └── trafficbench/
 │       ├── core/                      # Core abstractions
 │       │   ├── client.py              # Base client interface
 │       │   ├── registry.py            # Plugin registry
@@ -449,12 +449,12 @@ Generate plots:
 
 **Step-by-Step:**
 
-1. Create file: `src/mindi/clients/myclient.py`
+1. Create file: `src/trafficbench/clients/myclient.py`
 
 2. Implement client:
 ```python
-from mindi.clients.base import InferenceClient
-from mindi.core.registry import ClientRegistry
+from trafficbench.clients.base import InferenceClient
+from trafficbench.core.registry import ClientRegistry
 
 @ClientRegistry.register("myclient")
 class MyClient(InferenceClient):
@@ -503,7 +503,7 @@ class MyClient(InferenceClient):
 5. Document any required permissions or tooling in the Rust crate README.
 
 **Python Impact:**
-- No changes are required in `mindi` beyond ensuring the gRPC target is reachable.
+- No changes are required in `trafficbench` beyond ensuring the gRPC target is reachable.
 - The existing `EnergyMonitorCollector` bridge will surface new telemetry automatically.
 
 ---
@@ -513,11 +513,11 @@ class MyClient(InferenceClient):
 
 ```bash
 # List available components
-mindi-profiler list-clients
-mindi-profiler list-models
+trafficbench list-clients
+trafficbench list-models
 
 # Profile vLLM service
-mindi-profiler profile \
+trafficbench profile \
     --client vllm \
     --url http://localhost:8000 \
     --model llama-3.1-70b \
@@ -525,7 +525,7 @@ mindi-profiler profile \
     --batch-size 4
 
 # Profile Ollama service
-mindi-profiler profile \
+trafficbench profile \
     --client ollama \
     --url http://localhost:11434 \
     --model mistral \
@@ -533,14 +533,14 @@ mindi-profiler profile \
     --max-queries 500
 
 # Profile MLX (Apple Silicon)
-mindi-profiler profile \
+trafficbench profile \
     --client mlx \
     --url http://localhost:8080 \
     --model llama-3.2-1b
 
 # Analyze existing results
-mindi-profiler analyze ./results
+trafficbench analyze ./results
 
 # Generate plots
-mindi-profiler plot ./results --output-dir ./plots
+trafficbench plot ./results --output-dir ./plots
 ```

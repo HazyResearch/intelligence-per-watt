@@ -1,2 +1,2 @@
-"""Tests for mindi.datasets."""
+"""Tests for trafficbench.datasets."""
 

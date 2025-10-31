@@ -6,7 +6,7 @@ from collections.abc import Iterator
 
 import pytest
 
-from mindi.telemetry import (
+from trafficbench.telemetry import (
     EnergyMonitorCollector,
     ensure_monitor,
     wait_for_ready,

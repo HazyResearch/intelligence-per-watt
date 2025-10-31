@@ -4,7 +4,7 @@ import os
 
 import pytest
 
-from mindi.clients.ollama import OllamaClient
+from trafficbench.clients.ollama import OllamaClient
 
 
 OLLAMA_URL = os.environ.get("OLLAMA_URL", "http://localhost:11434")

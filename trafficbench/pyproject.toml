@@ -26,7 +26,7 @@ dependencies = [
 ]
 
 [project.scripts]
-mindi = "mindi.cli:main"
+trafficbench = "trafficbench.cli:main"
 
 [tool.uv_build]
-package-data = {"mindi.telemetry" = ["bin/**"], "mindi.datasets.trafficbench" = ["data/**"]}
+package-data = {"trafficbench.telemetry" = ["bin/**"], "trafficbench.datasets.trafficbench" = ["data/**"]}

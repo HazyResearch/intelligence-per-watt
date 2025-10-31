@@ -25,7 +25,7 @@ def _load_regression_data(results_dir: Path) -> Mapping[str, Any]:
     if not regression_file.exists():
         raise FileNotFoundError(
             f"Regression analysis not found at {regression_file}. "
-            "Run 'mindi analyze --analysis regression' first."
+            "Run 'trafficbench analyze --analysis regression' first."
         )
     with open(regression_file) as f:
         return json.load(f)

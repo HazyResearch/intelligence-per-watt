@@ -1,2 +1,2 @@
-# Test package for mindi.
+# Test package for trafficbench.
 

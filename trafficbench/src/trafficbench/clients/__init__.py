@@ -1,6 +1,6 @@
 """Inference client implementations.
 
-Clients register themselves with ``mindi.core.ClientRegistry``.
+Clients register themselves with ``trafficbench.core.ClientRegistry``.
 """
 
 from .base import InferenceClient

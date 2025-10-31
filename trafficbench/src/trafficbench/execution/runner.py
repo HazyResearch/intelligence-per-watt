@@ -47,7 +47,7 @@ class ProfilerRunner:
     # 3. For each dataset record, send the request to the client, collect the
     #    telemetry samples that overlap the query window, and transform the raw
     #    response + telemetry into the strongly typed `ProfilingRecord` payload
-    #    defined in `mindi.execution.types`.
+    #    defined in `trafficbench.execution.types`.
     # 4. Accumulate all records in-memory and write a HuggingFace dataset to the
     #    configured output directory once the run completes, along with a
     #    `summary.json` containing run metadata and aggregate energy totals.

@@ -1,4 +1,4 @@
-"""Telemetry collector implementations bundled with Mindi."""
+"""Telemetry collector implementations bundled with TrafficBench."""
 
 from .collector import EnergyMonitorCollector
 from .launcher import ensure_monitor, wait_for_ready

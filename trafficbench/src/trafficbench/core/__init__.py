@@ -1,4 +1,4 @@
 """
-Core abstractions and shared infrastructure for the Mindi profiler.
+Core abstractions and shared infrastructure for the TrafficBench profiler.
 """
 

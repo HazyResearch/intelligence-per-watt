@@ -1,6 +1,6 @@
-"""Visualization implementations bundled with Mindi.
+"""Visualization implementations bundled with TrafficBench.
 
-Visualizations register themselves with ``mindi.core.VisualizationRegistry``.
+Visualizations register themselves with ``trafficbench.core.VisualizationRegistry``.
 """
 
 from .base import VisualizationProvider, VisualizationContext, VisualizationResult

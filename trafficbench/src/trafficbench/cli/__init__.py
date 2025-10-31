@@ -1,15 +1,15 @@
-"""Command-line interface for the Mindi platform (Click-based)."""
+"""Command-line interface for the TrafficBench platform (Click-based)."""
 
 from __future__ import annotations
 
 import click
 
 # Import to trigger registry decorators
-from mindi import analysis  # noqa: F401
-from mindi import clients  # noqa: F401
-from mindi import datasets  # noqa: F401
-from mindi import telemetry  # noqa: F401
-from mindi import visualization  # noqa: F401
+from trafficbench import analysis  # noqa: F401
+from trafficbench import clients  # noqa: F401
+from trafficbench import datasets  # noqa: F401
+from trafficbench import telemetry  # noqa: F401
+from trafficbench import visualization  # noqa: F401
 
 from .analyze import analyze
 from .energy import energy
@@ -18,7 +18,7 @@ from .plot import plot
 from .profile import profile
 
 
-@click.group(help="Mindi development CLI tool")
+@click.group(help="TrafficBench development CLI tool")
 def cli() -> None:
     """Top-level CLI group."""
 

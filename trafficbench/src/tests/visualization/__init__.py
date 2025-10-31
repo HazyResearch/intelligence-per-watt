@@ -1,2 +1,2 @@
-"""Tests for mindi.visualization."""
+"""Tests for trafficbench.visualization."""
 

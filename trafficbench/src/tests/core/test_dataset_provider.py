@@ -2,8 +2,8 @@ from __future__ import annotations
 
 from typing import Iterable
 
-from mindi.datasets.base import DatasetProvider
-from mindi.core.types import DatasetRecord
+from trafficbench.datasets.base import DatasetProvider
+from trafficbench.core.types import DatasetRecord
 
 
 class ExampleProvider(DatasetProvider):
