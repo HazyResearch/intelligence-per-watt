@@ -3,17 +3,14 @@
 from __future__ import annotations
 
 import json
-from collections.abc import Mapping as MappingABC
 from dataclasses import dataclass
-from typing import Any, Dict, List, Mapping, Optional, Sequence, Tuple, cast
+from typing import Any, Dict, List, Mapping, Optional, Sequence, Tuple
 
 import numpy as np
 
 from ..core.registry import AnalysisRegistry
-from ..core.types import GpuInfo, SystemInfo
 from .base import AnalysisProvider, AnalysisContext, AnalysisResult
 from .helpers import (
-    collect_run_metadata,
     iter_model_entries,
     load_metrics_dataset,
     resolve_model_name,
@@ -22,73 +19,6 @@ from .helpers import (
 RegressionDict = Dict[str, List["RegressionSample"]]
 ZeroCountDict = Dict[str, int]
 ZERO_EPSILON = 1e-12
-
-
-def derive_hardware_label(
-    system_info: Optional[SystemInfo | Mapping[str, object]],
-    gpu_info: Optional[GpuInfo | Mapping[str, object]],
-) -> str:
-    """Return a concise hardware label using GPU or CPU identifiers."""
-
-    def _sanitize(raw: Optional[str]) -> Sequence[str]:
-        if not raw:
-            return []
-        tokens: list[str] = []
-        current = ""
-        for ch in raw:
-            if ch.isalnum():
-                current += ch
-            else:
-                if current:
-                    tokens.append(current)
-                current = ""
-        if current:
-            tokens.append(current)
-        return tokens
-
-    def _pick(tokens: Sequence[str]) -> Optional[str]:
-        for token in tokens:
-            if any(ch.isalpha() for ch in token) and any(ch.isdigit() for ch in token):
-                return token.upper()
-        for token in tokens:
-            if token.isalpha():
-                return token.upper()
-        if tokens:
-            return tokens[-1].upper()
-        return None
-
-    gpu_candidate: Optional[str] = None
-    if gpu_info:
-        if isinstance(gpu_info, MappingABC):
-            mapping_info = cast(Mapping[str, object], gpu_info)
-            name_value = mapping_info.get("name")
-            raw_name = str(name_value) if name_value is not None else ""
-        else:
-            raw_name = getattr(gpu_info, "name", "")
-        gpu_candidate = _pick(_sanitize(raw_name))
-        if gpu_candidate and any(ch.isdigit() for ch in gpu_candidate):
-            return gpu_candidate
-
-    cpu_candidate: Optional[str] = None
-    if system_info:
-        if isinstance(system_info, MappingABC):
-            system_mapping = cast(Mapping[str, object], system_info)
-            cpu_value = system_mapping.get("cpu_brand")
-            raw_cpu = str(cpu_value) if cpu_value is not None else ""
-        else:
-            raw_cpu = getattr(system_info, "cpu_brand", "")
-        cpu_candidate = _pick(_sanitize(raw_cpu))
-        if cpu_candidate:
-            if any(ch.isdigit() for ch in cpu_candidate):
-                return cpu_candidate
-            if not gpu_candidate:
-                return cpu_candidate
-
-    if gpu_candidate:
-        return gpu_candidate
-    if cpu_candidate:
-        return cpu_candidate
-    return "UNKNOWN_HW"
 
 
 @dataclass(slots=True)
@@ -298,7 +228,6 @@ class RegressionAnalysis(AnalysisProvider):
                 f"No usable metrics found for model '{active_model}' in dataset at '{results_dir}'."
             )
 
-        system_info, gpu_info = collect_run_metadata(entries)
         regressions, zero_counts = create_regression_containers()
 
         samples_collected = 0
@@ -340,20 +269,13 @@ class RegressionAnalysis(AnalysisProvider):
         if skip_zeroes:
             regression_results = _filter_none_regressions(regression_results)
 
-        hardware_label = derive_hardware_label(system_info or None, gpu_info or None)
         warnings = build_zero_warnings(zero_counts, context=" in dataset")
 
         summary_payload = {
-            "model": active_model,
-            "hardware_label": hardware_label,
             "total_samples": samples_collected,
         }
         data_payload: Dict[str, Any] = {
             "regressions": dict(regression_results),
-            "system_info": system_info or None,
-            "gpu_info": gpu_info or None,
-            "skip_zeroes": skip_zeroes,
-            "zero_counts": dict(zero_counts),
         }
 
         artifact_payload = {
@@ -361,9 +283,6 @@ class RegressionAnalysis(AnalysisProvider):
             "summary": summary_payload,
             "warnings": list(warnings),
             "data": data_payload,
-            "metadata": {
-                "requested_model": requested_model,
-            },
         }
 
         artifact_dir = results_dir / "analysis"
@@ -377,9 +296,6 @@ class RegressionAnalysis(AnalysisProvider):
             data=data_payload,
             warnings=tuple(warnings),
             artifacts={"report": artifact_path},
-            metadata={
-                "requested_model": requested_model,
-            },
         )
 
 

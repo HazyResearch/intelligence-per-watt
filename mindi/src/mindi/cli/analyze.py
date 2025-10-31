@@ -5,13 +5,28 @@ from __future__ import annotations
 import json
 import textwrap
 from pathlib import Path
-from typing import Any
+from typing import Any, Dict
 
 import click
 
 from ..analysis.base import AnalysisContext, AnalysisResult
 from ..core.registry import AnalysisRegistry
 from ._console import console
+
+
+def _collect_options(ctx, param, values):
+    """Parse key=value options into a dictionary."""
+    collected: Dict[str, str] = {}
+    for item in values:
+        for piece in item.split(","):
+            if not piece:
+                continue
+            key, _, raw = piece.partition("=")
+            key = key.strip()
+            if not key:
+                continue
+            collected[key] = raw.strip()
+    return collected
 
 
 @click.command(help="Analyze profiling results and compute metrics.")
@@ -29,14 +44,20 @@ from ._console import console
     is_flag=True,
     help="Show data and metadata fields in addition to summary and artifacts.",
 )
+@click.option(
+    "--option",
+    "options",
+    multiple=True,
+    callback=_collect_options,
+    help="Analysis-specific options (e.g., --option model=llama3.2:1b).",
+)
 def analyze(
     directory: Path,
     analysis_name: str,
     verbose: bool,
+    options: Dict[str, Any],
 ) -> None:
     """Compute analysis results for a profiling run."""
-
-    options: dict[str, Any] = {}
 
     context = AnalysisContext(
         results_dir=directory,
@@ -58,7 +79,6 @@ def analyze(
 
 
 def _print_result(result: AnalysisResult, *, verbose: bool) -> None:
-    console.print()
     console.print(f"Analysis: {result.analysis}")
 
     if result.summary:

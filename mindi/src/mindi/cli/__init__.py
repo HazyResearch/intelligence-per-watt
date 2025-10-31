@@ -9,6 +9,7 @@ from mindi import analysis  # noqa: F401
 from mindi import clients  # noqa: F401
 from mindi import datasets  # noqa: F401
 from mindi import telemetry  # noqa: F401
+from mindi import visualization  # noqa: F401
 
 from .analyze import analyze
 from .energy import energy
