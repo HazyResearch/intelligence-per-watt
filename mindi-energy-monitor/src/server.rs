@@ -14,7 +14,6 @@ use crate::energy::{
     HealthRequest, HealthResponse, StreamRequest, SystemInfo,
     energy_monitor_server::{EnergyMonitor, EnergyMonitorServer},
 };
-use crate::host::get_system_info;
 
 pub struct EnergyMonitorService {
     collector: Arc<dyn TelemetryCollector>,
@@ -106,9 +105,9 @@ pub async fn run_server(
     port: u16,
     collector: Arc<dyn TelemetryCollector>,
     config: Arc<Config>,
+    system_info: Arc<SystemInfo>,
 ) -> Result<()> {
     let addr = format!("{}:{}", bind_address, port).parse()?;
-    let system_info = Arc::new(get_system_info());
     let service = EnergyMonitorService::new(collector, config, system_info);
 
     info!("Starting energy monitor gRPC server on {}", addr);
