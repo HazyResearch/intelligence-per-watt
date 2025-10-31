@@ -16,10 +16,12 @@ class RegistryBase(Generic[T]):
 
     @classmethod
     def _entries(cls) -> Dict[str, T]:
-        storage = cls.__dict__.get("_registry_entries")
+        # Use class-specific attribute name to ensure isolation between registry types
+        attr_name = f"_registry_entries_{cls.__name__}"
+        storage = getattr(cls, attr_name, None)
         if storage is None:
             storage = {}
-            setattr(cls, "_registry_entries", storage)
+            setattr(cls, attr_name, storage)
         return storage  # type: ignore[return-value]
 
     @classmethod

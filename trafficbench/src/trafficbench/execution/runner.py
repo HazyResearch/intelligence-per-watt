@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import math
 import shutil
 import statistics
 import time
@@ -154,7 +155,11 @@ class ProfilerRunner:
 
         usage = response.usage
         total_seconds = max(end_time - start_time, 0.0)
-        completion_tokens = usage.completion_tokens
+        
+        # Defensive: ensure token counts are valid integers
+        prompt_tokens = usage.prompt_tokens if usage.prompt_tokens is not None else 0
+        completion_tokens = usage.completion_tokens if usage.completion_tokens is not None else 0
+        
         per_token_ms = None
         throughput_tokens = None
         if completion_tokens > 0 and total_seconds > 0:
@@ -195,9 +200,9 @@ class ProfilerRunner:
             ),
             temperature_metrics=temperature_stats,
             token_metrics=TokenMetrics(
-                input=usage.prompt_tokens,
-                output=usage.completion_tokens,
-                total=usage.prompt_tokens + usage.completion_tokens,
+                input=prompt_tokens,
+                output=completion_tokens,
+                total=prompt_tokens + completion_tokens,
             ),
             gpu_info=self._gpu_info,
             system_info=self._system_info,
@@ -217,6 +222,11 @@ class ProfilerRunner:
         return record_payload
 
     def _compute_energy_metrics(self, readings: Sequence[TelemetryReading]) -> EnergyMetrics:
+        """Compute energy metrics from telemetry readings.
+        
+        Energy values should be monotonically increasing cumulative counters.
+        Negative deltas indicate counter reset or data anomaly and are treated as None.
+        """
         energy_values = [reading.energy_joules for reading in readings if reading.energy_joules is not None]
         if not energy_values:
             return EnergyMetrics()
@@ -224,15 +234,27 @@ class ProfilerRunner:
         start_value = energy_values[0]
         end_value = energy_values[-1]
 
+        # Validate energy values are finite and non-negative
+        if not (math.isfinite(start_value) and math.isfinite(end_value) and start_value >= 0 and end_value >= 0):
+            return EnergyMetrics()
+
         if self._baseline_energy is None:
             self._baseline_energy = start_value
+            
         per_query = None
         if self._last_energy_total is None:
+            # First query - use delta within this query
             per_query = max(end_value - start_value, 0.0)
         else:
-            per_query = end_value - self._last_energy_total
-            if per_query < 0:
+            # Subsequent queries - delta from last query's end
+            delta = end_value - self._last_energy_total
+            if delta < 0:
+                # Energy counter decreased - likely reset or data corruption
+                # Reset baseline and start fresh
+                self._baseline_energy = end_value
                 per_query = None
+            else:
+                per_query = delta
 
         self._last_energy_total = end_value
 

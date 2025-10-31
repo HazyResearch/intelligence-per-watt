@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 import math
 from pathlib import Path
-from typing import Any, Mapping, Optional, Sequence, Tuple
+from typing import Any, List, Mapping, Optional, Sequence, Tuple
 
 import numpy as np
 
@@ -69,8 +69,16 @@ def _infer_hardware_label(dataset, model_name: str) -> str:
     return "Unknown"
 
 
-def _safe_get(obj, key):
-    """Safely get a value from dict or dataclass."""
+def _safe_get(obj: Any, key: str) -> Any:
+    """Safely get a value from dict or dataclass.
+    
+    Args:
+        obj: Dictionary or dataclass instance to extract value from
+        key: Attribute or key name to retrieve
+        
+    Returns:
+        The value if found, None otherwise
+    """
     if isinstance(obj, dict):
         return obj.get(key)
     elif hasattr(obj, key):
@@ -80,7 +88,7 @@ def _safe_get(obj, key):
 
 def _extract_regression_samples(
     dataset, model_name: str, x_key_path: Sequence[str], y_key_path: Sequence[str]
-) -> Tuple[list[float], list[float]]:
+) -> Tuple[List[float], List[float]]:
     """Extract x and y values from dataset for a given model and metric paths."""
     xs = []
     ys = []

@@ -146,7 +146,25 @@ def _register_proto_descriptors(pool: descriptor_pool.DescriptorPool) -> None:
     pool.Add(file_proto)
 
 
-def _add_field(message, name, number, field_type, *, type_name=None, label=descriptor_pb2.FieldDescriptorProto.LABEL_OPTIONAL):
+def _add_field(
+    message: Any,
+    name: str,
+    number: int,
+    field_type: int,
+    *,
+    type_name: str | None = None,
+    label: int = descriptor_pb2.FieldDescriptorProto.LABEL_OPTIONAL,
+) -> None:
+    """Add a field descriptor to a protobuf message.
+    
+    Args:
+        message: The protobuf message descriptor to add the field to
+        name: Field name
+        number: Field number (protobuf tag)
+        field_type: Protobuf field type constant
+        type_name: Optional type name for message/enum fields
+        label: Field label (optional, required, repeated)
+    """
     field = message.field.add()
     field.name = name
     field.number = number
