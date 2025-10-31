@@ -5,9 +5,8 @@ Profiling tool for inference services.
 ## Installation
 
 ```bash
-cd trafficbench
-uv sync
-cd ..
+uv venv
+source .venv/bin/activate
 uv run scripts/build_energy_monitor.py
 uv pip install -e trafficbench
 ```
