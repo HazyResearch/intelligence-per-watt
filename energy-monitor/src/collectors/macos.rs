@@ -232,8 +232,8 @@ impl TelemetryCollector for MacOSCollector {
         Ok(CollectorSample {
             power_watts,
             energy_joules,
-            temperature_celsius: 0.0,
-            gpu_memory_usage_mb: 0.0,
+            temperature_celsius: -1.0,
+            gpu_memory_usage_mb: -1.0,
             cpu_memory_usage_mb,
             platform: "macos".to_string(),
             timestamp_nanos: std::time::SystemTime::now()
