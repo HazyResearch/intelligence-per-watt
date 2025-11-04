@@ -114,10 +114,10 @@ trafficbench list all
 
 ### energy
 
-Start energy monitor and display telemetry stream.
+Test the energy monitor to ensure compatibility with your system.
 
 ```bash
-trafficbench energy --target <host:port> --interval <seconds>
+trafficbench energy
 ```
 
 Options:
