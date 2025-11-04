@@ -5,7 +5,7 @@ use async_trait::async_trait;
 use rocm_smi_lib::{RocmSmi, RocmSmiDevice, RsmiTemperatureMetric, RsmiTemperatureType};
 use std::sync::{Arc, Mutex};
 use std::time::{Instant, SystemTime, UNIX_EPOCH};
-use tracing::info;
+use tracing::{info, warn};
 
 use super::{CollectorSample, TelemetryCollector};
 use crate::energy::GpuInfo;
@@ -104,7 +104,7 @@ impl TelemetryCollector for AmdCollector {
         if let Ok(mut guard) = self.devices.lock() {
             for dev in guard.iter_mut() {
                 if let Ok(power) = dev.get_power_data() {
-                    power_sum_w += power.current_power as f64;
+                    power_sum_w += power.current_power as f64 / 1_000_000.0;
                     any_power_ok = true;
                 }
 
@@ -132,29 +132,6 @@ impl TelemetryCollector for AmdCollector {
             }
         }
 
-        if !any_power_ok {
-            if let Ok(entries) = std::fs::read_dir("/sys/class/hwmon") {
-                for entry in entries.flatten() {
-                    let hwmon_path = entry.path();
-                    let name_file = hwmon_path.join("name");
-                    if let Ok(name) = std::fs::read_to_string(&name_file) {
-                        let name = name.trim();
-                        if name.contains("amdgpu") || name.contains("radeon") {
-                            let power_file = hwmon_path.join("power1_input");
-                            if power_file.exists() {
-                                if let Ok(power_str) = std::fs::read_to_string(&power_file) {
-                                    if let Ok(power_microwatts) = power_str.trim().parse::<u64>() {
-                                        power_sum_w += power_microwatts as f64 / 1_000_000.0;
-                                        any_power_ok = true;
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        }
-
         if any_power_ok {
             sample.power_watts = power_sum_w;
             let now = Instant::now();
@@ -165,6 +142,8 @@ impl TelemetryCollector for AmdCollector {
             }
             *ts = Some(now);
             sample.energy_joules = *self.accumulated_energy_j.lock().unwrap();
+        } else {
+            warn!("ROC-SMI did not provide AMD GPU power metrics; returning sentinel values");
         }
 
         if temp_count > 0 {

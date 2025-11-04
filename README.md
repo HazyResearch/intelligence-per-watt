@@ -3,7 +3,7 @@
 Profiling tool for inference services.
 
 ## Installation
-
+  
 ```bash
 uv venv
 source .venv/bin/activate
