@@ -101,6 +101,7 @@ impl TelemetryCollector for CustomCollector {
 
     async fn collect(&self) -> Result<CollectorSample> {
         // Sample hardware metrics
+        // Note: Use -1.0 for metrics that are unavailable or unsupported
         Ok(CollectorSample {
             power_watts: 0.0,
             energy_joules: 0.0,
