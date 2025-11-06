@@ -1,41 +1,59 @@
 # TrafficBench
 
-Profiling tool for inference services.
+A benchmarking suite for LLM inference systems. TrafficBench sends workloads to your inference service and collects detailed telemetry—energy consumption, power usage, memory, temperature, and latency—to help you optimize performance and compare hardware configurations.
 
 ## Installation
-  
+
 ```bash
+# Create and activate virtual environment
 uv venv
 source .venv/bin/activate
+
+# Build energy monitoring
 uv run scripts/build_energy_monitor.py
+
+# Install TrafficBench
 uv pip install -e trafficbench
 ```
 
-## Commands
-
-### profile
-
-Run profiling against an inference service.
+## Quick Start
 
 ```bash
+# 1. List available inference clients
+trafficbench list clients
+
+# 2, Run a benchmark
 trafficbench profile \
-  --client <client_id> \
-  --model <model_name> \
-  --dataset <dataset_id> \
-  --client-base-url <url> \
-  --output-dir <path> \
-  --max-queries <n>
+  --client ollama \
+  --model llama3.2:1b \
+  --client-base-url http://localhost:11434
+
+# 3. Analyze the results
+trafficbench analyze ./runs/profile_*
+
+# 4. Generate plots
+trafficbench plot ./runs/profile_*
 ```
 
-Options:
-- `--client` - Client identifier (required). Use `trafficbench list` to see available clients.
-- `--model` - Model name (required)
-- `--dataset` - Dataset identifier (default: trafficbench)
-- `--client-base-url` - Base URL for the inference service
-- `--client-param` - Client parameters as key=value (repeatable)
-- `--dataset-param` - Dataset parameters as key=value (repeatable)
-- `--output-dir` - Output directory for results
-- `--max-queries` - Limit number of queries to profile
+**What gets measured:** For each query, TrafficBench captures energy consumption, power draw, GPU/CPU memory usage, temperature, time-to-first-token, throughput, and token counts.
+
+## Commands
+
+### `trafficbench profile`
+
+Sends prompts to your service and measures performance.
+
+```bash
+trafficbench profile --client <client> --model <model> [options]
+```
+
+**Options:**
+- `--client` - Inference client (e.g., `ollama`, `vllm`)
+- `--model` - Model name
+- `--client-base-url` - Service URL (e.g., `http://localhost:11434`)
+- `--dataset` - Workload dataset (default: `trafficbench`)
+- `--max-queries` - Limit queries for testing
+- `--output-dir` - Where to save results
 
 Example:
 ```bash
@@ -46,120 +64,46 @@ trafficbench profile \
   --max-queries 100
 ```
 
-### analyze
+### `trafficbench analyze`
 
-Analyze profiling results and compute regression metrics.
+Compute regression metrics (e.g., how energy scales with tokens, latency vs. input size).
 
 ```bash
-trafficbench analyze <results_dir> \
-  --analysis <analysis_name> \
-  --option key=value
+trafficbench analyze <results_dir>
 ```
 
-Options:
-- `<results_dir>` - Directory containing profiling results (required)
-- `--analysis` - Analysis type (default: regression)
-- `--option` - Analysis options as key=value (repeatable)
-- `--verbose` - Show detailed output
+### `trafficbench plot`
 
-Example:
+Visualize profiling data (scatter plots, regression lines, distributions).
+
 ```bash
-trafficbench analyze ./runs/profile_H200_model \
-  --analysis regression \
-  --option model=vllm::meta-llama/llama-3.1-8b
+trafficbench plot <results_dir> [--output <dir>]
 ```
 
-### plot
+### `trafficbench list`
 
-Generate visualization plots from analysis results.
+Discover available clients, datasets, and analysis types.
 
 ```bash
-trafficbench plot <results_dir> \
-  --visualization <viz_id> \
-  --output <output_dir> \
-  --option key=value
+trafficbench list <clients|datasets|analyses|visualizations|all>
 ```
 
-Options:
-- `<results_dir>` - Directory containing profiling results (required)
-- `--visualization` - Visualization type (default: regression)
-- `--output` - Output directory for plots (default: <results_dir>/plots)
-- `--option` - Visualization options as key=value (repeatable)
+### `trafficbench energy`
 
-Example:
-```bash
-trafficbench plot ./runs/profile_H200_model
-```
-
-### list
-
-List available components.
+Test energy monitoring hardware (verify your system can collect power metrics).
 
 ```bash
-trafficbench list <subcommand>
-```
-
-Subcommands:
-- `clients` - List available inference clients
-- `datasets` - List available datasets
-- `analyses` - List available analysis types
-- `visualizations` - List available visualization types
-- `all` - List all components
-
-Examples:
-```bash
-trafficbench list clients
-trafficbench list all
-```
-
-### energy
-
-Test the energy monitor to ensure compatibility with your system.
-
-```bash
-trafficbench energy
-```
-
-Options:
-- `--target` - Energy monitor gRPC target address (default: 127.0.0.1:50053)
-- `--interval` - Seconds between printed samples (default: 1.0)
-
-Example:
-```bash
-trafficbench energy --interval 2.0
-```
-
-
-## Workflow
-
-1. List available clients and datasets:
-```bash
-trafficbench list clients
-trafficbench list datasets
-```
-
-2. Run profiling:
-```bash
-trafficbench profile \
-  --client ollama \
-  --model llama3.2:1b \
-```
-
-3. Analyze results:
-```bash
-trafficbench analyze ./runs/profile_* --analysis regression
-```
-
-4. Generate plots:
-```bash
-trafficbench plot ./runs/profile_*
+trafficbench energy [--interval 2.0]
 ```
 
 ## Output
 
-Profiling creates a directory with:
-- `data-*.arrow` - Raw profiling data (HuggingFace dataset format)
-- `dataset_info.json` - Dataset metadata
-- `summary.json` - Run summary and aggregate metrics
-- `analysis/` - Analysis outputs
-- `plots/` - Generated visualizations
+Profiling runs save to `./runs/profile_<hardware>_<model>/`:
+
+```
+runs/profile_<hardware>_<model>/
+├── data-*.arrow        # Per-query metrics (HuggingFace dataset format)
+├── summary.json        # Run metadata and totals
+├── analysis/           # Regression coefficients, statistics
+└── plots/              # Graphs
+```
