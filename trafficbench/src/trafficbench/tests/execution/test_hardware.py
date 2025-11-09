@@ -2,30 +2,17 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
-
 import pytest
 
+from trafficbench.core.types import GpuInfo, SystemInfo
 from trafficbench.execution.hardware import derive_hardware_label
-
-
-@dataclass
-class FakeSystemInfo:
-    """Mock SystemInfo for testing."""
-    cpu_brand: str
-
-
-@dataclass
-class FakeGpuInfo:
-    """Mock GpuInfo for testing."""
-    name: str
 
 
 class TestDeriveHardwareLabel:
     """Test hardware label derivation."""
 
     def test_returns_gpu_name_when_available(self) -> None:
-        gpu_info = FakeGpuInfo(name="NVIDIA RTX3090")
+        gpu_info = GpuInfo(name="NVIDIA RTX3090")
         label = derive_hardware_label(None, gpu_info)
         # Should extract alphanumeric token
         assert "RTX3090" in label or "RTX" in label or "3090" in label
@@ -36,14 +23,14 @@ class TestDeriveHardwareLabel:
         assert "RTX4090" in label or "RTX" in label or "4090" in label
 
     def test_prefers_gpu_over_cpu(self) -> None:
-        system_info = FakeSystemInfo(cpu_brand="Intel Core i9")
-        gpu_info = FakeGpuInfo(name="NVIDIA RTX3090")
+        system_info = SystemInfo(cpu_brand="Intel Core i9")
+        gpu_info = GpuInfo(name="NVIDIA RTX3090")
         label = derive_hardware_label(system_info, gpu_info)
         # Should prefer GPU-related token
         assert "RTX" in label or "NVIDIA" in label or "3090" in label
 
     def test_falls_back_to_cpu_when_no_gpu(self) -> None:
-        system_info = FakeSystemInfo(cpu_brand="Intel Core i9")
+        system_info = SystemInfo(cpu_brand="Intel Core i9")
         label = derive_hardware_label(system_info, None)
         # Should use CPU info
         assert "I9" in label or "INTEL" in label or "CORE" in label
@@ -70,7 +57,7 @@ class TestDeriveHardwareLabel:
         assert label.isupper()
 
     def test_handles_none_attributes(self) -> None:
-        system_info = FakeSystemInfo(cpu_brand=None)
+        system_info = {"cpu_brand": None}
         label = derive_hardware_label(system_info, None)
         assert label == "UNKNOWN_HW"
 

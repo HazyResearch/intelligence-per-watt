@@ -390,7 +390,7 @@ class TestProfilerRunner:
         response = Response(
             content="",
             usage=ChatUsage(prompt_tokens=10, completion_tokens=0, total_tokens=10),
-            time_to_first_token_ms=None,
+            time_to_first_token_ms=0.0,
         )
         samples = []
 
@@ -438,4 +438,3 @@ class TestProfilerRunner:
         path = runner._get_output_path()
         assert "RTX3090" in str(path)
         assert "llama_3_2_1b" in str(path)
-

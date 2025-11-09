@@ -87,7 +87,7 @@ class VLLMClient(InferenceClient):
         self._engine = None
         self._engine_args = None
         self._model_name = None
-        self._loop_runner = _AsyncLoopRunner()
+        self._loop_runner: _AsyncLoopRunner | None = _AsyncLoopRunner()
         self._closed = False
         atexit.register(self.close)
 
@@ -105,7 +105,10 @@ class VLLMClient(InferenceClient):
 
         sampling_params = self._build_sampling_params(params)
         request_id = str(params.get("request_id", uuid.uuid4()))
-        return self._loop_runner.run(
+        runner = self._loop_runner
+        if runner is None:
+            raise RuntimeError("vLLM client is shut down")
+        return runner.run(
             self._stream_response(prompt=prompt, request_id=request_id, sampling_params=sampling_params)
         )
 
@@ -152,7 +155,8 @@ class VLLMClient(InferenceClient):
     def _warmup_if_needed(self) -> None:
         if self._warmup_done or self._warmup_count <= 0:
             return
-        if self._loop_runner is None:
+        runner = self._loop_runner
+        if runner is None:
             raise RuntimeError("vLLM client is shut down")
 
         prompts = _WARMUP_PROMPTS or ("Warmup prompt",)
@@ -166,7 +170,7 @@ class VLLMClient(InferenceClient):
         for idx in range(self._warmup_count):
             prompt = prompts[idx % len(prompts)]
             request_id = f"warmup-{idx}-{uuid.uuid4()}"
-            self._loop_runner.run(
+            runner.run(
                 self._stream_response(prompt=prompt, request_id=request_id, sampling_params=sampling)
             )
 
