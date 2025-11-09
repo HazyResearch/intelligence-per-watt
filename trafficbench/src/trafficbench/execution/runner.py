@@ -350,6 +350,7 @@ class ProfilerRunner:
             raise RuntimeError(
                 f"Client '{client.client_name}' at {getattr(client, 'base_url', '')} is unavailable"
             )
+        client.prepare(self._config.model)
 
 
 def _stat_summary(values: Iterable[Optional[float]]) -> MetricStats:

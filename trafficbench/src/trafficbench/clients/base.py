@@ -40,5 +40,9 @@ class InferenceClient(ABC):
     def health(self) -> bool:
         """Return True when the client is healthy and reachable."""
 
+    def prepare(self, model: str) -> None:
+        """Optional hook to perform warmup before serving requests."""
+        return None
+
 
 __all__ = ["InferenceClient"]
