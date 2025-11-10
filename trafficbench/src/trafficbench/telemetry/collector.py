@@ -46,15 +46,14 @@ class EnergyMonitorCollector:
             for raw in stream:
                 yield self._convert(raw)
         except grpc.RpcError as exc:
-            code_name = "UNKNOWN"
-            details = ""
-            if isinstance(exc, grpc.Call):
-                status = exc.code()
-                if status is not None:
-                    code_name = getattr(status, "name", str(status))
-                detail_text = exc.details()
-                if detail_text:
-                    details = detail_text
+            status = exc.code() if isinstance(exc, grpc.Call) else None
+            details = exc.details() if isinstance(exc, grpc.Call) else ""
+            if status in {grpc.StatusCode.CANCELLED, grpc.StatusCode.UNAVAILABLE}:
+                status_label = getattr(status, "name", status)
+                suffix = f": {details}" if details else ""
+                print(f"Energy monitor stream closed ({status_label}){suffix}")
+                return
+            code_name = getattr(status, "name", str(status)) if status else "UNKNOWN"
             message = f"Energy monitor stream failed: {code_name}"
             if details:
                 message = f"{message} {details}"
