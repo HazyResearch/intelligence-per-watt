@@ -3,6 +3,10 @@ name = "energy-monitor"
 version = "0.1.0"
 edition = "2024"
 
+[features]
+default = []
+amd = ["rocm_smi_lib"]
+
 [dependencies]
 # Core dependencies
 anyhow = "1.0"
@@ -22,10 +26,7 @@ tokio-stream = "0.1"
 
 # CLI
 clap = { version = "4.5", features = ["derive"] }
-
-# Platform-specific dependencies
-[target.'cfg(all(not(target_os = "macos"), not(target_os = "windows")))'.dependencies]
-rocm_smi_lib = "0.3"
+rocm_smi_lib = { version = "0.3", optional = true }
 
 [target.'cfg(not(target_os = "macos"))'.dependencies]
 nvml-wrapper = "0.11.0"

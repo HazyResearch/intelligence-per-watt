@@ -3,14 +3,14 @@ use async_trait::async_trait;
 use std::sync::Arc;
 use tracing::{debug, info};
 
-#[cfg(all(not(target_os = "macos"), not(target_os = "windows")))]
+#[cfg(all(feature = "amd", not(target_os = "macos"), not(target_os = "windows")))]
 mod amd;
 #[cfg(target_os = "macos")]
 mod macos;
 #[cfg(not(target_os = "macos"))]
 mod nvidia;
 
-#[cfg(all(not(target_os = "macos"), not(target_os = "windows")))]
+#[cfg(all(feature = "amd", not(target_os = "macos"), not(target_os = "windows")))]
 use amd::AmdCollector;
 #[cfg(target_os = "macos")]
 use macos::MacOSCollector;
@@ -110,7 +110,7 @@ pub async fn create_collector(config: Arc<Config>) -> Arc<dyn TelemetryCollector
             debug!("NVIDIA collector unavailable or failed to initialize");
         }
 
-        #[cfg(not(target_os = "windows"))]
+        #[cfg(all(feature = "amd", not(target_os = "windows")))]
         {
             if let Ok(collector) = AmdCollector::new(config.clone()) {
                 debug!("Auto-detected AMD platform");
