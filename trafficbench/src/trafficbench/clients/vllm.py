@@ -114,7 +114,7 @@ class VLLMClient(InferenceClient):
         self._closed = True
         try:
             if self._engine is not None:
-                self._engine.shutdown()  # type: ignore[call-arg]
+                self._engine.shutdown()
         except Exception:  # pragma: no cover - shutdown best-effort
             pass
         finally:
@@ -136,8 +136,8 @@ class VLLMClient(InferenceClient):
         kwargs = dict(self._engine_kwargs)
         kwargs["model"] = model
         try:
-            self._engine_args = AsyncEngineArgs(**kwargs)  # type: ignore[arg-type]
-            self._engine = AsyncLLM.from_engine_args(self._engine_args)  # type: ignore[call-arg]
+            self._engine_args = AsyncEngineArgs(**kwargs)
+            self._engine = AsyncLLM.from_engine_args(self._engine_args)
         except Exception as exc:  # pragma: no cover - forwarded to caller
             raise RuntimeError(f"Failed to initialize vLLM engine: {exc}") from exc
         self._model_name = model
@@ -150,7 +150,7 @@ class VLLMClient(InferenceClient):
             raise RuntimeError("vLLM client is shut down")
 
         prompts = _WARMUP_PROMPTS or ("Warmup prompt",)
-        sampling = SamplingParams(  # type: ignore[call-arg]
+        sampling = SamplingParams(
             max_tokens=self._warmup_max_tokens,
             temperature=0.0,
             top_p=1.0,
@@ -207,8 +207,8 @@ class VLLMClient(InferenceClient):
                 sampling["stop"] = [stop_value]
             elif isinstance(stop_value, (list, tuple)):
                 sampling["stop"] = list(stop_value)
-        sampling["output_kind"] = RequestOutputKind.DELTA  # type: ignore[index]
-        return SamplingParams(**sampling)  # type: ignore[call-arg]
+        sampling["output_kind"] = RequestOutputKind.DELTA
+        return SamplingParams(**sampling)
 
     async def _stream_response(self, *, prompt: str, request_id: str, sampling_params: Any) -> Response:
         if self._engine is None:
@@ -221,7 +221,7 @@ class VLLMClient(InferenceClient):
         content_parts: list[str] = []
 
         try:
-            async for chunk in self._engine.generate(  # type: ignore[func-returns-value]
+            async for chunk in self._engine.generate(
                 request_id=request_id,
                 prompt=prompt,
                 sampling_params=sampling_params,

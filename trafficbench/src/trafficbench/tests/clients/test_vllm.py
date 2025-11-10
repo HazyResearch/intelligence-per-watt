@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import types
-from typing import Any
+from typing import Any, cast
 
 import pytest
 
@@ -124,7 +124,7 @@ def _queue_warmup_outputs(count: int) -> None:
 
 def test_stream_chat_completion_accumulates_tokens() -> None:
     client = VLLMClient()
-    warmups = client._warmup_count  # type: ignore[attr-defined]
+    warmups = client._warmup_count
     _queue_warmup_outputs(warmups)
     DummyAsyncLLM.next_outputs.append(
         [
@@ -145,7 +145,7 @@ def test_stream_chat_completion_accumulates_tokens() -> None:
 
 def test_stream_handles_cumulative_repeats() -> None:
     client = VLLMClient()
-    warmups = client._warmup_count  # type: ignore[attr-defined]
+    warmups = client._warmup_count
     _queue_warmup_outputs(warmups)
 
     DummyAsyncLLM.next_outputs.append(
@@ -167,7 +167,7 @@ def test_stream_handles_cumulative_repeats() -> None:
 
 def test_stream_handles_delta_token_payloads() -> None:
     client = VLLMClient()
-    warmups = client._warmup_count  # type: ignore[attr-defined]
+    warmups = client._warmup_count
     _queue_warmup_outputs(warmups)
 
     DummyAsyncLLM.next_outputs.append(
@@ -188,7 +188,7 @@ def test_stream_handles_delta_token_payloads() -> None:
 
 def test_stream_handles_token_only_appends() -> None:
     client = VLLMClient()
-    warmups = client._warmup_count  # type: ignore[attr-defined]
+    warmups = client._warmup_count
     _queue_warmup_outputs(warmups)
 
     DummyAsyncLLM.next_outputs.append(
@@ -210,7 +210,7 @@ def test_stream_handles_token_only_appends() -> None:
 
 def test_sampling_params_and_engine_overrides() -> None:
     client = VLLMClient()
-    warmups = client._warmup_count  # type: ignore[attr-defined]
+    warmups = client._warmup_count
     _queue_warmup_outputs(warmups)
     client.prepare("meta")
     DummyAsyncLLM.next_outputs.append(
@@ -230,7 +230,8 @@ def test_sampling_params_and_engine_overrides() -> None:
         client.close()
 
     assert response.content == "Done"
-    engine_args = client._engine_args.kwargs  # type: ignore[attr-defined]
+    assert client._engine_args is not None
+    engine_args = cast(Any, client._engine_args).kwargs
     assert engine_args.get("enforce_eager") is None
 
     engine = DummyAsyncLLM.instances[0]
@@ -247,7 +248,7 @@ def test_registry_entry_points() -> None:
     assert client_cls is VLLMClient
 
     client = ClientRegistry.create("vllm", None)
-    warmups = client._warmup_count  # type: ignore[attr-defined]
+    warmups = client._warmup_count
     _queue_warmup_outputs(warmups)
     DummyAsyncLLM.next_outputs.append([_make_chunk("hi", finished=True, delta_token_ids=[1])])
     try:
@@ -260,7 +261,7 @@ def test_registry_entry_points() -> None:
 
 def test_prepare_runs_warmup_once() -> None:
     client = VLLMClient()
-    warmups = client._warmup_count  # type: ignore[attr-defined]
+    warmups = client._warmup_count
     _queue_warmup_outputs(warmups)
 
     client.prepare("meta")

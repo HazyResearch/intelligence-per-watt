@@ -22,7 +22,7 @@ class RegistryBase(Generic[T]):
         if storage is None:
             storage = {}
             setattr(cls, attr_name, storage)
-        return storage  # type: ignore[return-value]
+        return storage
 
     @classmethod
     def register(cls, key: str) -> Callable[[T], T]:
