@@ -15,16 +15,10 @@ from ..core.registry import ClientRegistry
 from ..core.types import ChatUsage, Response
 from .base import InferenceClient
 
-try:
-    from vllm import SamplingParams
-    from vllm.engine.arg_utils import AsyncEngineArgs
-    from vllm.sampling_params import RequestOutputKind
-    from vllm.v1.engine.async_llm import AsyncLLM
-except Exception as exc:  # pragma: no cover - optional dependency
-    SamplingParams = AsyncEngineArgs = RequestOutputKind = AsyncLLM = None  # type: ignore[assignment]
-    _VLLM_IMPORT_ERROR: Exception | None = exc
-else:
-    _VLLM_IMPORT_ERROR = None
+from vllm import SamplingParams
+from vllm.engine.arg_utils import AsyncEngineArgs
+from vllm.sampling_params import RequestOutputKind
+from vllm.v1.engine.async_llm import AsyncLLM
 
 
 DEFAULT_WARMUP_COUNT = 10
@@ -59,14 +53,6 @@ class _AsyncLoopRunner:
         self._loop.run_forever()
 
 
-def _ensure_vllm_available() -> None:
-    if AsyncLLM is not None:
-        return
-    if _VLLM_IMPORT_ERROR is not None:
-        raise RuntimeError("Install the 'vllm' package to use the offline vLLM client.") from _VLLM_IMPORT_ERROR
-    raise RuntimeError("vLLM dependency failed to import for an unknown reason.")
-
-
 @ClientRegistry.register("vllm")
 class VLLMClient(InferenceClient):
     """Offline AsyncLLM client."""
@@ -77,10 +63,14 @@ class VLLMClient(InferenceClient):
 
     def __init__(self, base_url: str | None = None, **config: Any) -> None:
         super().__init__(base_url or self.DEFAULT_BASE_URL, **config)
-        _ensure_vllm_available()
-
         self._engine_kwargs: dict[str, Any] = {}
-        self._sampling_defaults: dict[str, Any] = {"max_tokens": 4096}
+        self._sampling_defaults: dict[str, Any] = {
+            "max_tokens": 4096,
+            "temperature": 0.6,
+            "top_p": 0.95,
+            "top_k": 20,
+            "min_p": 0.0,
+        }
         self._warmup_count = DEFAULT_WARMUP_COUNT
         self._warmup_max_tokens = DEFAULT_WARMUP_MAX_TOKENS
         self._warmup_done = False
@@ -104,13 +94,6 @@ class VLLMClient(InferenceClient):
         self._warmup_if_needed()
 
         sampling_params = self._build_sampling_params(params)
-        print(
-            "[vllm] stream_chat_completion",
-            f"model={model}",
-            f"prompt={prompt!r}",
-            f"sampling={sampling_params}",
-            f"extra_params={params}",
-        )
         request_id = str(params.get("request_id", uuid.uuid4()))
         runner = self._loop_runner
         if runner is None:
@@ -237,8 +220,6 @@ class VLLMClient(InferenceClient):
         ttft_ms: float | None = None
         content_parts: list[str] = []
 
-        last_finished_reason: Any | None = None
-
         try:
             async for chunk in self._engine.generate(  # type: ignore[func-returns-value]
                 request_id=request_id,
@@ -273,17 +254,13 @@ class VLLMClient(InferenceClient):
 
                     finished_reason = getattr(completion, "finished_reason", None)
                     if finished_reason is not None:
-                        print(f"[vllm] request_id={request_id} completion finished_reason={finished_reason}")
-                        last_finished_reason = finished_reason
                         if str(finished_reason).lower() in {"stop", "stopped", "eos", "eos_token"}:
                             stop_requested = True
 
                 if stop_requested:
-                    print(f"[vllm] request_id={request_id} stopping stream due to finished_reason")
                     break
 
                 if getattr(chunk, "finished", False):
-                    print(f"[vllm] request_id={request_id} stream finished by engine")
                     break
         except Exception as exc:  # pragma: no cover - actual streaming exercised in integration
             raise RuntimeError(f"vLLM offline generation failed: {exc}") from exc
@@ -294,8 +271,4 @@ class VLLMClient(InferenceClient):
             total_tokens=(prompt_tokens or 0) + completion_tokens,
         )
         content = "".join(content_parts)
-        if last_finished_reason is None:
-            print(f"[vllm] request_id={request_id} completed without finished_reason")
-        else:
-            print(f"[vllm] request_id={request_id} final finished_reason={last_finished_reason}")
         return Response(content=content, usage=usage, time_to_first_token_ms=ttft_ms or 0.0)
