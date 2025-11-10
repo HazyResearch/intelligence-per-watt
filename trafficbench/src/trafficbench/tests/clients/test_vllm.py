@@ -85,13 +85,22 @@ def _make_chunk(
     *,
     prompt_tokens: int = 0,
     token_ids: list[int] | None = None,
+    new_tokens: int | None = None,
     index: int = 0,
     delta_text: str | None = None,
     delta_token_ids: list[int] | None = None,
 ):
+    completion_token_ids: list[int]
+    if token_ids is not None:
+        completion_token_ids = list(token_ids)
+    elif new_tokens is not None:
+        completion_token_ids = [0] * new_tokens
+    else:
+        completion_token_ids = []
+
     kwargs: dict[str, Any] = {
         "text": text,
-        "token_ids": list(token_ids) if token_ids is not None else [],
+        "token_ids": completion_token_ids,
         "index": index,
     }
     if delta_text is not None:
@@ -174,6 +183,28 @@ def test_stream_handles_delta_token_payloads() -> None:
         client.close()
 
     assert response.content == "Thinking aloud"
+    assert response.usage.completion_tokens == 3
+
+
+def test_stream_handles_token_only_appends() -> None:
+    client = VLLMClient()
+    warmups = client._warmup_count  # type: ignore[attr-defined]
+    _queue_warmup_outputs(warmups)
+
+    DummyAsyncLLM.next_outputs.append(
+        [
+            _make_chunk("Hello", finished=False, prompt_tokens=1, token_ids=[11]),
+            _make_chunk(" world", finished=False, token_ids=[22]),
+            _make_chunk("!", finished=True, token_ids=[33]),
+        ]
+    )
+
+    try:
+        response = client.stream_chat_completion("meta-llama/Llama", "Prompt text")
+    finally:
+        client.close()
+
+    assert response.content == "Hello world!"
     assert response.usage.completion_tokens == 3
 
 

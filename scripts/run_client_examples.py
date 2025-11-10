@@ -72,11 +72,6 @@ def _build_parser() -> argparse.ArgumentParser:
         help="Additional request parameters for stream_chat_completion (JSON parsed).",
     )
     parser.add_argument(
-        "--prepare",
-        action="store_true",
-        help="Run client.prepare(model) before issuing prompts.",
-    )
-    parser.add_argument(
         "prompts",
         nargs="*",
         help="Prompts to send. Defaults to a small curated set if omitted.",
@@ -103,9 +98,6 @@ def main(argv: list[str] | None = None) -> int:
     request_params = _parse_key_value(args.param)
 
     try:
-        if args.prepare:
-            client.prepare(args.model)  # type: ignore[attr-defined]
-
         for idx, prompt in enumerate(requests, 1):
             header = f"\n=== Prompt {idx} / {len(requests)} ==="
             print(header)

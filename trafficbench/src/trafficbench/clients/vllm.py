@@ -247,7 +247,7 @@ class VLLMClient(InferenceClient):
                 completion_states[index] = state
             return state
 
-        def _consume_delta_text(completion: Any, index: int) -> str:
+        def _consume_delta_text(completion: Any, index: int, new_tokens: int, incremental: bool) -> str:
             state = _get_state(index)
             prev_text: str = state["text"]
             delta = getattr(completion, "delta_text", None)
@@ -261,14 +261,18 @@ class VLLMClient(InferenceClient):
             if not raw_text:
                 return ""
 
-            if not prev_text:
-                state["text"] = raw_text
-                return raw_text
-
             if raw_text.startswith(prev_text):
                 new_text = raw_text[len(prev_text) :]
                 state["text"] = raw_text
                 return new_text
+
+            if not prev_text:
+                state["text"] = raw_text
+                return raw_text
+
+            if incremental:
+                state["text"] = prev_text + raw_text
+                return raw_text
 
             if prev_text.startswith(raw_text):
                 # The model may have truncated its hypothesis; keep accumulated text.
@@ -278,7 +282,7 @@ class VLLMClient(InferenceClient):
             state["text"] = raw_text
             return raw_text
 
-        def _consume_new_token_count(completion: Any, index: int) -> int:
+        def _consume_new_token_count(completion: Any, index: int) -> tuple[int, bool]:
             state = _get_state(index)
             history: list[Any] = state.setdefault("token_history", [])
 
@@ -287,25 +291,25 @@ class VLLMClient(InferenceClient):
                 delta_token_ids = getattr(completion, "token_ids_delta", None)
             if delta_token_ids:
                 history.extend(delta_token_ids)
-                return len(delta_token_ids)
+                return len(delta_token_ids), True
 
             token_ids = getattr(completion, "token_ids", None)
             if not token_ids:
-                return 0
+                return 0, False
 
             prefix_len = len(history)
             if prefix_len and len(token_ids) >= prefix_len and token_ids[:prefix_len] == history:
                 new_tokens = token_ids[prefix_len:]
                 history[:] = token_ids
-                return len(new_tokens)
+                return len(new_tokens), bool(new_tokens)
 
             if not prefix_len:
                 history[:] = token_ids
-                return len(token_ids)
+                return len(token_ids), bool(token_ids)
 
             # Treat as incremental payload containing only the latest tokens.
             history.extend(token_ids)
-            return len(token_ids)
+            return len(token_ids), bool(token_ids)
 
         try:
             async for chunk in self._engine.generate(  # type: ignore[func-returns-value]
@@ -323,8 +327,10 @@ class VLLMClient(InferenceClient):
 
                 for idx, completion in enumerate(outputs):
                     completion_index = getattr(completion, "index", idx)
-                    new_text = _consume_delta_text(completion, completion_index)
-                    new_tokens = _consume_new_token_count(completion, completion_index)
+                    new_tokens, is_incremental = _consume_new_token_count(completion, completion_index)
+                    new_text = _consume_delta_text(
+                        completion, completion_index, new_tokens, is_incremental
+                    )
 
                     if (
                         ttft_ms is None
