@@ -90,6 +90,10 @@ def main(argv: list[str] | None = None) -> int:
 
     client_kwargs = _parse_key_value(args.client_config)
 
+    import trafficbench.clients
+
+    trafficbench.clients.ensure_registered()
+
     try:
         client = ClientRegistry.create(args.client, args.base_url, **client_kwargs)
     except Exception as exc:  # pragma: no cover - convenience script
