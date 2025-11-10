@@ -30,6 +30,8 @@ from .types import (ComputeMetrics, EnergyMetrics, LatencyMetrics,
 class ProfilerRunner:
     """Coordinate dataset iteration, inference calls, telemetry capture, and persistence."""
 
+    _FLUSH_INTERVAL = 1
+
     # The runner is intentionally a slim orchestrator, but it still handles a
     # fair amount of coordination work:
     #
@@ -82,27 +84,7 @@ class ProfilerRunner:
         if not self._records:
             return
 
-        output_path = self._get_output_path()
-        if output_path.exists():
-            shutil.rmtree(output_path)
-        output_path.parent.mkdir(parents=True, exist_ok=True)
-        dataset_obj = Dataset.from_list([asdict(record) for record in self._records])
-        dataset_obj.save_to_disk(str(output_path))
-        output_path.mkdir(parents=True, exist_ok=True)
-
-        summary = {
-            "model": self._config.model,
-            "dataset": getattr(dataset, "dataset_id", self._config.dataset_id),
-            "dataset_name": getattr(dataset, "dataset_name", None),
-            "hardware_label": self._hardware_label,
-            "generated_at": time.time(),
-            "total_queries": len(self._records),
-            "system_info": asdict(self._system_info) if self._system_info else None,
-            "gpu_info": asdict(self._gpu_info) if self._gpu_info else None,
-            "output_dir": str(output_path),
-        }
-        summary_path = output_path / "summary.json"
-        summary_path.write_text(json.dumps(summary, indent=2))
+        self._persist_records(dataset)
 
     def _process_records(
         self,
@@ -123,6 +105,8 @@ class ProfilerRunner:
                 built = self._build_record(index, record, response, samples, start, end)
                 if built is not None:
                     self._records.append(built)
+                    if len(self._records) % self._FLUSH_INTERVAL == 0:
+                        self._persist_records(dataset)
                 progress.update(1)
 
     def _build_record(
@@ -351,6 +335,33 @@ class ProfilerRunner:
                 f"Client '{client.client_name}' at {getattr(client, 'base_url', '')} is unavailable"
             )
         client.prepare(self._config.model)
+
+    def _persist_records(self, dataset) -> None:
+        if not self._records:
+            return
+
+        output_path = self._get_output_path()
+        if output_path.exists():
+            shutil.rmtree(output_path)
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+
+        dataset_obj = Dataset.from_list([asdict(record) for record in self._records])
+        dataset_obj.save_to_disk(str(output_path))
+        output_path.mkdir(parents=True, exist_ok=True)
+
+        summary = {
+            "model": self._config.model,
+            "dataset": getattr(dataset, "dataset_id", self._config.dataset_id),
+            "dataset_name": getattr(dataset, "dataset_name", None),
+            "hardware_label": self._hardware_label,
+            "generated_at": time.time(),
+            "total_queries": len(self._records),
+            "system_info": asdict(self._system_info) if self._system_info else None,
+            "gpu_info": asdict(self._gpu_info) if self._gpu_info else None,
+            "output_dir": str(output_path),
+        }
+        summary_path = output_path / "summary.json"
+        summary_path.write_text(json.dumps(summary, indent=2))
 
 
 def _stat_summary(values: Iterable[Optional[float]]) -> MetricStats:
