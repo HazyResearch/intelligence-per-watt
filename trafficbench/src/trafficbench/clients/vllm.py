@@ -171,7 +171,7 @@ class VLLMClient(InferenceClient):
             max_tokens=self._warmup_max_tokens,
             temperature=0.0,
             top_p=1.0,
-            output_kind=RequestOutputKind.DELTA,  # type: ignore[index]
+            output_kind=RequestOutputKind.DELTA, 
         )
 
         for idx in range(self._warmup_count):
