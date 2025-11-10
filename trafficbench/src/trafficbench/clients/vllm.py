@@ -15,11 +15,16 @@ from ..core.registry import ClientRegistry
 from ..core.types import ChatUsage, Response
 from .base import InferenceClient
 
-SamplingParams = None  # type: ignore[assignment]
-AsyncEngineArgs = None  # type: ignore[assignment]
-RequestOutputKind = None  # type: ignore[assignment]
-AsyncLLM = None  # type: ignore[assignment]
-_VLLM_IMPORT_ERROR: Exception | None = None
+try:
+    from vllm import SamplingParams
+    from vllm.engine.arg_utils import AsyncEngineArgs
+    from vllm.sampling_params import RequestOutputKind
+    from vllm.v1.engine.async_llm import AsyncLLM
+except Exception as exc:  # pragma: no cover - optional dependency
+    SamplingParams = AsyncEngineArgs = RequestOutputKind = AsyncLLM = None  # type: ignore[assignment]
+    _VLLM_IMPORT_ERROR: Exception | None = exc
+else:
+    _VLLM_IMPORT_ERROR = None
 
 
 DEFAULT_WARMUP_COUNT = 10
@@ -55,23 +60,11 @@ class _AsyncLoopRunner:
 
 
 def _ensure_vllm_available() -> None:
-    global SamplingParams, AsyncEngineArgs, RequestOutputKind, AsyncLLM, _VLLM_IMPORT_ERROR
-    if None not in {AsyncLLM, AsyncEngineArgs, SamplingParams, RequestOutputKind}:
+    if AsyncLLM is not None:
         return
     if _VLLM_IMPORT_ERROR is not None:
         raise RuntimeError("Install the 'vllm' package to use the offline vLLM client.") from _VLLM_IMPORT_ERROR
-    try:  # pragma: no cover - exercised via monkeypatched fallbacks in tests
-        from vllm import SamplingParams as _SamplingParams
-        from vllm.engine.arg_utils import AsyncEngineArgs as _AsyncEngineArgs
-        from vllm.sampling_params import RequestOutputKind as _RequestOutputKind
-        from vllm.v1.engine.async_llm import AsyncLLM as _AsyncLLM
-    except Exception as exc:  # pragma: no cover - import guarded for optional dependency
-        _VLLM_IMPORT_ERROR = exc
-        raise RuntimeError("Install the 'vllm' package to use the offline vLLM client.") from exc
-    SamplingParams = _SamplingParams  # type: ignore[assignment]
-    AsyncEngineArgs = _AsyncEngineArgs  # type: ignore[assignment]
-    RequestOutputKind = _RequestOutputKind  # type: ignore[assignment]
-    AsyncLLM = _AsyncLLM  # type: ignore[assignment]
+    raise RuntimeError("vLLM dependency failed to import for an unknown reason.")
 
 
 @ClientRegistry.register("vllm")
@@ -271,13 +264,16 @@ class VLLMClient(InferenceClient):
 
                     finished_reason = getattr(completion, "finished_reason", None)
                     if finished_reason is not None:
+                        print(f"[vllm] request_id={request_id} completion finished_reason={finished_reason}")
                         if str(finished_reason).lower() in {"stop", "stopped", "eos", "eos_token"}:
                             stop_requested = True
 
                 if stop_requested:
+                    print(f"[vllm] request_id={request_id} stopping stream due to finished_reason")
                     break
 
                 if getattr(chunk, "finished", False):
+                    print(f"[vllm] request_id={request_id} stream finished by engine")
                     break
         except Exception as exc:  # pragma: no cover - actual streaming exercised in integration
             raise RuntimeError(f"vLLM offline generation failed: {exc}") from exc
