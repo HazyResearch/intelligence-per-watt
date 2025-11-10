@@ -11,9 +11,11 @@ use std::sync::Mutex;
 use tracing::{debug, trace};
 
 #[cfg(not(target_os = "macos"))]
-use super::{TelemetryCollector, TelemetryReading, get_system_info};
+use super::TelemetryCollector;
 #[cfg(not(target_os = "macos"))]
-use crate::energy::{GpuInfo, SystemInfo};
+use crate::energy::{GpuInfo, SystemInfo, TelemetryReading};
+#[cfg(not(target_os = "macos"))]
+use crate::host::get_system_info;
 #[cfg(not(target_os = "macos"))]
 use sysinfo::System;
 
