@@ -58,8 +58,11 @@ def profile(
     max_queries: int | None,
 ) -> None:
     """Execute profiling run with the execution pipeline."""
-    import trafficbench.clients  # noqa: F401  # Register client implementations
-    import trafficbench.datasets  # noqa: F401  # Register dataset providers
+    import trafficbench.clients
+    import trafficbench.datasets
+
+    trafficbench.clients.ensure_registered()
+    trafficbench.datasets.ensure_registered()
     from trafficbench.execution import ProfilerRunner  # Deferred import for heavy dependencies
 
     config = ProfilerConfig(

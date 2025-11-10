@@ -3,15 +3,13 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any, Dict, TYPE_CHECKING
+from typing import Any, Dict
 
 import click
 
 from ..core.registry import VisualizationRegistry
+from ..visualization.base import VisualizationContext
 from ._console import error, info, warning
-
-if TYPE_CHECKING:
-    from ..visualization.base import VisualizationContext
 
 
 def _collect_options(ctx, param, values):
@@ -60,9 +58,10 @@ def plot(
     options: Dict[str, Any],
 ) -> None:
     """Generate visualizations from profiling results."""
-    from ..visualization.base import VisualizationContext
 
-    import trafficbench.visualization  # noqa: F401  # Register visualization providers
+    import trafficbench.visualization
+
+    trafficbench.visualization.ensure_registered()
     # Get visualization provider
     try:
         provider_cls = VisualizationRegistry.get(visualization_id)

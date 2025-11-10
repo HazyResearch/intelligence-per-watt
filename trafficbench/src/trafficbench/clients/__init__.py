@@ -4,7 +4,12 @@ Clients register themselves with ``trafficbench.core.ClientRegistry``.
 """
 
 from .base import InferenceClient
-from .ollama import OllamaClient
-from .vllm import VLLMClient
 
-__all__ = ["InferenceClient", "OllamaClient", "VLLMClient"]
+
+def ensure_registered() -> None:
+    """Import built-in client implementations to populate the registry."""
+    from . import ollama  # noqa: F401
+    from . import vllm  # noqa: F401
+
+
+__all__ = ["InferenceClient", "ensure_registered"]

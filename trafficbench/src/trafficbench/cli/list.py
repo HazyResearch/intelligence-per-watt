@@ -18,7 +18,9 @@ def list_cmd() -> None:
 @list_cmd.command("clients", help="List available inference clients")
 def list_clients() -> None:
     """List all registered inference clients."""
-    import trafficbench.clients  # noqa: F401  # Ensure client implementations are registered
+    import trafficbench.clients
+
+    trafficbench.clients.ensure_registered()
 
     items = ClientRegistry.items()
 
@@ -34,7 +36,9 @@ def list_clients() -> None:
 @list_cmd.command("datasets", help="List available datasets")
 def list_datasets() -> None:
     """List all registered dataset providers."""
-    import trafficbench.datasets  # noqa: F401  # Ensure dataset providers are registered
+    import trafficbench.datasets
+
+    trafficbench.datasets.ensure_registered()
 
     items = DatasetRegistry.items()
 
@@ -50,7 +54,9 @@ def list_datasets() -> None:
 @list_cmd.command("analyses", help="List available analysis providers")
 def list_analyses() -> None:
     """List all registered analysis providers."""
-    import trafficbench.analysis  # noqa: F401  # Ensure analyses are registered
+    import trafficbench.analysis
+
+    trafficbench.analysis.ensure_registered()
 
     items = AnalysisRegistry.items()
 
@@ -66,7 +72,9 @@ def list_analyses() -> None:
 @list_cmd.command("visualizations", help="List available visualization providers")
 def list_visualizations() -> None:
     """List all registered visualization providers."""
-    import trafficbench.visualization  # noqa: F401  # Ensure visualizations are registered
+    import trafficbench.visualization
+
+    trafficbench.visualization.ensure_registered()
 
     items = VisualizationRegistry.items()
 

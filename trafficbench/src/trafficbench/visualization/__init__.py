@@ -3,14 +3,18 @@
 Visualizations register themselves with ``trafficbench.core.VisualizationRegistry``.
 """
 
-from . import output_kde, regression
-from .base import (VisualizationContext, VisualizationProvider,
-                   VisualizationResult)
+from .base import VisualizationContext, VisualizationProvider, VisualizationResult
+
+
+def ensure_registered() -> None:
+    """Import built-in visualization providers to populate the registry."""
+    from . import output_kde  # noqa: F401  (registers on import)
+    from . import regression  # noqa: F401  (registers on import)
+
 
 __all__ = [
     "VisualizationProvider",
     "VisualizationContext",
     "VisualizationResult",
-    "output_kde",
-    "regression",
+    "ensure_registered",
 ]

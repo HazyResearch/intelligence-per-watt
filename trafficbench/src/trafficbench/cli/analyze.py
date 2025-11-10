@@ -58,7 +58,9 @@ def analyze(
     options: Dict[str, Any],
 ) -> None:
     """Compute analysis results for a profiling run."""
-    import trafficbench.analysis  # noqa: F401  # Deferred import to populate registry
+    import trafficbench.analysis
+
+    trafficbench.analysis.ensure_registered()
 
     context = AnalysisContext(
         results_dir=directory,

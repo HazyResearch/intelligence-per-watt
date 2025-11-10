@@ -3,6 +3,12 @@
 Datasets register themselves with ``trafficbench.core.DatasetRegistry``.
 """
 
-from . import trafficbench
+from .base import DatasetProvider
 
-__all__ = ["trafficbench"]
+
+def ensure_registered() -> None:
+    """Import built-in dataset providers to populate the registry."""
+    from . import trafficbench  # noqa: F401
+
+
+__all__ = ["DatasetProvider", "ensure_registered"]
