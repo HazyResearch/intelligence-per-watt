@@ -11,11 +11,9 @@ use std::sync::Mutex;
 use tracing::{debug, trace};
 
 #[cfg(not(target_os = "macos"))]
-use super::TelemetryCollector;
+use super::{CollectorSample, TelemetryCollector};
 #[cfg(not(target_os = "macos"))]
-use crate::energy::{GpuInfo, SystemInfo, TelemetryReading};
-#[cfg(not(target_os = "macos"))]
-use crate::host::get_system_info;
+use crate::energy::GpuInfo;
 #[cfg(not(target_os = "macos"))]
 use sysinfo::System;
 
@@ -27,7 +25,6 @@ pub struct NvidiaCollector {
     last_energy_readings: Arc<Mutex<Vec<u64>>>,
     last_timestamp: Arc<Mutex<Option<std::time::Instant>>>,
     accumulated_energy_j_per_gpu: Arc<Mutex<Vec<f64>>>,
-    system_info: Arc<Mutex<SystemInfo>>,
     gpu_info: Arc<Mutex<GpuInfo>>,
 }
 
@@ -102,7 +99,6 @@ impl NvidiaCollector {
             last_energy_readings: Arc::new(Mutex::new(last_energy_readings)),
             last_timestamp: Arc::new(Mutex::new(None)),
             accumulated_energy_j_per_gpu: Arc::new(Mutex::new(accumulated_energy_j_per_gpu)),
-            system_info: Arc::new(Mutex::new(get_system_info())),
             gpu_info: Arc::new(Mutex::new(gpu_info)),
         };
 
@@ -125,8 +121,8 @@ impl TelemetryCollector for NvidiaCollector {
         }
     }
 
-    async fn collect(&self) -> Result<TelemetryReading> {
-        let mut reading = TelemetryReading {
+    async fn collect(&self) -> Result<CollectorSample> {
+        let mut sample = CollectorSample {
             power_watts: -1.0,
             energy_joules: -1.0,
             temperature_celsius: -1.0,
@@ -137,7 +133,6 @@ impl TelemetryCollector for NvidiaCollector {
                 .duration_since(std::time::UNIX_EPOCH)
                 .unwrap()
                 .as_nanos() as i64,
-            system_info: Some(self.system_info.lock().unwrap().clone()),
             gpu_info: Some(self.gpu_info.lock().unwrap().clone()),
         };
 
@@ -286,24 +281,24 @@ impl TelemetryCollector for NvidiaCollector {
             }
 
             if any_power_ok {
-                reading.power_watts = power_sum_w;
+                sample.power_watts = power_sum_w;
             }
             if any_energy_ok {
-                reading.energy_joules = energy_total_j;
+                sample.energy_joules = energy_total_j;
             }
             if temp_count > 0 {
-                reading.temperature_celsius = temp_sum_c / (temp_count as f64);
+                sample.temperature_celsius = temp_sum_c / (temp_count as f64);
             }
             if any_mem_ok {
-                reading.gpu_memory_usage_mb = mem_sum_mb;
+                sample.gpu_memory_usage_mb = mem_sum_mb;
             }
 
             trace!(
                 "Aggregated: power={:.3} W, energy={:.6} J, temp_avg={:.2} C, gpu_mem_sum={:.2} MB",
-                reading.power_watts,
-                reading.energy_joules,
-                reading.temperature_celsius,
-                reading.gpu_memory_usage_mb
+                sample.power_watts,
+                sample.energy_joules,
+                sample.temperature_celsius,
+                sample.gpu_memory_usage_mb
             );
 
             trace!(
@@ -316,9 +311,9 @@ impl TelemetryCollector for NvidiaCollector {
         if let Ok(mut sys) = std::panic::catch_unwind(|| System::new_all()) {
             sys.refresh_memory();
             let used_mb = (sys.used_memory() as f64) / (1024.0 * 1024.0);
-            reading.cpu_memory_usage_mb = used_mb;
+            sample.cpu_memory_usage_mb = used_mb;
         }
-        Ok(reading)
+        Ok(sample)
     }
 
     // per-query memory tracking removed from collector; computed client-side
