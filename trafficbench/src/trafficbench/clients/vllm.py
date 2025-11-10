@@ -104,6 +104,13 @@ class VLLMClient(InferenceClient):
         self._warmup_if_needed()
 
         sampling_params = self._build_sampling_params(params)
+        print(
+            "[vllm] stream_chat_completion",
+            f"model={model}",
+            f"prompt={prompt!r}",
+            f"sampling={sampling_params}",
+            f"extra_params={params}",
+        )
         request_id = str(params.get("request_id", uuid.uuid4()))
         runner = self._loop_runner
         if runner is None:
@@ -230,6 +237,8 @@ class VLLMClient(InferenceClient):
         ttft_ms: float | None = None
         content_parts: list[str] = []
 
+        last_finished_reason: Any | None = None
+
         try:
             async for chunk in self._engine.generate(  # type: ignore[func-returns-value]
                 request_id=request_id,
@@ -265,6 +274,7 @@ class VLLMClient(InferenceClient):
                     finished_reason = getattr(completion, "finished_reason", None)
                     if finished_reason is not None:
                         print(f"[vllm] request_id={request_id} completion finished_reason={finished_reason}")
+                        last_finished_reason = finished_reason
                         if str(finished_reason).lower() in {"stop", "stopped", "eos", "eos_token"}:
                             stop_requested = True
 
@@ -284,4 +294,8 @@ class VLLMClient(InferenceClient):
             total_tokens=(prompt_tokens or 0) + completion_tokens,
         )
         content = "".join(content_parts)
+        if last_finished_reason is None:
+            print(f"[vllm] request_id={request_id} completed without finished_reason")
+        else:
+            print(f"[vllm] request_id={request_id} final finished_reason={last_finished_reason}")
         return Response(content=content, usage=usage, time_to_first_token_ms=ttft_ms or 0.0)
