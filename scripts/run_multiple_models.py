@@ -14,13 +14,6 @@ from argparse import ArgumentParser, BooleanOptionalAction
 from datetime import datetime
 from pathlib import Path
 
-try:
-    from huggingface_hub import HfApi
-    from huggingface_hub.utils import HfHubHTTPError
-except ImportError:  # pragma: no cover - dependency check
-    HfApi = None  # type: ignore[assignment]
-    HfHubHTTPError = Exception  # type: ignore[assignment]
-
 
 STATE_DIR = Path(__file__).resolve().parent / "logs"
 STATE_FILE = STATE_DIR / "run_state.json"
@@ -141,43 +134,10 @@ def run_benchmark(model: str) -> bool:
         print(f"[ERROR] Failed to run {model} (elapsed: {elapsed})")
         traceback.print_exc()
         return False
-
-
-def ensure_models_available(models: list[str]) -> None:
-    """Verify all configured models exist on Hugging Face Hub."""
-    if HfApi is None:
-        print("[ERROR] huggingface_hub is required to validate models. Install it with `pip install huggingface_hub`.")
-        sys.exit(1)
-
-    api = HfApi()
-    missing = []
-    print(f"Validating availability for {len(models)} models on Hugging Face Hub")
-    for model in models:
-        try:
-            api.model_info(model)
-        except HfHubHTTPError as err:
-            if getattr(err, "response", None) and getattr(err.response, "status_code", None) == 404:
-                missing.append((model, "not found"))
-            else:
-                missing.append((model, f"error: {err}"))
-        except Exception as err:  # pragma: no cover - unexpected errors
-            missing.append((model, f"error {err}"))
-
-    if missing:
-        print("One or more models are not available on Hugging Face Hub:")
-        for model, reason in missing:
-            print(f"  - {model}: {reason}")
-        sys.exit(1)
-
-    print(f"All {len(models)} models are available on Hugging Face Hub")
-
-
 if __name__ == "__main__":
     args = _parse_args()
     print("Starting trafficbench multi-model profiling run")
     print(f"Configured models: {', '.join(MODELS)}")
-
-    ensure_models_available(MODELS)
 
     state: dict[str, str] = _load_run_state() if args.resume else {}
     if args.resume:
