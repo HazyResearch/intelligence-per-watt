@@ -6,9 +6,11 @@ configured list. Each model runs independently - if one fails, it is logged
 and the script continues with the next model.
 """
 
+import json
 import logging
 import subprocess
 import sys
+from argparse import ArgumentParser, BooleanOptionalAction
 from datetime import datetime
 from pathlib import Path
 
@@ -23,6 +25,7 @@ except ImportError:  # pragma: no cover - dependency check
 logger = logging.getLogger("trafficbench.run_multiple_models")
 MAIN_LOG_FILE: Path | None = None
 RUN_LOG_DIR: Path | None = None
+STATE_FILE: Path | None = None
 
 
 def _slugify(name: str) -> str:
@@ -30,9 +33,65 @@ def _slugify(name: str) -> str:
     return slug.strip("_") or "model"
 
 
+def _state_file_path() -> Path:
+    path = STATE_FILE
+    if path is None:
+        base = Path(__file__).resolve().parent / "logs"
+        base.mkdir(parents=True, exist_ok=True)
+        path = base / "run_state.json"
+    return path
+
+
+def _load_run_state() -> dict[str, dict[str, str]]:
+    path = _state_file_path()
+    if not path.exists():
+        return {}
+    try:
+        with path.open("r", encoding="utf-8") as handle:
+            data = json.load(handle)
+        if not isinstance(data, dict):
+            raise ValueError("run state is not a dict")
+        normalized: dict[str, dict[str, str]] = {}
+        for model, info in data.items():
+            if not isinstance(info, dict):
+                continue
+            status = str(info.get("status", "")).upper()
+            log_path = str(info.get("log", "")).strip()
+            normalized[model] = {"status": status, "log": log_path}
+        return normalized
+    except Exception:
+        logger.exception("Failed to load run state from %s; starting fresh", path)
+        return {}
+
+
+def _save_run_state(state: dict[str, dict[str, str]]) -> None:
+    path = _state_file_path()
+    serializable = {
+        model: {"status": info.get("status", ""), "log": str(info.get("log", ""))}
+        for model, info in state.items()
+    }
+    try:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        with path.open("w", encoding="utf-8") as handle:
+            json.dump(serializable, handle, indent=2, sort_keys=True)
+    except Exception:
+        logger.exception("Failed to persist run state to %s", path)
+
+
+def _parse_args():
+    parser = ArgumentParser(description="Run trafficbench profiling for multiple models sequentially.")
+    parser.add_argument(
+        "--resume",
+        action=BooleanOptionalAction,
+        default=True,
+        help="Resume from previous run state and skip models already marked as SUCCESS.",
+    )
+    return parser.parse_args()
+
+
 def setup_logging() -> Path:
     """Configure logging to both console and file."""
-    global MAIN_LOG_FILE, RUN_LOG_DIR
+    global MAIN_LOG_FILE, RUN_LOG_DIR, STATE_FILE
 
     log_dir = Path(__file__).resolve().parent / "logs"
     run_logs_dir = log_dir / "runs"
@@ -62,6 +121,7 @@ def setup_logging() -> Path:
     logger.info("Logging initialized. Output file: %s", log_file)
     MAIN_LOG_FILE = log_file
     RUN_LOG_DIR = run_logs_dir
+    STATE_FILE = log_dir / "run_state.json"
 
     return log_file
 
@@ -212,19 +272,40 @@ def ensure_models_available(models: list[str]) -> None:
 
 
 if __name__ == "__main__":
+    args = _parse_args()
     setup_logging()
     logger.info("Starting trafficbench multi-model profiling run")
     logger.info("Configured models: %s", ", ".join(MODELS))
 
     ensure_models_available(MODELS)
 
-    results: dict[str, dict[str, object]] = {}
+    state = _load_run_state() if args.resume else {}
+    if args.resume:
+        logger.info("Resume enabled; loaded run state for %d models", len(state))
+    else:
+        logger.info("Resume disabled; starting with a fresh run state")
+        state = {}
+
+    results: dict[str, dict[str, str]] = {}
     logger.info("Running benchmarks for %d models sequentially...", len(MODELS))
 
     for model in MODELS:
+        existing = state.get(model)
+        if args.resume and existing and existing.get("status") == "SUCCESS":
+            logger.info(
+                "Skipping %s (previous run success). Log: %s",
+                model,
+                existing.get("log", "unknown"),
+            )
+            results[model] = existing
+            continue
+
         success, run_log = run_benchmark(model)
         status = "SUCCESS" if success else "FAILED"
-        results[model] = {"status": status, "log": run_log}
+        record = {"status": status, "log": str(run_log)}
+        state[model] = record
+        results[model] = record
+        _save_run_state(state)
 
     # Summary
     separator = "=" * 60
@@ -237,13 +318,14 @@ if __name__ == "__main__":
 
     for model, info in results.items():
         status = info["status"]
-        run_log = info["log"]
+        run_log = info.get("log") or "unknown"
         prefix = "[OK]  " if status == "SUCCESS" else "[FAIL]"
         logger.info("%s %s: %s (log: %s)", prefix, model, status, run_log)
 
     logger.info("Total: %d/%d succeeded, %d failed", success_count, len(MODELS), failed_count)
     per_run_dir = RUN_LOG_DIR or (Path(__file__).resolve().parent / "logs" / "runs")
     logger.info("Per-run logs directory: %s", per_run_dir)
+    logger.info("Run state file: %s", _state_file_path())
     if MAIN_LOG_FILE:
         logger.info("Main log file located at: %s", MAIN_LOG_FILE)
     else:
