@@ -8,7 +8,6 @@ from typing import Dict
 import click
 
 from trafficbench.core.types import ProfilerConfig
-from trafficbench.execution import ProfilerRunner
 
 from ._console import success
 
@@ -59,6 +58,10 @@ def profile(
     max_queries: int | None,
 ) -> None:
     """Execute profiling run with the execution pipeline."""
+    import trafficbench.clients  # noqa: F401  # Register client implementations
+    import trafficbench.datasets  # noqa: F401  # Register dataset providers
+    from trafficbench.execution import ProfilerRunner  # Deferred import for heavy dependencies
+
     config = ProfilerConfig(
         dataset_id=dataset_id,
         client_id=client_id,

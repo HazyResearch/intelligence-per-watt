@@ -3,11 +3,14 @@
 from __future__ import annotations
 
 import time
+from typing import TYPE_CHECKING
 
 import click
 
 from trafficbench.core.types import TelemetryReading
-from trafficbench.telemetry import EnergyMonitorCollector
+
+if TYPE_CHECKING:
+    from trafficbench.telemetry import EnergyMonitorCollector
 
 from ._console import info, success
 
@@ -30,6 +33,8 @@ def energy(
     target: str,
     interval: float,
 ) -> None:
+    from trafficbench.telemetry import EnergyMonitorCollector  # Deferred import for CLI startup
+
     collector_instance = EnergyMonitorCollector(target=target or "")
 
     try:

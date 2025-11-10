@@ -4,13 +4,6 @@ from __future__ import annotations
 
 import click
 
-# Import to trigger registry decorators
-from trafficbench import analysis  # noqa: F401
-from trafficbench import clients  # noqa: F401
-from trafficbench import datasets  # noqa: F401
-from trafficbench import telemetry  # noqa: F401
-from trafficbench import visualization  # noqa: F401
-
 from .analyze import analyze
 from .energy import energy
 from .list import list_cmd

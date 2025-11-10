@@ -58,6 +58,7 @@ def plot(
     options: Dict[str, Any],
 ) -> None:
     """Generate visualizations from profiling results."""
+    import trafficbench.visualization  # noqa: F401  # Register visualization providers
     # Get visualization provider
     try:
         provider_cls = VisualizationRegistry.get(visualization_id)
