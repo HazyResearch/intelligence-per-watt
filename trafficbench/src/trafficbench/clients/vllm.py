@@ -15,19 +15,11 @@ from ..core.registry import ClientRegistry
 from ..core.types import ChatUsage, Response
 from .base import InferenceClient
 
-try:  # pragma: no cover - exercised via monkeypatched fallbacks in tests
-    from vllm import SamplingParams
-    from vllm.engine.arg_utils import AsyncEngineArgs
-    from vllm.sampling_params import RequestOutputKind
-    from vllm.v1.engine.async_llm import AsyncLLM
-except Exception as exc:  # pragma: no cover - import guarded for optional dependency
-    SamplingParams = None  # type: ignore[assignment]
-    AsyncEngineArgs = None  # type: ignore[assignment]
-    RequestOutputKind = None  # type: ignore[assignment]
-    AsyncLLM = None  # type: ignore[assignment]
-    _VLLM_IMPORT_ERROR: Exception | None = exc
-else:  # pragma: no cover
-    _VLLM_IMPORT_ERROR = None
+SamplingParams = None  # type: ignore[assignment]
+AsyncEngineArgs = None  # type: ignore[assignment]
+RequestOutputKind = None  # type: ignore[assignment]
+AsyncLLM = None  # type: ignore[assignment]
+_VLLM_IMPORT_ERROR: Exception | None = None
 
 
 DEFAULT_WARMUP_COUNT = 10
@@ -63,8 +55,23 @@ class _AsyncLoopRunner:
 
 
 def _ensure_vllm_available() -> None:
-    if None in {AsyncLLM, AsyncEngineArgs, SamplingParams, RequestOutputKind}:
+    global SamplingParams, AsyncEngineArgs, RequestOutputKind, AsyncLLM, _VLLM_IMPORT_ERROR
+    if None not in {AsyncLLM, AsyncEngineArgs, SamplingParams, RequestOutputKind}:
+        return
+    if _VLLM_IMPORT_ERROR is not None:
         raise RuntimeError("Install the 'vllm' package to use the offline vLLM client.") from _VLLM_IMPORT_ERROR
+    try:  # pragma: no cover - exercised via monkeypatched fallbacks in tests
+        from vllm import SamplingParams as _SamplingParams
+        from vllm.engine.arg_utils import AsyncEngineArgs as _AsyncEngineArgs
+        from vllm.sampling_params import RequestOutputKind as _RequestOutputKind
+        from vllm.v1.engine.async_llm import AsyncLLM as _AsyncLLM
+    except Exception as exc:  # pragma: no cover - import guarded for optional dependency
+        _VLLM_IMPORT_ERROR = exc
+        raise RuntimeError("Install the 'vllm' package to use the offline vLLM client.") from exc
+    SamplingParams = _SamplingParams  # type: ignore[assignment]
+    AsyncEngineArgs = _AsyncEngineArgs  # type: ignore[assignment]
+    RequestOutputKind = _RequestOutputKind  # type: ignore[assignment]
+    AsyncLLM = _AsyncLLM  # type: ignore[assignment]
 
 
 @ClientRegistry.register("vllm")
@@ -79,7 +86,7 @@ class VLLMClient(InferenceClient):
         super().__init__(base_url or self.DEFAULT_BASE_URL, **config)
         _ensure_vllm_available()
 
-        self._engine_kwargs: dict[str, Any] = {}
+        self._engine_kwargs: dict[str, Any] = {"enforce_eager": True}
         self._sampling_defaults: dict[str, Any] = {}
         self._warmup_count = DEFAULT_WARMUP_COUNT
         self._warmup_max_tokens = DEFAULT_WARMUP_MAX_TOKENS

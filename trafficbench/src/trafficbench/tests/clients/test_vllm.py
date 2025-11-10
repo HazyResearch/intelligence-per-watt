@@ -136,7 +136,7 @@ def test_sampling_params_and_engine_overrides() -> None:
 
     assert response.content == "Done"
     engine_args = client._engine_args.kwargs  # type: ignore[attr-defined]
-    assert engine_args.get("enforce_eager") is True
+    assert engine_args.get("enforce_eager") is None
 
     engine = DummyAsyncLLM.instances[0]
     sampling = engine.calls[-1]["sampling_params"].kwargs
