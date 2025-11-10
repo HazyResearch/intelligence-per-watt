@@ -87,7 +87,7 @@ class VLLMClient(InferenceClient):
         _ensure_vllm_available()
 
         self._engine_kwargs: dict[str, Any] = {}
-        self._sampling_defaults: dict[str, Any] = {}
+        self._sampling_defaults: dict[str, Any] = {"max_tokens": 4096}
         self._warmup_count = DEFAULT_WARMUP_COUNT
         self._warmup_max_tokens = DEFAULT_WARMUP_MAX_TOKENS
         self._warmup_done = False
