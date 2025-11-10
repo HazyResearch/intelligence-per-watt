@@ -231,6 +231,9 @@ class TestComputeRegression:
         result = _compute_regression(samples)
 
         assert result["count"] == 3
+        assert result["slope"] is not None
+        assert result["intercept"] is not None
+        assert result["r2"] is not None
         assert math.isclose(result["slope"], 2.0, abs_tol=1e-10)
         assert math.isclose(result["intercept"], 0.0, abs_tol=1e-10)
         assert math.isclose(result["r2"], 1.0, abs_tol=1e-10)
@@ -514,4 +517,3 @@ class TestRegressionAnalysis:
         assert "regressions" in result.data
         # Single sample produces None slope/intercept/r2, so should be filtered
         assert len(result.data["regressions"]) == 0
-
