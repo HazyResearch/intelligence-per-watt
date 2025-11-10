@@ -23,6 +23,7 @@ dependencies = [
     "pyarrow>=15",
     "tqdm>=4.66",
     "ollama",
+    "hf_transfer",
     "vllm>=0.11.0",
 ]
 
