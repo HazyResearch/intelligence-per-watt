@@ -5,7 +5,6 @@ from __future__ import annotations
 import click
 
 from .analyze import analyze
-from .energy import energy
 from .list import list_cmd
 from .plot import plot
 from .profile import profile
@@ -20,7 +19,6 @@ cli.add_command(profile, "profile")
 cli.add_command(analyze, "analyze")
 cli.add_command(plot, "plot")
 cli.add_command(list_cmd, "list")
-cli.add_command(energy, "energy")
 
 
 def main() -> None:

@@ -1,50 +1,57 @@
-"""Energy CLI backed by the bundled telemetry collector."""
+#!/usr/bin/env python3
+"""Utility script to validate energy monitor telemetry streaming."""
 
 from __future__ import annotations
 
+import argparse
+import sys
 import time
 from typing import TYPE_CHECKING
 
-import click
-
+from trafficbench.cli._console import error, info, success
 from trafficbench.core.types import TelemetryReading
 
 if TYPE_CHECKING:
     from trafficbench.telemetry import EnergyMonitorCollector
 
-from ._console import info, success
+
+def parse_args() -> argparse.Namespace:
+    parser = argparse.ArgumentParser(
+        description="Test that the energy monitor can stream telemetry readings."
+    )
+    parser.add_argument(
+        "--target",
+        type=str,
+        default="",
+        help="Energy monitor gRPC target (host:port). Defaults to the local launcher.",
+    )
+    parser.add_argument(
+        "--interval",
+        type=float,
+        default=1.0,
+        help="Seconds between printed samples (default: 1.0).",
+    )
+    return parser.parse_args()
 
 
-@click.command(help="Ensure an energy monitor can run and stream telemetry.")
-@click.option(
-    "--target",
-    type=str,
-    help="Energy monitor gRPC target (host:port)",
-)
-@click.option(
-    "-i",
-    "--interval",
-    type=float,
-    default=1.0,
-    show_default=True,
-    help="Seconds between printed samples",
-)
-def energy(
-    target: str,
-    interval: float,
-) -> None:
-    from trafficbench.telemetry import EnergyMonitorCollector  # Deferred import for CLI startup
+def main() -> None:
+    args = parse_args()
 
-    collector_instance = EnergyMonitorCollector(target=target or "")
+    from trafficbench.telemetry import EnergyMonitorCollector
+
+    collector = EnergyMonitorCollector(target=args.target)
 
     try:
-        with collector_instance.start():
-            _run_monitor(collector_instance, interval)
+        with collector.start():
+            _run_monitor(collector, args.interval)
     except RuntimeError as exc:
-        raise click.ClickException(str(exc)) from exc
+        error(str(exc))
+        sys.exit(1)
+    except KeyboardInterrupt:
+        info("\nStopping monitor")
 
 
-def _run_monitor(collector: EnergyMonitorCollector, interval: float) -> None:
+def _run_monitor(collector: "EnergyMonitorCollector", interval: float) -> None:
     success(f"Streaming telemetry via collector '{collector.collector_name}'")
 
     info(
@@ -62,15 +69,12 @@ def _run_monitor(collector: EnergyMonitorCollector, interval: float) -> None:
     start = time.time()
     last_emit = start - interval
 
-    try:
-        for reading in collector.stream_readings():
-            now = time.time()
-            if now - last_emit < max(interval, 0.05):
-                continue
-            last_emit = now
-            info(_format_line(now - start, reading))
-    except KeyboardInterrupt:
-        info("\nStopping monitor")
+    for reading in collector.stream_readings():
+        now = time.time()
+        if now - last_emit < max(interval, 0.05):
+            continue
+        last_emit = now
+        info(_format_line(now - start, reading))
 
 
 def _format_line(elapsed: float, reading: TelemetryReading) -> str:
@@ -101,4 +105,6 @@ def _format_metric(value: float | None, *, width: int, precision: int) -> str:
         return f"{'-':>{width}}"
 
 
-__all__ = ["energy"]
+if __name__ == "__main__":
+    main()
+

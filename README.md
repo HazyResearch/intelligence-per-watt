@@ -88,12 +88,12 @@ Discover available clients, datasets, and analysis types.
 trafficbench list <clients|datasets|analyses|visualizations|all>
 ```
 
-### `trafficbench energy`
+### Energy monitor test script
 
-Test energy monitoring hardware (verify your system can collect power metrics).
+Validate that your system can collect energy telemetry before running full workloads.
 
 ```bash
-trafficbench energy [--interval 2.0]
+uv run scripts/test_energy_monitor.py [--interval 2.0]
 ```
 
 ## Output
