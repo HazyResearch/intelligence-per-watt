@@ -79,8 +79,27 @@ def _fake_perf_counter(monkeypatch: pytest.MonkeyPatch):
     monkeypatch.setattr("trafficbench.clients.vllm.time.perf_counter", fake_perf_counter)
 
 
-def _make_chunk(text: str, finished: bool, prompt_tokens: int = 0, new_tokens: int = 0):
-    completion = types.SimpleNamespace(text=text, token_ids=[0] * new_tokens)
+def _make_chunk(
+    text: str,
+    finished: bool,
+    *,
+    prompt_tokens: int = 0,
+    token_ids: list[int] | None = None,
+    index: int = 0,
+    delta_text: str | None = None,
+    delta_token_ids: list[int] | None = None,
+):
+    kwargs: dict[str, Any] = {
+        "text": text,
+        "token_ids": list(token_ids) if token_ids is not None else [],
+        "index": index,
+    }
+    if delta_text is not None:
+        kwargs["delta_text"] = delta_text
+    if delta_token_ids is not None:
+        kwargs["delta_token_ids"] = list(delta_token_ids)
+
+    completion = types.SimpleNamespace(**kwargs)
     prompt_ids = [0] * prompt_tokens if prompt_tokens else []
     return types.SimpleNamespace(
         outputs=[completion],
@@ -100,8 +119,8 @@ def test_stream_chat_completion_accumulates_tokens() -> None:
     _queue_warmup_outputs(warmups)
     DummyAsyncLLM.next_outputs.append(
         [
-            _make_chunk("Hello", finished=False, prompt_tokens=2, new_tokens=1),
-            _make_chunk(" world", finished=True, prompt_tokens=0, new_tokens=2),
+            _make_chunk("Hello", finished=False, prompt_tokens=2, token_ids=[101]),
+            _make_chunk("Hello world", finished=True, token_ids=[101, 202, 303]),
         ]
     )
     try:
@@ -115,12 +134,57 @@ def test_stream_chat_completion_accumulates_tokens() -> None:
     assert response.time_to_first_token_ms == pytest.approx(100.0)
 
 
+def test_stream_handles_cumulative_repeats() -> None:
+    client = VLLMClient()
+    warmups = client._warmup_count  # type: ignore[attr-defined]
+    _queue_warmup_outputs(warmups)
+
+    DummyAsyncLLM.next_outputs.append(
+        [
+            _make_chunk("Step 1", finished=False, prompt_tokens=1, token_ids=[11]),
+            _make_chunk("Step 1 Step 2", finished=False, token_ids=[11, 12]),
+            _make_chunk("Step 1 Step 2", finished=True, token_ids=[11, 12, 13]),
+        ]
+    )
+
+    try:
+        response = client.stream_chat_completion("meta-llama/Llama", "Prompt text")
+    finally:
+        client.close()
+
+    assert response.content == "Step 1 Step 2"
+    assert response.usage.completion_tokens == 3
+
+
+def test_stream_handles_delta_token_payloads() -> None:
+    client = VLLMClient()
+    warmups = client._warmup_count  # type: ignore[attr-defined]
+    _queue_warmup_outputs(warmups)
+
+    DummyAsyncLLM.next_outputs.append(
+        [
+            _make_chunk("Thinking", finished=False, prompt_tokens=1, delta_token_ids=[7]),
+            _make_chunk("Thinking aloud", finished=True, delta_token_ids=[8, 9]),
+        ]
+    )
+
+    try:
+        response = client.stream_chat_completion("meta-llama/Llama", "Prompt text")
+    finally:
+        client.close()
+
+    assert response.content == "Thinking aloud"
+    assert response.usage.completion_tokens == 3
+
+
 def test_sampling_params_and_engine_overrides() -> None:
     client = VLLMClient()
     warmups = client._warmup_count  # type: ignore[attr-defined]
     _queue_warmup_outputs(warmups)
     client.prepare("meta")
-    DummyAsyncLLM.next_outputs.append([_make_chunk("Done", finished=True, prompt_tokens=1, new_tokens=1)])
+    DummyAsyncLLM.next_outputs.append(
+        [_make_chunk("Done", finished=True, prompt_tokens=1, token_ids=[42])]
+    )
     try:
         response = client.stream_chat_completion(
             "meta",
@@ -154,7 +218,7 @@ def test_registry_entry_points() -> None:
     client = ClientRegistry.create("vllm", None)
     warmups = client._warmup_count  # type: ignore[attr-defined]
     _queue_warmup_outputs(warmups)
-    DummyAsyncLLM.next_outputs.append([_make_chunk("hi", finished=True, new_tokens=1)])
+    DummyAsyncLLM.next_outputs.append([_make_chunk("hi", finished=True, token_ids=[1])])
     try:
         assert isinstance(client, VLLMClient)
         assert client.base_url == "offline://vllm"
