@@ -30,7 +30,7 @@ from .types import (ComputeMetrics, EnergyMetrics, LatencyMetrics,
 class ProfilerRunner:
     """Coordinate dataset iteration, inference calls, telemetry capture, and persistence."""
 
-    _FLUSH_INTERVAL = 1
+    _FLUSH_INTERVAL = 100
 
     # The runner is intentionally a slim orchestrator, but it still handles a
     # fair amount of coordination work:
