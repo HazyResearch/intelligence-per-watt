@@ -86,7 +86,7 @@ class VLLMClient(InferenceClient):
         super().__init__(base_url or self.DEFAULT_BASE_URL, **config)
         _ensure_vllm_available()
 
-        self._engine_kwargs: dict[str, Any] = {"enforce_eager": True}
+        self._engine_kwargs: dict[str, Any] = {}
         self._sampling_defaults: dict[str, Any] = {}
         self._warmup_count = DEFAULT_WARMUP_COUNT
         self._warmup_max_tokens = DEFAULT_WARMUP_MAX_TOKENS
