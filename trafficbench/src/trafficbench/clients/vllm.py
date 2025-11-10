@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 import atexit
 import json
+import logging
 import threading
 import time
 import uuid
@@ -20,6 +21,7 @@ AsyncEngineArgs = None  # type: ignore[assignment]
 RequestOutputKind = None  # type: ignore[assignment]
 AsyncLLM = None  # type: ignore[assignment]
 _VLLM_IMPORT_ERROR: Exception | None = None
+logger = logging.getLogger(__name__)
 
 
 DEFAULT_WARMUP_COUNT = 10
@@ -227,11 +229,16 @@ class VLLMClient(InferenceClient):
         sampling["output_kind"] = RequestOutputKind.DELTA  # type: ignore[index]
         return SamplingParams(**sampling)  # type: ignore[call-arg]
 
-        
-
     async def _stream_response(self, *, prompt: str, request_id: str, sampling_params: Any) -> Response:
         if self._engine is None:
             raise RuntimeError("vLLM engine is not initialized")
+
+        logger.info(
+            "stream_response start request_id=%s model=%s sampling=%s",
+            request_id,
+            self._model_name,
+            sampling_params,
+        )
 
         start_time = time.perf_counter()
         prompt_tokens: int | None = None
@@ -245,30 +252,76 @@ class VLLMClient(InferenceClient):
                 prompt=prompt,
                 sampling_params=sampling_params,
             ):
+                outputs = getattr(chunk, "outputs", []) or []
+                logger.debug(
+                    "chunk request_id=%s finished=%s outputs=%s",
+                    request_id,
+                    getattr(chunk, "finished", None),
+                    len(outputs),
+                )
                 if prompt_tokens is None:
                     prompt_ids = getattr(chunk, "prompt_token_ids", None) or []
                     prompt_tokens = len(prompt_ids)
+                    logger.debug(
+                        "prompt tokens request_id=%s count=%s sample=%s",
+                        request_id,
+                        prompt_tokens,
+                        (prompt_ids[:5] if prompt_ids else []),
+                    )
 
-                for completion in getattr(chunk, "outputs", []) or []:
+                for completion in outputs:
                     delta_text = getattr(completion, "text", "") or ""
                     if delta_text:
+                        snippet = delta_text if len(delta_text) < 120 else f"{delta_text[:117]}..."
+                        logger.debug(
+                            "delta text request_id=%s index=%s len=%s snippet=%r",
+                            request_id,
+                            getattr(completion, "index", None),
+                            len(delta_text),
+                            snippet,
+                        )
                         content_parts.append(delta_text)
                         if ttft_ms is None:
                             ttft_ms = (time.perf_counter() - start_time) * 1000.0
+                            logger.info(
+                                "ttft recorded request_id=%s ttft_ms=%.3f",
+                                request_id,
+                                ttft_ms,
+                            )
 
                     delta_token_ids = getattr(completion, "delta_token_ids", None)
                     if delta_token_ids is None:
                         delta_token_ids = getattr(completion, "token_ids_delta", None)
                     if delta_token_ids is not None:
                         completion_tokens += len(delta_token_ids)
+                        logger.debug(
+                            "delta tokens request_id=%s index=%s count=%s sample=%s",
+                            request_id,
+                            getattr(completion, "index", None),
+                            len(delta_token_ids),
+                            delta_token_ids[:5],
+                        )
                     else:
                         token_ids = getattr(completion, "token_ids", None)
                         if token_ids:
                             completion_tokens += len(token_ids)
+                            logger.debug(
+                                "token snapshot request_id=%s index=%s count=%s sample=%s",
+                                request_id,
+                                getattr(completion, "index", None),
+                                len(token_ids),
+                                token_ids[:5],
+                            )
                             if ttft_ms is None:
                                 ttft_ms = (time.perf_counter() - start_time) * 1000.0
+                                logger.info(
+                                    "ttft (snapshot) request_id=%s ttft_ms=%.3f",
+                                    request_id,
+                                    ttft_ms,
+                                )
 
                 if getattr(chunk, "finished", False):
+                    logger.info("stream finished flag request_id=%s", request_id)
                     break
         except Exception as exc:  # pragma: no cover - actual streaming exercised in integration
             raise RuntimeError(f"vLLM offline generation failed: {exc}") from exc
@@ -278,4 +331,13 @@ class VLLMClient(InferenceClient):
             completion_tokens=completion_tokens,
             total_tokens=(prompt_tokens or 0) + completion_tokens,
         )
-        return Response(content="".join(content_parts), usage=usage, time_to_first_token_ms=ttft_ms or 0.0)
+        content = "".join(content_parts)
+        logger.info(
+            "stream_response done request_id=%s prompt_tokens=%s completion_tokens=%s total_tokens=%s content_len=%s",
+            request_id,
+            usage.prompt_tokens,
+            usage.completion_tokens,
+            usage.total_tokens,
+            len(content),
+        )
+        return Response(content=content, usage=usage, time_to_first_token_ms=ttft_ms or 0.0)

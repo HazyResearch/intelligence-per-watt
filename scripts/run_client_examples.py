@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import logging
 import sys
 from typing import Any, Iterable
 
@@ -80,6 +81,9 @@ def _build_parser() -> argparse.ArgumentParser:
 
 
 def main(argv: list[str] | None = None) -> int:
+    logging.basicConfig(level=logging.DEBUG, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
+    logger = logging.getLogger("trafficbench.scripts.run_client_examples")
+
     parser = _build_parser()
     args = parser.parse_args(argv)
 
@@ -104,10 +108,18 @@ def main(argv: list[str] | None = None) -> int:
             print(prompt)
             print("-" * len(header))
 
+            logger.info(
+                "Sending prompt index=%s request_id_prefix=%s params=%s",
+                idx,
+                f"stream-example-{idx}",
+                request_params,
+            )
+
             try:
                 response = client.stream_chat_completion(args.model, prompt, **request_params)
             except Exception as exc:  # pragma: no cover - interactive use
                 print(f"Request failed: {exc}", file=sys.stderr)
+                logger.exception("Request failed for prompt index=%s", idx)
                 continue
 
             usage = response.usage
@@ -119,6 +131,14 @@ def main(argv: list[str] | None = None) -> int:
                 f"completion_tokens={usage.completion_tokens} "
                 f"total_tokens={usage.total_tokens} "
                 f"ttft_ms={response.time_to_first_token_ms:.1f}"
+            )
+            logger.info(
+                "Completed prompt index=%s prompt_tokens=%s completion_tokens=%s total_tokens=%s ttft_ms=%.3f",
+                idx,
+                usage.prompt_tokens,
+                usage.completion_tokens,
+                usage.total_tokens,
+                response.time_to_first_token_ms,
             )
     finally:
         try:
