@@ -123,22 +123,10 @@ def run_benchmark(model: str) -> bool:
     print(separator)
 
     try:
-        result = subprocess.run(
-            cmd,
-            check=False,
-            capture_output=True,
-            text=True,
-        )
+        result = subprocess.run(cmd, check=False)
 
         end_time = datetime.now()
         elapsed = end_time - start_time
-
-        if result.stdout:
-            print("[trafficbench stdout]")
-            print(result.stdout.rstrip())
-        if result.stderr:
-            print("[trafficbench stderr]")
-            print(result.stderr.rstrip())
 
         if result.returncode != 0:
             print(f"[FAILED] {model} (exit code: {result.returncode}, elapsed: {elapsed})")
