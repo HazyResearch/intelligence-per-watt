@@ -7,9 +7,9 @@ and the script continues with the next model.
 """
 
 import json
-import logging
 import subprocess
 import sys
+import traceback
 from argparse import ArgumentParser, BooleanOptionalAction
 from datetime import datetime
 from pathlib import Path
@@ -22,108 +22,8 @@ except ImportError:  # pragma: no cover - dependency check
     HfHubHTTPError = Exception  # type: ignore[assignment]
 
 
-logger = logging.getLogger("trafficbench.run_multiple_models")
-MAIN_LOG_FILE: Path | None = None
-RUN_LOG_DIR: Path | None = None
-STATE_FILE: Path | None = None
-
-
-def _slugify(name: str) -> str:
-    slug = "".join(c if c.isalnum() or c in ("-", "_") else "_" for c in name)
-    return slug.strip("_") or "model"
-
-
-def _state_file_path() -> Path:
-    path = STATE_FILE
-    if path is None:
-        base = Path(__file__).resolve().parent / "logs"
-        base.mkdir(parents=True, exist_ok=True)
-        path = base / "run_state.json"
-    return path
-
-
-def _load_run_state() -> dict[str, dict[str, str]]:
-    path = _state_file_path()
-    if not path.exists():
-        return {}
-    try:
-        with path.open("r", encoding="utf-8") as handle:
-            data = json.load(handle)
-        if not isinstance(data, dict):
-            raise ValueError("run state is not a dict")
-        normalized: dict[str, dict[str, str]] = {}
-        for model, info in data.items():
-            if not isinstance(info, dict):
-                continue
-            status = str(info.get("status", "")).upper()
-            log_path = str(info.get("log", "")).strip()
-            normalized[model] = {"status": status, "log": log_path}
-        return normalized
-    except Exception:
-        logger.exception("Failed to load run state from %s; starting fresh", path)
-        return {}
-
-
-def _save_run_state(state: dict[str, dict[str, str]]) -> None:
-    path = _state_file_path()
-    serializable = {
-        model: {"status": info.get("status", ""), "log": str(info.get("log", ""))}
-        for model, info in state.items()
-    }
-    try:
-        path.parent.mkdir(parents=True, exist_ok=True)
-        with path.open("w", encoding="utf-8") as handle:
-            json.dump(serializable, handle, indent=2, sort_keys=True)
-    except Exception:
-        logger.exception("Failed to persist run state to %s", path)
-
-
-def _parse_args():
-    parser = ArgumentParser(description="Run trafficbench profiling for multiple models sequentially.")
-    parser.add_argument(
-        "--resume",
-        action=BooleanOptionalAction,
-        default=True,
-        help="Resume from previous run state and skip models already marked as SUCCESS.",
-    )
-    return parser.parse_args()
-
-
-def setup_logging() -> Path:
-    """Configure logging to both console and file."""
-    global MAIN_LOG_FILE, RUN_LOG_DIR, STATE_FILE
-
-    log_dir = Path(__file__).resolve().parent / "logs"
-    run_logs_dir = log_dir / "runs"
-
-    log_dir.mkdir(parents=True, exist_ok=True)
-    run_logs_dir.mkdir(parents=True, exist_ok=True)
-
-    timestamp = datetime.now().strftime("%Y%m%d-%H%M%S")
-    log_file = log_dir / f"run_multiple_models_{timestamp}.log"
-
-    formatter = logging.Formatter("%(asctime)s [%(levelname)s] %(message)s")
-
-    # Avoid duplicate handlers if the script is reloaded.
-    for handler in list(logger.handlers):
-        logger.removeHandler(handler)
-
-    file_handler = logging.FileHandler(log_file)
-    file_handler.setFormatter(formatter)
-
-    console_handler = logging.StreamHandler()
-    console_handler.setFormatter(formatter)
-
-    logger.setLevel(logging.INFO)
-    logger.addHandler(file_handler)
-    logger.addHandler(console_handler)
-
-    logger.info("Logging initialized. Output file: %s", log_file)
-    MAIN_LOG_FILE = log_file
-    RUN_LOG_DIR = run_logs_dir
-    STATE_FILE = log_dir / "run_state.json"
-
-    return log_file
+STATE_DIR = Path(__file__).resolve().parent / "logs"
+STATE_FILE = STATE_DIR / "run_state.json"
 
 # Configure your models here
 MODELS = [
@@ -146,7 +46,6 @@ MODELS = [
     "mistralai/Mixtral-8x7B-Instruct-v0.1",
 ]
 
-
 # Common arguments for all benchmark runs
 COMMON_ARGS = [
     "--client", "vllm",
@@ -154,14 +53,60 @@ COMMON_ARGS = [
 ]
 
 
-def run_benchmark(model: str) -> tuple[bool, Path]:
+def _state_file_path() -> Path:
+    STATE_DIR.mkdir(parents=True, exist_ok=True)
+    return STATE_FILE
+
+
+def _load_run_state() -> dict[str, str]:
+    path = _state_file_path()
+    if not path.exists():
+        return {}
+    try:
+        with path.open("r", encoding="utf-8") as handle:
+            data = json.load(handle)
+        if not isinstance(data, dict):
+            raise ValueError("run state is not a dict")
+        normalized: dict[str, str] = {}
+        for model, status in data.items():
+            normalized[str(model)] = str(status).upper()
+        return normalized
+    except Exception:
+        print(f"[ERROR] Failed to load run state from {path}; starting fresh")
+        traceback.print_exc()
+        return {}
+
+
+def _save_run_state(state: dict[str, str]) -> None:
+    path = _state_file_path()
+    try:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        with path.open("w", encoding="utf-8") as handle:
+            json.dump(state, handle, indent=2, sort_keys=True)
+    except Exception:
+        print(f"[ERROR] Failed to persist run state to {path}")
+        traceback.print_exc()
+
+
+def _parse_args():
+    parser = ArgumentParser(description="Run trafficbench profiling for multiple models sequentially.")
+    parser.add_argument(
+        "--resume",
+        action=BooleanOptionalAction,
+        default=True,
+        help="Resume from previous run state and skip models already marked as SUCCESS.",
+    )
+    return parser.parse_args()
+
+
+def run_benchmark(model: str) -> bool:
     """Run benchmark for a single model.
 
     Args:
         model: Model name/path to benchmark
 
     Returns:
-        Tuple of (success flag, per-run log path)
+        Success flag
     """
     cmd = [
         "trafficbench", "profile",
@@ -171,16 +116,11 @@ def run_benchmark(model: str) -> tuple[bool, Path]:
 
     start_time = datetime.now()
 
-    run_log_dir = RUN_LOG_DIR or (Path(__file__).resolve().parent / "logs" / "runs")
-    run_log_dir.mkdir(parents=True, exist_ok=True)
-    run_log_path = run_log_dir / f"{_slugify(model)}_{start_time.strftime('%Y%m%d-%H%M%S')}.log"
-
     separator = "=" * 60
-    logger.info(separator)
-    logger.info("Starting benchmark for: %s", model)
-    logger.info("Command: %s", " ".join(cmd))
-    logger.info("Per-run log: %s", run_log_path)
-    logger.info(separator)
+    print(separator)
+    print(f"Starting benchmark for: {model}")
+    print(f"Command: {' '.join(cmd)}")
+    print(separator)
 
     try:
         result = subprocess.run(
@@ -193,64 +133,37 @@ def run_benchmark(model: str) -> tuple[bool, Path]:
         end_time = datetime.now()
         elapsed = end_time - start_time
 
-        with run_log_path.open("w", encoding="utf-8") as run_log:
-            run_log.write(f"{separator}\n")
-            run_log.write(f"Model: {model}\n")
-            run_log.write(f"Command: {' '.join(cmd)}\n")
-            run_log.write(f"Started: {start_time.isoformat()}\n")
-            run_log.write(f"Completed: {end_time.isoformat()}\n")
-            run_log.write(f"Exit code: {result.returncode}\n")
-            if result.stdout:
-                run_log.write("\n[STDOUT]\n")
-                run_log.write(result.stdout)
-                if not result.stdout.endswith("\n"):
-                    run_log.write("\n")
-            if result.stderr:
-                run_log.write("\n[STDERR]\n")
-                run_log.write(result.stderr)
-                if not result.stderr.endswith("\n"):
-                    run_log.write("\n")
-
         if result.stdout:
-            logger.info("[trafficbench stdout]\n%s", result.stdout.rstrip())
+            print("[trafficbench stdout]")
+            print(result.stdout.rstrip())
         if result.stderr:
-            logger.error("[trafficbench stderr]\n%s", result.stderr.rstrip())
+            print("[trafficbench stderr]")
+            print(result.stderr.rstrip())
 
         if result.returncode != 0:
-            logger.error("[FAILED] %s (exit code: %s, elapsed: %s)", model, result.returncode, elapsed)
-            logger.error("See per-run log for details: %s", run_log_path)
-            return False, run_log_path
+            print(f"[FAILED] {model} (exit code: {result.returncode}, elapsed: {elapsed})")
+            return False
 
-        logger.info("[COMPLETED] %s (elapsed: %s)", model, elapsed)
-        logger.info("Per-run log saved to: %s", run_log_path)
-        return True, run_log_path
+        print(f"[COMPLETED] {model} (elapsed: {elapsed})")
+        return True
 
     except Exception:
         end_time = datetime.now()
         elapsed = end_time - start_time
-        logger.exception("[ERROR] Failed to run %s (elapsed: %s)", model, elapsed)
-        try:
-            with run_log_path.open("a", encoding="utf-8") as run_log:
-                run_log.write(f"{separator}\n")
-                run_log.write(f"Model: {model}\n")
-                run_log.write(f"Command: {' '.join(cmd)}\n")
-                run_log.write(f"Started: {start_time.isoformat()}\n")
-                run_log.write(f"Errored: {end_time.isoformat()}\n")
-                run_log.write("Exception encountered. See main log for traceback.\n")
-        except Exception:
-            logger.debug("Failed to write exception details to per-run log: %s", run_log_path, exc_info=True)
-        return False, run_log_path
+        print(f"[ERROR] Failed to run {model} (elapsed: {elapsed})")
+        traceback.print_exc()
+        return False
 
 
 def ensure_models_available(models: list[str]) -> None:
     """Verify all configured models exist on Hugging Face Hub."""
     if HfApi is None:
-        logger.error("huggingface_hub is required to validate models. Install it with `pip install huggingface_hub`.")
+        print("[ERROR] huggingface_hub is required to validate models. Install it with `pip install huggingface_hub`.")
         sys.exit(1)
 
     api = HfApi()
     missing = []
-    logger.info("Validating availability for %d models on Hugging Face Hub", len(models))
+    print(f"Validating availability for {len(models)} models on Hugging Face Hub")
     for model in models:
         try:
             api.model_info(model)
@@ -263,73 +176,59 @@ def ensure_models_available(models: list[str]) -> None:
             missing.append((model, f"error {err}"))
 
     if missing:
-        logger.error("One or more models are not available on Hugging Face Hub:")
+        print("One or more models are not available on Hugging Face Hub:")
         for model, reason in missing:
-            logger.error("  - %s: %s", model, reason)
+            print(f"  - {model}: {reason}")
         sys.exit(1)
 
-    logger.info("All %d models are available on Hugging Face Hub", len(models))
+    print(f"All {len(models)} models are available on Hugging Face Hub")
 
 
 if __name__ == "__main__":
     args = _parse_args()
-    setup_logging()
-    logger.info("Starting trafficbench multi-model profiling run")
-    logger.info("Configured models: %s", ", ".join(MODELS))
+    print("Starting trafficbench multi-model profiling run")
+    print(f"Configured models: {', '.join(MODELS)}")
 
     ensure_models_available(MODELS)
 
-    state = _load_run_state() if args.resume else {}
+    state: dict[str, str] = _load_run_state() if args.resume else {}
     if args.resume:
-        logger.info("Resume enabled; loaded run state for %d models", len(state))
+        print(f"Resume enabled; loaded run state for {len(state)} models")
     else:
-        logger.info("Resume disabled; starting with a fresh run state")
+        print("Resume disabled; starting with a fresh run state")
         state = {}
 
-    results: dict[str, dict[str, str]] = {}
-    logger.info("Running benchmarks for %d models sequentially...", len(MODELS))
+    results: dict[str, str] = {}
+    print(f"Running benchmarks for {len(MODELS)} models sequentially...")
 
     for model in MODELS:
         existing = state.get(model)
-        if args.resume and existing and existing.get("status") == "SUCCESS":
-            logger.info(
-                "Skipping %s (previous run success). Log: %s",
-                model,
-                existing.get("log", "unknown"),
-            )
+        if args.resume and existing == "SUCCESS":
+            print(f"Skipping {model} (previous run success).")
             results[model] = existing
             continue
 
-        success, run_log = run_benchmark(model)
+        success = run_benchmark(model)
         status = "SUCCESS" if success else "FAILED"
-        record = {"status": status, "log": str(run_log)}
-        state[model] = record
-        results[model] = record
+        state[model] = status
+        results[model] = status
         _save_run_state(state)
 
     # Summary
     separator = "=" * 60
-    logger.info(separator)
-    logger.info("SUMMARY")
-    logger.info(separator)
+    print(separator)
+    print("SUMMARY")
+    print(separator)
 
-    success_count = sum(1 for info in results.values() if info["status"] == "SUCCESS")
+    success_count = sum(1 for status in results.values() if status == "SUCCESS")
     failed_count = len(results) - success_count
 
-    for model, info in results.items():
-        status = info["status"]
-        run_log = info.get("log") or "unknown"
+    for model, status in results.items():
         prefix = "[OK]  " if status == "SUCCESS" else "[FAIL]"
-        logger.info("%s %s: %s (log: %s)", prefix, model, status, run_log)
+        print(f"{prefix} {model}: {status}")
 
-    logger.info("Total: %d/%d succeeded, %d failed", success_count, len(MODELS), failed_count)
-    per_run_dir = RUN_LOG_DIR or (Path(__file__).resolve().parent / "logs" / "runs")
-    logger.info("Per-run logs directory: %s", per_run_dir)
-    logger.info("Run state file: %s", _state_file_path())
-    if MAIN_LOG_FILE:
-        logger.info("Main log file located at: %s", MAIN_LOG_FILE)
-    else:
-        logger.info("Main log file path unavailable from logger configuration.")
+    print(f"Total: {success_count}/{len(MODELS)} succeeded, {failed_count} failed")
+    print(f"Run state file: {_state_file_path()}")
 
     # Exit with error code if any failed, but only after running all
     sys.exit(0 if failed_count == 0 else 1)
