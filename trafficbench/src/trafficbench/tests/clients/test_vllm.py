@@ -128,8 +128,8 @@ def test_stream_chat_completion_accumulates_tokens() -> None:
     _queue_warmup_outputs(warmups)
     DummyAsyncLLM.next_outputs.append(
         [
-            _make_chunk("Hello", finished=False, prompt_tokens=2, token_ids=[101]),
-            _make_chunk("Hello world", finished=True, token_ids=[101, 202, 303]),
+            _make_chunk("Hello", finished=False, prompt_tokens=2, delta_token_ids=[101]),
+            _make_chunk(" world", finished=True, delta_token_ids=[202, 303]),
         ]
     )
     try:
@@ -150,9 +150,9 @@ def test_stream_handles_cumulative_repeats() -> None:
 
     DummyAsyncLLM.next_outputs.append(
         [
-            _make_chunk("Step 1", finished=False, prompt_tokens=1, token_ids=[11]),
-            _make_chunk("Step 1 Step 2", finished=False, token_ids=[11, 12]),
-            _make_chunk("Step 1 Step 2", finished=True, token_ids=[11, 12, 13]),
+            _make_chunk("Step 1", finished=False, prompt_tokens=1, delta_token_ids=[11]),
+            _make_chunk(" Step 2", finished=False, delta_token_ids=[12, 13]),
+            _make_chunk("", finished=True),
         ]
     )
 
@@ -173,7 +173,7 @@ def test_stream_handles_delta_token_payloads() -> None:
     DummyAsyncLLM.next_outputs.append(
         [
             _make_chunk("Thinking", finished=False, prompt_tokens=1, delta_token_ids=[7]),
-            _make_chunk("Thinking aloud", finished=True, delta_token_ids=[8, 9]),
+            _make_chunk(" aloud", finished=True, delta_token_ids=[8, 9]),
         ]
     )
 
@@ -193,9 +193,9 @@ def test_stream_handles_token_only_appends() -> None:
 
     DummyAsyncLLM.next_outputs.append(
         [
-            _make_chunk("Hello", finished=False, prompt_tokens=1, token_ids=[11]),
-            _make_chunk(" world", finished=False, token_ids=[22]),
-            _make_chunk("!", finished=True, token_ids=[33]),
+            _make_chunk("Hello", finished=False, prompt_tokens=1, delta_token_ids=[11]),
+            _make_chunk(" world", finished=False, delta_token_ids=[22]),
+            _make_chunk("!", finished=True, delta_token_ids=[33]),
         ]
     )
 
@@ -214,7 +214,7 @@ def test_sampling_params_and_engine_overrides() -> None:
     _queue_warmup_outputs(warmups)
     client.prepare("meta")
     DummyAsyncLLM.next_outputs.append(
-        [_make_chunk("Done", finished=True, prompt_tokens=1, token_ids=[42])]
+        [_make_chunk("Done", finished=True, prompt_tokens=1, delta_token_ids=[42])]
     )
     try:
         response = client.stream_chat_completion(
@@ -249,7 +249,7 @@ def test_registry_entry_points() -> None:
     client = ClientRegistry.create("vllm", None)
     warmups = client._warmup_count  # type: ignore[attr-defined]
     _queue_warmup_outputs(warmups)
-    DummyAsyncLLM.next_outputs.append([_make_chunk("hi", finished=True, token_ids=[1])])
+    DummyAsyncLLM.next_outputs.append([_make_chunk("hi", finished=True, delta_token_ids=[1])])
     try:
         assert isinstance(client, VLLMClient)
         assert client.base_url == "offline://vllm"
@@ -267,7 +267,7 @@ def test_prepare_runs_warmup_once() -> None:
     engine = DummyAsyncLLM.instances[0]
     assert len(engine.calls) == warmups
 
-    DummyAsyncLLM.next_outputs.append([_make_chunk("real", finished=True, new_tokens=1)])
+    DummyAsyncLLM.next_outputs.append([_make_chunk("real", finished=True, delta_token_ids=[2])])
     client.stream_chat_completion("meta", "Prompt")
     assert len(engine.calls) == warmups + 1
 

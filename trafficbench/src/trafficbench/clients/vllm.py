@@ -235,81 +235,9 @@ class VLLMClient(InferenceClient):
 
         start_time = time.perf_counter()
         prompt_tokens: int | None = None
+        completion_tokens = 0
         ttft_ms: float | None = None
-        completion_states: dict[int, dict[str, Any]] = {}
-        primary_index: int | None = None
-        primary_completion_tokens = 0
-
-        def _get_state(index: int) -> dict[str, Any]:
-            state = completion_states.get(index)
-            if state is None:
-                state = {"text": "", "token_history": []}
-                completion_states[index] = state
-            return state
-
-        def _consume_delta_text(completion: Any, index: int, new_tokens: int, incremental: bool) -> str:
-            state = _get_state(index)
-            prev_text: str = state["text"]
-            delta = getattr(completion, "delta_text", None)
-            if delta is None:
-                delta = getattr(completion, "text_delta", None)
-            if delta:
-                state["text"] = prev_text + delta
-                return delta
-
-            raw_text = getattr(completion, "text", "") or ""
-            if not raw_text:
-                return ""
-
-            if raw_text.startswith(prev_text):
-                new_text = raw_text[len(prev_text) :]
-                state["text"] = raw_text
-                return new_text
-
-            if not prev_text:
-                state["text"] = raw_text
-                return raw_text
-
-            if incremental:
-                state["text"] = prev_text + raw_text
-                return raw_text
-
-            if prev_text.startswith(raw_text):
-                # The model may have truncated its hypothesis; keep accumulated text.
-                return ""
-
-            # Fallback: treat the payload as a replacement rather than a delta.
-            state["text"] = raw_text
-            return raw_text
-
-        def _consume_new_token_count(completion: Any, index: int) -> tuple[int, bool]:
-            state = _get_state(index)
-            history: list[Any] = state.setdefault("token_history", [])
-
-            delta_token_ids = getattr(completion, "delta_token_ids", None)
-            if delta_token_ids is None:
-                delta_token_ids = getattr(completion, "token_ids_delta", None)
-            if delta_token_ids:
-                history.extend(delta_token_ids)
-                return len(delta_token_ids), True
-
-            token_ids = getattr(completion, "token_ids", None)
-            if not token_ids:
-                return 0, False
-
-            prefix_len = len(history)
-            if prefix_len and len(token_ids) >= prefix_len and token_ids[:prefix_len] == history:
-                new_tokens = token_ids[prefix_len:]
-                history[:] = token_ids
-                return len(new_tokens), bool(new_tokens)
-
-            if not prefix_len:
-                history[:] = token_ids
-                return len(token_ids), bool(token_ids)
-
-            # Treat as incremental payload containing only the latest tokens.
-            history.extend(token_ids)
-            return len(token_ids), bool(token_ids)
+        content_parts: list[str] = []
 
         try:
             async for chunk in self._engine.generate(  # type: ignore[func-returns-value]
@@ -321,42 +249,33 @@ class VLLMClient(InferenceClient):
                     prompt_ids = getattr(chunk, "prompt_token_ids", None) or []
                     prompt_tokens = len(prompt_ids)
 
-                outputs = getattr(chunk, "outputs", []) or []
-                if outputs and primary_index is None:
-                    primary_index = min(getattr(output, "index", idx) for idx, output in enumerate(outputs))
+                for completion in getattr(chunk, "outputs", []) or []:
+                    delta_text = getattr(completion, "text", "") or ""
+                    if delta_text:
+                        content_parts.append(delta_text)
+                        if ttft_ms is None:
+                            ttft_ms = (time.perf_counter() - start_time) * 1000.0
 
-                for idx, completion in enumerate(outputs):
-                    completion_index = getattr(completion, "index", idx)
-                    new_tokens, is_incremental = _consume_new_token_count(completion, completion_index)
-                    new_text = _consume_delta_text(
-                        completion, completion_index, new_tokens, is_incremental
-                    )
-
-                    if (
-                        ttft_ms is None
-                        and primary_index is not None
-                        and completion_index == primary_index
-                        and (new_text or new_tokens)
-                    ):
-                        ttft_ms = (time.perf_counter() - start_time) * 1000.0
-
-                    if primary_index is not None and completion_index == primary_index:
-                        primary_completion_tokens += new_tokens
+                    delta_token_ids = getattr(completion, "delta_token_ids", None)
+                    if delta_token_ids is None:
+                        delta_token_ids = getattr(completion, "token_ids_delta", None)
+                    if delta_token_ids is not None:
+                        completion_tokens += len(delta_token_ids)
+                    else:
+                        token_ids = getattr(completion, "token_ids", None)
+                        if token_ids:
+                            completion_tokens += len(token_ids)
+                            if ttft_ms is None:
+                                ttft_ms = (time.perf_counter() - start_time) * 1000.0
 
                 if getattr(chunk, "finished", False):
                     break
         except Exception as exc:  # pragma: no cover - actual streaming exercised in integration
             raise RuntimeError(f"vLLM offline generation failed: {exc}") from exc
 
-        if primary_index is None and completion_states:
-            primary_index = min(completion_states)
-
-        primary_state = completion_states.get(primary_index, {"text": "", "token_history": []})
-        content_text = primary_state["text"]
-
         usage = ChatUsage(
             prompt_tokens=prompt_tokens or 0,
-            completion_tokens=primary_completion_tokens,
-            total_tokens=(prompt_tokens or 0) + primary_completion_tokens,
+            completion_tokens=completion_tokens,
+            total_tokens=(prompt_tokens or 0) + completion_tokens,
         )
-        return Response(content=content_text, usage=usage, time_to_first_token_ms=ttft_ms or 0.0)
+        return Response(content="".join(content_parts), usage=usage, time_to_first_token_ms=ttft_ms or 0.0)
