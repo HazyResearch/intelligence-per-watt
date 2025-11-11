@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Run a handful of example generations against a TrafficBench client.
+Run a handful of example generations against an Intelligence Per Watt client.
 
 This helper is intended for quick manual smoke testing. It exercises the
 configured client using ``stream_chat_completion`` so that time-to-first-token
@@ -14,7 +14,7 @@ import json
 import sys
 from typing import Any, Iterable
 
-from trafficbench.core.registry import ClientRegistry
+from ipw.core.registry import ClientRegistry
 
 DEFAULT_PROMPTS: list[str] = [
     "Summarize the benefits of offline inference with streamed decoding.",
@@ -39,7 +39,7 @@ def _parse_key_value(pairs: Iterable[str]) -> dict[str, Any]:
 
 def _build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
-        description="Run sample prompts against a TrafficBench inference client."
+        description="Run sample prompts against an Intelligence Per Watt inference client."
     )
     parser.add_argument(
         "--client",
@@ -85,9 +85,9 @@ def main(argv: list[str] | None = None) -> int:
 
     client_kwargs = _parse_key_value(args.client_config)
 
-    import trafficbench.clients
+    import ipw.clients
 
-    trafficbench.clients.ensure_registered()
+    ipw.clients.ensure_registered()
 
     try:
         client = ClientRegistry.create(args.client, args.base_url, **client_kwargs)

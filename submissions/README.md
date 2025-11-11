@@ -1,10 +1,10 @@
-# TrafficBench Verified Submission Guide
+# Intelligence Per Watt Verified Submission Guide
 
 
 ## Submission Workflows
 
 ### Unverified Submissions
-- **Website Form:** Submit via [TrafficBench website](https://trafficbenchv1.com/leaderboard/submit)
+- **Website Form:** Submit via [Intelligence Per Watt website](https://trafficbenchv1.com/leaderboard/submit)
 - **CLI Tool:** (Coming soon - TBD)
 
 ### Verified Submissions
@@ -15,7 +15,7 @@
 
 ### 1. Run Your Benchmark
 
-Complete your TrafficBench evaluation using your model and hardware configuration. Ensure you have:
+Complete your Intelligence Per Watt evaluation using your model and hardware configuration. Ensure you have:
 - Accuracy scores for each economic category tested
 - Hardware metrics (energy, latency, TTFT, power, etc.)
 
@@ -204,6 +204,6 @@ This is optional - you can submit directly via GitHub PR without a website submi
 ## Support
 
 Questions? Contact us:
-- **Email:** trafficbench@scalingintelligence.org
+- **Email:** ipw@scalingintelligence.org
 - **GitHub Issues:** Open an issue in REPOX
 - **Website:** https://trafficbenchv1.com/contact

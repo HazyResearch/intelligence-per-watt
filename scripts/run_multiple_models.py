@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Run trafficbench profiling for multiple models sequentially.
+"""Run Intelligence Per Watt profiling for multiple models sequentially.
 
 This script orchestrates multiple profiling runs, one for each model in the
 configured list. Each model runs independently - if one fails, it is logged
@@ -42,7 +42,7 @@ MODELS = [
 # Common arguments for all benchmark runs
 COMMON_ARGS = [
     "--client", "vllm",
-    "--dataset", "trafficbench",
+    "--dataset", "ipw",
 ]
 
 
@@ -82,7 +82,7 @@ def _save_run_state(state: dict[str, str]) -> None:
 
 
 def _parse_args():
-    parser = ArgumentParser(description="Run trafficbench profiling for multiple models sequentially.")
+    parser = ArgumentParser(description="Run Intelligence Per Watt profiling for multiple models sequentially.")
     parser.add_argument(
         "--resume",
         action=BooleanOptionalAction,
@@ -102,7 +102,7 @@ def run_benchmark(model: str) -> bool:
         Success flag
     """
     cmd = [
-        "trafficbench", "profile",
+        "ipw", "profile",
         "--model", model,
         *COMMON_ARGS,
     ]
@@ -136,7 +136,7 @@ def run_benchmark(model: str) -> bool:
         return False
 if __name__ == "__main__":
     args = _parse_args()
-    print("Starting trafficbench multi-model profiling run")
+    print("Starting Intelligence Per Watt multi-model profiling run")
     print(f"Configured models: {', '.join(MODELS)}")
 
     state: dict[str, str] = _load_run_state() if args.resume else {}

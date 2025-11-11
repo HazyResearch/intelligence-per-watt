@@ -1,2 +1,0 @@
-# Test package for trafficbench.
-

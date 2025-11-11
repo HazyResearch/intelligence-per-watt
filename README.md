@@ -1,6 +1,6 @@
-# TrafficBench
+# Intelligence Per Watt
 
-A benchmarking suite for LLM inference systems. TrafficBench sends workloads to your inference service and collects detailed telemetry—energy consumption, power usage, memory, temperature, and latency—to help you optimize performance and compare hardware configurations.
+A benchmarking suite for LLM inference systems. Intelligence Per Watt sends workloads to your inference service and collects detailed telemetry—energy consumption, power usage, memory, temperature, and latency—to help you optimize performance and compare hardware configurations.
 
 ## Installation
 
@@ -12,80 +12,80 @@ source .venv/bin/activate
 # Build energy monitoring
 uv run scripts/build_energy_monitor.py
 
-# Install TrafficBench
-uv pip install -e trafficbench
+# Install Intelligence Per Watt
+uv pip install -e intelligence_per_watt
 ```
 
 ## Quick Start
 
 ```bash
 # 1. List available inference clients
-trafficbench list clients
+ipw list clients
 
 # 2, Run a benchmark
-trafficbench profile \
+ipw profile \
   --client ollama \
   --model llama3.2:1b \
   --client-base-url http://localhost:11434
 
 # 3. Analyze the results
-trafficbench analyze ./runs/profile_*
+ipw analyze ./runs/profile_*
 
 # 4. Generate plots
-trafficbench plot ./runs/profile_*
+ipw plot ./runs/profile_*
 ```
 
-**What gets measured:** For each query, TrafficBench captures energy consumption, power draw, GPU/CPU memory usage, temperature, time-to-first-token, throughput, and token counts.
+**What gets measured:** For each query, Intelligence Per Watt captures energy consumption, power draw, GPU/CPU memory usage, temperature, time-to-first-token, throughput, and token counts.
 
 ## Commands
 
-### `trafficbench profile`
+### `ipw profile`
 
 Sends prompts to your service and measures performance.
 
 ```bash
-trafficbench profile --client <client> --model <model> [options]
+ipw profile --client <client> --model <model> [options]
 ```
 
 **Options:**
 - `--client` - Inference client (e.g., `ollama`, `vllm`)
 - `--model` - Model name
 - `--client-base-url` - Service URL (e.g., `http://localhost:11434`)
-- `--dataset` - Workload dataset (default: `trafficbench`)
+- `--dataset` - Workload dataset (default: `ipw`)
 - `--max-queries` - Limit queries for testing
 - `--output-dir` - Where to save results
 
 Example:
 ```bash
-trafficbench profile \
+ipw profile \
   --client ollama \
   --model llama3.2:1b \
   --client-base-url http://localhost:11434 \
   --max-queries 100
 ```
 
-### `trafficbench analyze`
+### `ipw analyze`
 
 Compute regression metrics (e.g., how energy scales with tokens, latency vs. input size).
 
 ```bash
-trafficbench analyze <results_dir>
+ipw analyze <results_dir>
 ```
 
-### `trafficbench plot`
+### `ipw plot`
 
 Visualize profiling data (scatter plots, regression lines, distributions).
 
 ```bash
-trafficbench plot <results_dir> [--output <dir>]
+ipw plot <results_dir> [--output <dir>]
 ```
 
-### `trafficbench list`
+### `ipw list`
 
 Discover available clients, datasets, and analysis types.
 
 ```bash
-trafficbench list <clients|datasets|analyses|visualizations|all>
+ipw list <clients|datasets|analyses|visualizations|all>
 ```
 
 ### Energy monitor test script

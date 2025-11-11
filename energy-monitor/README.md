@@ -1,10 +1,10 @@
 # energy-monitor
 
-Cross-platform gRPC service providing unified energy and power telemetry for TrafficBench.
+Cross-platform gRPC service providing unified energy and power telemetry for Intelligence Per Watt.
 
 ## Overview
 
-energy-monitor runs as a standalone service that streams hardware telemetry data via gRPC. It abstracts platform-specific power monitoring APIs behind a unified interface, enabling TrafficBench to collect consistent energy metrics across different hardware configurations.
+energy-monitor runs as a standalone service that streams hardware telemetry data via gRPC. It abstracts platform-specific power monitoring APIs behind a unified interface, enabling Intelligence Per Watt to collect consistent energy metrics across different hardware configurations.
 
 ## Architecture
 
@@ -40,14 +40,14 @@ cargo build --release
 
 The binary will be located at `target/release/energy-monitor`.
 
-For TrafficBench integration, use the provided build script:
+For Intelligence Per Watt integration, use the provided build script:
 
 ```bash
 # run from the repository root
 uv run scripts/build_energy_monitor.py
 ```
 
-This compiles the binary and installs it to `trafficbench/src/trafficbench/telemetry/bin/`.
+This compiles the binary and installs it to `intelligence_per_watt/src/ipw/telemetry/bin/`.
 
 ## Running
 
@@ -170,9 +170,9 @@ cargo build --release
 
 The service should log "Auto-detected custom platform" on startup.
 
-## Integration with TrafficBench
+## Integration with Intelligence Per Watt
 
-TrafficBench launches energy-monitor as a subprocess via `trafficbench.telemetry.launcher`. The launcher:
+Intelligence Per Watt launches energy-monitor as a subprocess via `ipw.telemetry.launcher`. The launcher:
 
 1. Starts the energy-monitor binary
 2. Connects via gRPC client

@@ -8,11 +8,11 @@ import sys
 import time
 from typing import TYPE_CHECKING
 
-from trafficbench.cli._console import error, info, success
-from trafficbench.core.types import TelemetryReading
+from ipw.cli._console import error, info, success
+from ipw.core.types import TelemetryReading
 
 if TYPE_CHECKING:
-    from trafficbench.telemetry import EnergyMonitorCollector
+    from ipw.telemetry import EnergyMonitorCollector
 
 
 def parse_args() -> argparse.Namespace:
@@ -37,7 +37,7 @@ def parse_args() -> argparse.Namespace:
 def main() -> None:
     args = parse_args()
 
-    from trafficbench.telemetry import EnergyMonitorCollector
+    from ipw.telemetry import EnergyMonitorCollector
 
     collector = EnergyMonitorCollector(target=args.target)
 
