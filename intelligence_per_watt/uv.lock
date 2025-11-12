@@ -3461,7 +3461,7 @@ wheels = [
 ]
 
 [[package]]
-name = "trafficbench"
+name = "intelligence_per_watt"
 version = "0.1.0"
 source = { editable = "." }
 dependencies = [

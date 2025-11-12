@@ -3,7 +3,7 @@ requires = ["uv_build>=0.9.2,<0.10.0"]
 build-backend = "uv_build"
 
 [project]
-name = "intelligence_per_watt"
+name = "ipw"
 version = "0.1.0"
 description = "Intelligence Per Watt"
 readme = "README.md"

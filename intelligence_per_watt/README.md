@@ -19,6 +19,12 @@ src/ipw/
 
 ## Installation
 
+Install the published package when you only need the CLI:
+
+```bash
+pip install ipw
+```
+
 Development installation:
 
 ```bash
