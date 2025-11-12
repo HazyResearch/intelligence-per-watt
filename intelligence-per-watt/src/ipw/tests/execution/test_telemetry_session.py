@@ -5,10 +5,8 @@ from __future__ import annotations
 import time
 from unittest.mock import Mock
 
-import pytest
-
 from ipw.core.types import TelemetryReading
-from ipw.execution.telemetry_session import TelemetrySession, TelemetrySample
+from ipw.execution.telemetry_session import TelemetrySample, TelemetrySession
 
 
 class TestTelemetrySession:
@@ -25,7 +23,7 @@ class TestTelemetrySession:
         collector.start.return_value = collector_ctx
         collector_ctx.__enter__ = Mock(return_value=collector_ctx)
         collector_ctx.__exit__ = Mock(return_value=None)
-        
+
         # Create an empty iterator for stream_readings
         collector.stream_readings.return_value = iter([])
 
@@ -167,12 +165,12 @@ class TestTelemetrySession:
             TelemetryReading(energy_joules=150.0),
             TelemetryReading(energy_joules=200.0),
         ]
-        
+
         def reading_generator():
             for r in readings:
                 yield r
                 time.sleep(0.01)  # Small delay
-        
+
         collector.stream_readings.return_value = reading_generator()
 
         with TelemetrySession(collector, buffer_seconds=10.0) as session:
@@ -181,4 +179,3 @@ class TestTelemetrySession:
 
         # Should have collected some samples
         assert len(session._samples) > 0
-

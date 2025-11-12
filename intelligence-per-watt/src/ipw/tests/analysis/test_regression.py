@@ -7,21 +7,20 @@ from pathlib import Path
 from unittest.mock import Mock, patch
 
 import pytest
-
+from ipw.analysis.base import AnalysisContext
 from ipw.analysis.regression import (
+    RegressionAnalysis,
     RegressionSample,
+    _compute_average,
+    _compute_regression,
+    _filter_none_regressions,
     build_zero_warnings,
     create_regression_containers,
     derive_total_tokens,
     finalize_regressions,
     register_regression_sample,
     to_float,
-    RegressionAnalysis,
-    _compute_regression,
-    _compute_average,
-    _filter_none_regressions,
 )
-from ipw.analysis.base import AnalysisContext
 
 
 class TestToFloat:

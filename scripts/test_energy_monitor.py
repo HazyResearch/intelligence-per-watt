@@ -107,4 +107,3 @@ def _format_metric(value: float | None, *, width: int, precision: int) -> str:
 
 if __name__ == "__main__":
     main()
-

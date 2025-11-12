@@ -100,9 +100,7 @@ def derive_hardware_label(
         label = _normalize(tokens[-1])
         return label, _has_digit(label)
 
-    def _extract_field(
-        obj: Optional[object], attr: str
-    ) -> str:
+    def _extract_field(obj: Optional[object], attr: str) -> str:
         if obj is None:
             return ""
         if isinstance(obj, MappingABC):

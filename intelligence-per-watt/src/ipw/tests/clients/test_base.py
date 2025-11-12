@@ -5,9 +5,8 @@ from __future__ import annotations
 from typing import Any, Sequence
 
 import pytest
-
 from ipw.clients.base import InferenceClient
-from ipw.core.types import Response, ChatUsage
+from ipw.core.types import ChatUsage, Response
 
 
 class ConcreteClient(InferenceClient):
@@ -16,7 +15,9 @@ class ConcreteClient(InferenceClient):
     client_id = "test"
     client_name = "Test Client"
 
-    def stream_chat_completion(self, model: str, prompt: str, **params: Any) -> Response:
+    def stream_chat_completion(
+        self, model: str, prompt: str, **params: Any
+    ) -> Response:
         return Response(
             content="test response",
             usage=ChatUsage(prompt_tokens=1, completion_tokens=1, total_tokens=2),
@@ -50,6 +51,7 @@ class TestInferenceClient:
     def test_requires_all_abstract_methods(self) -> None:
         # Missing stream_chat_completion
         with pytest.raises(TypeError):
+
             class IncompleteClient1(InferenceClient):
                 client_id = "incomplete"
                 client_name = "Incomplete"
@@ -59,7 +61,7 @@ class TestInferenceClient:
 
                 def health(self) -> bool:
                     return True
-            
+
             IncompleteClient1("http://localhost")
 
     def test_concrete_client_works(self) -> None:
@@ -77,11 +79,15 @@ class TestInferenceClient:
             client_name = "Params Test"
             received_params = {}
 
-            def stream_chat_completion(self, model: str, prompt: str, **params: Any) -> Response:
+            def stream_chat_completion(
+                self, model: str, prompt: str, **params: Any
+            ) -> Response:
                 self.received_params = params
                 return Response(
                     content="test",
-                    usage=ChatUsage(prompt_tokens=1, completion_tokens=1, total_tokens=2),
+                    usage=ChatUsage(
+                        prompt_tokens=1, completion_tokens=1, total_tokens=2
+                    ),
                     time_to_first_token_ms=100.0,
                 )
 
@@ -93,6 +99,6 @@ class TestInferenceClient:
 
         client = ParamsTestClient("http://localhost")
         client.stream_chat_completion("model", "prompt", temperature=0.7, top_p=0.9)
-        
+
         assert client.received_params["temperature"] == 0.7
         assert client.received_params["top_p"] == 0.9

@@ -6,7 +6,6 @@ from pathlib import Path
 from unittest.mock import Mock, patch
 
 from click.testing import CliRunner
-
 from ipw.analysis.base import AnalysisContext, AnalysisResult
 from ipw.cli.analyze import analyze
 
@@ -342,4 +341,3 @@ class TestAnalyzeCommand:
 
         assert result.exit_code != 0
         assert "Test error" in result.output
-

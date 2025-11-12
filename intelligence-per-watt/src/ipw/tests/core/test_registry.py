@@ -1,9 +1,7 @@
 from __future__ import annotations
 
 import pytest
-
-from ipw.core.registry import (ClientRegistry, DatasetRegistry,
-                                        RegistryBase)
+from ipw.core.registry import ClientRegistry, DatasetRegistry, RegistryBase
 
 
 class DummyEntry:

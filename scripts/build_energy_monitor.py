@@ -49,10 +49,14 @@ def check_cargo_installed() -> None:
             "Error: cargo not found. Please install Rust and Cargo from https://rustup.rs/"
         )
     except subprocess.CalledProcessError:
-        raise SystemExit("Error: cargo command failed. Please check your Rust installation.")
+        raise SystemExit(
+            "Error: cargo command failed. Please check your Rust installation."
+        )
 
 
-def run(cmd: list[str], env: dict[str, str] | None = None, cwd: Path | None = None) -> None:
+def run(
+    cmd: list[str], env: dict[str, str] | None = None, cwd: Path | None = None
+) -> None:
     subprocess.run(cmd, check=True, cwd=cwd or PROJECT_ROOT, env=env)
 
 
@@ -77,7 +81,9 @@ def detect_platform_alias(target: str | None) -> tuple[str, Path, bool]:
     return alias, base, alias.startswith("windows")
 
 
-def copy_binary(binary_name: str, source_dir: Path, dest_dir: Path, *, is_windows: bool) -> None:
+def copy_binary(
+    binary_name: str, source_dir: Path, dest_dir: Path, *, is_windows: bool
+) -> None:
     src = source_dir / (binary_name + (".exe" if is_windows else ""))
     if not src.exists():
         raise SystemExit(f"Expected binary not found: {src}")
@@ -91,7 +97,9 @@ def copy_binary(binary_name: str, source_dir: Path, dest_dir: Path, *, is_window
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Build and stage CLI binaries for the Python package.")
+    parser = argparse.ArgumentParser(
+        description="Build and stage CLI binaries for the Python package."
+    )
     parser.add_argument(
         "--target",
         help="Optional cargo target triple. If omitted, builds for the host platform.",
@@ -121,7 +129,7 @@ def main() -> None:
                 cmd.extend(["--target", args.target])
             if args.profile == "release":
                 cmd.append("--release")
-            
+
             run(cmd, cwd=ENERGY_MONITOR_ROOT)
 
     source_dir = target_base
@@ -134,7 +142,9 @@ def main() -> None:
     for _, binary in CRATES:
         copy_binary(binary, source_dir, dest_root, is_windows=is_windows)
 
-    print("\nDone. The CLI binaries are staged under", dest_root.relative_to(PROJECT_ROOT))
+    print(
+        "\nDone. The CLI binaries are staged under", dest_root.relative_to(PROJECT_ROOT)
+    )
 
 
 if __name__ == "__main__":

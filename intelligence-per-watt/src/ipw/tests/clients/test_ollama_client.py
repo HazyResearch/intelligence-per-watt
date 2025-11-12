@@ -3,7 +3,6 @@ from __future__ import annotations
 import os
 
 import pytest
-
 from ipw.clients.ollama import OllamaClient
 
 OLLAMA_URL = os.environ.get("OLLAMA_URL", "http://localhost:11434")

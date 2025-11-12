@@ -105,7 +105,9 @@ def main(argv: list[str] | None = None) -> int:
             print("-" * len(header))
 
             try:
-                response = client.stream_chat_completion(args.model, prompt, **request_params)
+                response = client.stream_chat_completion(
+                    args.model, prompt, **request_params
+                )
             except Exception as exc:  # pragma: no cover - interactive use
                 print(f"Request failed: {exc}", file=sys.stderr)
                 continue
@@ -131,4 +133,3 @@ def main(argv: list[str] | None = None) -> int:
 
 if __name__ == "__main__":  # pragma: no cover - CLI entrypoint
     raise SystemExit(main())
-

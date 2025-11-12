@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-import pytest
-
 from ipw.core.types import GpuInfo, SystemInfo
 from ipw.execution.hardware import derive_hardware_label
 

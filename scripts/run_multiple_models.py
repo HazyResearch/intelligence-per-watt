@@ -14,7 +14,6 @@ from argparse import ArgumentParser, BooleanOptionalAction
 from datetime import datetime
 from pathlib import Path
 
-
 STATE_DIR = Path(__file__).resolve().parent / "logs"
 STATE_FILE = STATE_DIR / "run_state.json"
 
@@ -41,8 +40,10 @@ MODELS = [
 
 # Common arguments for all benchmark runs
 COMMON_ARGS = [
-    "--client", "vllm",
-    "--dataset", "ipw",
+    "--client",
+    "vllm",
+    "--dataset",
+    "ipw",
 ]
 
 
@@ -82,7 +83,9 @@ def _save_run_state(state: dict[str, str]) -> None:
 
 
 def _parse_args():
-    parser = ArgumentParser(description="Run Intelligence Per Watt profiling for multiple models sequentially.")
+    parser = ArgumentParser(
+        description="Run Intelligence Per Watt profiling for multiple models sequentially."
+    )
     parser.add_argument(
         "--resume",
         action=BooleanOptionalAction,
@@ -102,8 +105,10 @@ def run_benchmark(model: str) -> bool:
         Success flag
     """
     cmd = [
-        "ipw", "profile",
-        "--model", model,
+        "ipw",
+        "profile",
+        "--model",
+        model,
         *COMMON_ARGS,
     ]
 
@@ -122,7 +127,9 @@ def run_benchmark(model: str) -> bool:
         elapsed = end_time - start_time
 
         if result.returncode != 0:
-            print(f"[FAILED] {model} (exit code: {result.returncode}, elapsed: {elapsed})")
+            print(
+                f"[FAILED] {model} (exit code: {result.returncode}, elapsed: {elapsed})"
+            )
             return False
 
         print(f"[COMPLETED] {model} (elapsed: {elapsed})")
@@ -134,6 +141,8 @@ def run_benchmark(model: str) -> bool:
         print(f"[ERROR] Failed to run {model} (elapsed: {elapsed})")
         traceback.print_exc()
         return False
+
+
 if __name__ == "__main__":
     args = _parse_args()
     print("Starting Intelligence Per Watt multi-model profiling run")
@@ -180,4 +189,3 @@ if __name__ == "__main__":
 
     # Exit with error code if any failed, but only after running all
     sys.exit(0 if failed_count == 0 else 1)
-

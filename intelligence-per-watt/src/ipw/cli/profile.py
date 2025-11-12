@@ -6,7 +6,6 @@ from pathlib import Path
 from typing import Dict
 
 import click
-
 from ipw.core.types import ProfilerConfig
 
 from ._console import success
@@ -29,9 +28,7 @@ def _collect_params(ctx, param, values):
 @click.command(help="Run profiling against an inference client.")
 @click.option("--client", "client_id", required=True, help="Client identifier")
 @click.option("--model", required=True, help="Model name to invoke")
-@click.option(
-    "--dataset", "dataset_id", default="ipw", help="Dataset identifier"
-)
+@click.option("--dataset", "dataset_id", default="ipw", help="Dataset identifier")
 @click.option("--client-base-url", help="Client base URL")
 @click.option(
     "--dataset-param",

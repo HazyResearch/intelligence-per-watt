@@ -2,12 +2,10 @@
 
 from __future__ import annotations
 
-import json
 from pathlib import Path
 from unittest.mock import MagicMock, Mock, patch
 
 import pytest
-
 from ipw.core.types import (
     ChatUsage,
     DatasetRecord,
@@ -116,9 +114,9 @@ class TestProfilerRunner:
         # Setup mocks
         mock_dataset = MagicMock()
         mock_dataset.size.return_value = 1
-        mock_dataset.__iter__.return_value = iter([
-            DatasetRecord(problem="test", answer="answer", subject="math")
-        ])
+        mock_dataset.__iter__.return_value = iter(
+            [DatasetRecord(problem="test", answer="answer", subject="math")]
+        )
         mock_dataset.dataset_id = "test"
         mock_dataset.dataset_name = "Test Dataset"
         mock_dataset_registry.get.return_value = Mock(return_value=mock_dataset)
@@ -141,10 +139,10 @@ class TestProfilerRunner:
 
         # Mock Dataset.from_list to return a mock with save_to_disk that creates the directory
         mock_hf_dataset = Mock()
-        
+
         def mock_save_to_disk(path: str):
             Path(path).mkdir(parents=True, exist_ok=True)
-        
+
         mock_hf_dataset.save_to_disk = mock_save_to_disk
         mock_dataset_class.from_list.return_value = mock_hf_dataset
 

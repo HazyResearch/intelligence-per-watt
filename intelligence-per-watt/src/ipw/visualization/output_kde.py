@@ -13,8 +13,7 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt  # noqa: E402
 
 from ..core.registry import VisualizationRegistry
-from .base import (VisualizationContext, VisualizationProvider,
-                   VisualizationResult)
+from .base import VisualizationContext, VisualizationProvider, VisualizationResult
 
 
 def _load_dataset(results_dir: Path):

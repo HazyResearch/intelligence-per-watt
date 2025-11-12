@@ -6,7 +6,6 @@ from pathlib import Path
 
 import pytest
 from datasets import Dataset, DatasetDict
-
 from ipw.analysis.helpers import (
     collect_run_metadata,
     iter_model_entries,
@@ -62,63 +61,77 @@ class TestResolveModelName:
     """Test model name resolution."""
 
     def test_returns_requested_model_when_available(self) -> None:
-        dataset = Dataset.from_list([
-            {"model_metrics": {"llama": {"value": 1}}},
-        ])
+        dataset = Dataset.from_list(
+            [
+                {"model_metrics": {"llama": {"value": 1}}},
+            ]
+        )
 
         model = resolve_model_name(dataset, "llama", Path("/fake"))
         assert model == "llama"
 
     def test_raises_when_requested_model_not_found(self) -> None:
-        dataset = Dataset.from_list([
-            {"model_metrics": {"llama": {"value": 1}}},
-        ])
+        dataset = Dataset.from_list(
+            [
+                {"model_metrics": {"llama": {"value": 1}}},
+            ]
+        )
 
         with pytest.raises(RuntimeError, match="Model 'gpt4' not found"):
             resolve_model_name(dataset, "gpt4", Path("/fake"))
 
     def test_infers_single_model_automatically(self) -> None:
-        dataset = Dataset.from_list([
-            {"model_metrics": {"llama": {"value": 1}}},
-            {"model_metrics": {"llama": {"value": 2}}},
-        ])
+        dataset = Dataset.from_list(
+            [
+                {"model_metrics": {"llama": {"value": 1}}},
+                {"model_metrics": {"llama": {"value": 2}}},
+            ]
+        )
 
         model = resolve_model_name(dataset, None, Path("/fake"))
         assert model == "llama"
 
     def test_raises_when_multiple_models_and_none_requested(self) -> None:
-        dataset = Dataset.from_list([
-            {"model_metrics": {"llama": {"value": 1}}},
-            {"model_metrics": {"gpt4": {"value": 2}}},
-        ])
+        dataset = Dataset.from_list(
+            [
+                {"model_metrics": {"llama": {"value": 1}}},
+                {"model_metrics": {"gpt4": {"value": 2}}},
+            ]
+        )
 
         with pytest.raises(RuntimeError, match="multiple models"):
             resolve_model_name(dataset, None, Path("/fake"))
 
     def test_raises_when_no_models_found(self) -> None:
-        dataset = Dataset.from_list([
-            {"other_field": "value"},
-        ])
+        dataset = Dataset.from_list(
+            [
+                {"other_field": "value"},
+            ]
+        )
 
         with pytest.raises(RuntimeError, match="Could not infer model name"):
             resolve_model_name(dataset, None, Path("/fake"))
 
     def test_handles_empty_model_metrics(self) -> None:
-        dataset = Dataset.from_list([
-            {"model_metrics": {}},
-            {"model_metrics": {"llama": {"value": 1}}},
-        ])
+        dataset = Dataset.from_list(
+            [
+                {"model_metrics": {}},
+                {"model_metrics": {"llama": {"value": 1}}},
+            ]
+        )
 
         model = resolve_model_name(dataset, None, Path("/fake"))
         assert model == "llama"
 
     def test_preserves_model_order(self) -> None:
         # First non-empty model should be returned when single model
-        dataset = Dataset.from_list([
-            {"model_metrics": {}},
-            {"model_metrics": {"alpha": {"value": 1}}},
-            {"model_metrics": {"alpha": {"value": 2}}},
-        ])
+        dataset = Dataset.from_list(
+            [
+                {"model_metrics": {}},
+                {"model_metrics": {"alpha": {"value": 1}}},
+                {"model_metrics": {"alpha": {"value": 2}}},
+            ]
+        )
 
         model = resolve_model_name(dataset, None, Path("/fake"))
         assert model == "alpha"
@@ -128,10 +141,12 @@ class TestIterModelEntries:
     """Test model entry iteration."""
 
     def test_yields_entries_for_matching_model(self) -> None:
-        dataset = Dataset.from_list([
-            {"model_metrics": {"llama": {"tokens": 100}}},
-            {"model_metrics": {"llama": {"tokens": 200}}},
-        ])
+        dataset = Dataset.from_list(
+            [
+                {"model_metrics": {"llama": {"tokens": 100}}},
+                {"model_metrics": {"llama": {"tokens": 200}}},
+            ]
+        )
 
         entries = list(iter_model_entries(dataset, "llama"))
         assert len(entries) == 2
@@ -139,11 +154,13 @@ class TestIterModelEntries:
         assert entries[1]["tokens"] == 200
 
     def test_skips_entries_without_model(self) -> None:
-        dataset = Dataset.from_list([
-            {"model_metrics": {"llama": {"tokens": 100}}},
-            {"model_metrics": {"gpt4": {"tokens": 200}}},
-            {"model_metrics": {"llama": {"tokens": 300}}},
-        ])
+        dataset = Dataset.from_list(
+            [
+                {"model_metrics": {"llama": {"tokens": 100}}},
+                {"model_metrics": {"gpt4": {"tokens": 200}}},
+                {"model_metrics": {"llama": {"tokens": 300}}},
+            ]
+        )
 
         entries = list(iter_model_entries(dataset, "llama"))
         assert len(entries) == 2
@@ -151,10 +168,12 @@ class TestIterModelEntries:
         assert entries[1]["tokens"] == 300
 
     def test_skips_records_without_model_metrics(self) -> None:
-        dataset = Dataset.from_list([
-            {"model_metrics": None, "other_field": "value"},
-            {"model_metrics": {"llama": {"tokens": 100}}, "other_field": None},
-        ])
+        dataset = Dataset.from_list(
+            [
+                {"model_metrics": None, "other_field": "value"},
+                {"model_metrics": {"llama": {"tokens": 100}}, "other_field": None},
+            ]
+        )
 
         entries = list(iter_model_entries(dataset, "llama"))
         assert len(entries) == 1
@@ -162,18 +181,22 @@ class TestIterModelEntries:
     def test_skips_non_mapping_model_metrics(self) -> None:
         # Note: HuggingFace Dataset will normalize types, so we can't mix string and dict
         # Instead, test with None and dict
-        dataset = Dataset.from_list([
-            {"model_metrics": None},
-            {"model_metrics": {"llama": {"tokens": 100}}},
-        ])
+        dataset = Dataset.from_list(
+            [
+                {"model_metrics": None},
+                {"model_metrics": {"llama": {"tokens": 100}}},
+            ]
+        )
 
         entries = list(iter_model_entries(dataset, "llama"))
         assert len(entries) == 1
 
     def test_returns_empty_when_no_matches(self) -> None:
-        dataset = Dataset.from_list([
-            {"model_metrics": {"gpt4": {"tokens": 100}}},
-        ])
+        dataset = Dataset.from_list(
+            [
+                {"model_metrics": {"gpt4": {"tokens": 100}}},
+            ]
+        )
 
         entries = list(iter_model_entries(dataset, "llama"))
         assert len(entries) == 0

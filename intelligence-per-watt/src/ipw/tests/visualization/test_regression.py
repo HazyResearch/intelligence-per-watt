@@ -8,7 +8,7 @@ from unittest.mock import Mock, patch
 
 import pytest
 from datasets import Dataset
-
+from ipw.visualization.base import VisualizationContext
 from ipw.visualization.regression import (
     RegressionVisualization,
     _extract_regression_samples,
@@ -19,7 +19,6 @@ from ipw.visualization.regression import (
     _load_regression_data,
     _safe_get,
 )
-from ipw.visualization.base import VisualizationContext
 
 
 class TestSafeGet:
@@ -47,24 +46,30 @@ class TestInferModelName:
     """Test model name inference."""
 
     def test_returns_first_model_name(self) -> None:
-        dataset = Dataset.from_list([
-            {"model_metrics": {"llama": {"tokens": 100}}},
-        ])
+        dataset = Dataset.from_list(
+            [
+                {"model_metrics": {"llama": {"tokens": 100}}},
+            ]
+        )
         model = _infer_model_name(dataset)
         assert model == "llama"
 
     def test_returns_none_when_no_models(self) -> None:
-        dataset = Dataset.from_list([
-            {"other_field": "value"},
-        ])
+        dataset = Dataset.from_list(
+            [
+                {"other_field": "value"},
+            ]
+        )
         model = _infer_model_name(dataset)
         assert model is None
 
     def test_skips_empty_model_metrics(self) -> None:
-        dataset = Dataset.from_list([
-            {"model_metrics": {}},
-            {"model_metrics": {"gpt4": {"tokens": 100}}},
-        ])
+        dataset = Dataset.from_list(
+            [
+                {"model_metrics": {}},
+                {"model_metrics": {"gpt4": {"tokens": 100}}},
+            ]
+        )
         model = _infer_model_name(dataset)
         assert model == "gpt4"
 
@@ -73,42 +78,46 @@ class TestInferHardwareLabel:
     """Test hardware label inference."""
 
     def test_extracts_gpu_name(self) -> None:
-        dataset = Dataset.from_list([
-            {
-                "model_metrics": {
-                    "llama": {"gpu_info": {"name": "NVIDIA RTX 3090"}}
-                }
-            },
-        ])
+        dataset = Dataset.from_list(
+            [
+                {"model_metrics": {"llama": {"gpu_info": {"name": "NVIDIA RTX 3090"}}}},
+            ]
+        )
         label = _infer_hardware_label(dataset, "llama")
         assert label == "NVIDIA RTX 3090"
 
     def test_falls_back_to_cpu_brand(self) -> None:
-        dataset = Dataset.from_list([
-            {
-                "model_metrics": {
-                    "llama": {"system_info": {"cpu_brand": "Intel i9"}}
-                }
-            },
-        ])
+        dataset = Dataset.from_list(
+            [
+                {
+                    "model_metrics": {
+                        "llama": {"system_info": {"cpu_brand": "Intel i9"}}
+                    }
+                },
+            ]
+        )
         label = _infer_hardware_label(dataset, "llama")
         assert label == "Intel i9"
 
     def test_returns_unknown_when_no_info(self) -> None:
-        dataset = Dataset.from_list([
-            {"model_metrics": {"llama": {}}},
-        ])
+        dataset = Dataset.from_list(
+            [
+                {"model_metrics": {"llama": {}}},
+            ]
+        )
         label = _infer_hardware_label(dataset, "llama")
         assert label == "Unknown"
 
     def test_skips_unknown_cpu(self) -> None:
-        dataset = Dataset.from_list([
-            {
-                "model_metrics": {
-                    "llama": {"system_info": {"cpu_brand": "Unknown CPU"}}
-                }
-            },
-        ])
+        dataset = Dataset.from_list(
+            [
+                {
+                    "model_metrics": {
+                        "llama": {"system_info": {"cpu_brand": "Unknown CPU"}}
+                    }
+                },
+            ]
+        )
         label = _infer_hardware_label(dataset, "llama")
         assert label == "Unknown"
 
@@ -117,24 +126,26 @@ class TestExtractRegressionSamples:
     """Test sample extraction from dataset."""
 
     def test_extracts_simple_path(self) -> None:
-        dataset = Dataset.from_list([
-            {
-                "model_metrics": {
-                    "llama": {
-                        "token_metrics": {"total": 100},
-                        "latency_metrics": {"total_query_seconds": 2.0},
+        dataset = Dataset.from_list(
+            [
+                {
+                    "model_metrics": {
+                        "llama": {
+                            "token_metrics": {"total": 100},
+                            "latency_metrics": {"total_query_seconds": 2.0},
+                        }
                     }
-                }
-            },
-            {
-                "model_metrics": {
-                    "llama": {
-                        "token_metrics": {"total": 200},
-                        "latency_metrics": {"total_query_seconds": 4.0},
+                },
+                {
+                    "model_metrics": {
+                        "llama": {
+                            "token_metrics": {"total": 200},
+                            "latency_metrics": {"total_query_seconds": 4.0},
+                        }
                     }
-                }
-            },
-        ])
+                },
+            ]
+        )
 
         xs, ys = _extract_regression_samples(
             dataset,
@@ -147,16 +158,18 @@ class TestExtractRegressionSamples:
         assert ys == [2.0, 4.0]
 
     def test_derives_total_tokens_when_missing(self) -> None:
-        dataset = Dataset.from_list([
-            {
-                "model_metrics": {
-                    "llama": {
-                        "token_metrics": {"input": 80, "output": 20},
-                        "latency_metrics": {"total_query_seconds": 2.0},
+        dataset = Dataset.from_list(
+            [
+                {
+                    "model_metrics": {
+                        "llama": {
+                            "token_metrics": {"input": 80, "output": 20},
+                            "latency_metrics": {"total_query_seconds": 2.0},
+                        }
                     }
-                }
-            },
-        ])
+                },
+            ]
+        )
 
         xs, ys = _extract_regression_samples(
             dataset,
@@ -168,24 +181,26 @@ class TestExtractRegressionSamples:
         assert xs == [100.0]
 
     def test_skips_none_values(self) -> None:
-        dataset = Dataset.from_list([
-            {
-                "model_metrics": {
-                    "llama": {
-                        "token_metrics": {"total": 100},
-                        "latency_metrics": {"total_query_seconds": None},
+        dataset = Dataset.from_list(
+            [
+                {
+                    "model_metrics": {
+                        "llama": {
+                            "token_metrics": {"total": 100},
+                            "latency_metrics": {"total_query_seconds": None},
+                        }
                     }
-                }
-            },
-            {
-                "model_metrics": {
-                    "llama": {
-                        "token_metrics": {"total": 200},
-                        "latency_metrics": {"total_query_seconds": 4.0},
+                },
+                {
+                    "model_metrics": {
+                        "llama": {
+                            "token_metrics": {"total": 200},
+                            "latency_metrics": {"total_query_seconds": 4.0},
+                        }
                     }
-                }
-            },
-        ])
+                },
+            ]
+        )
 
         xs, ys = _extract_regression_samples(
             dataset,
@@ -198,16 +213,18 @@ class TestExtractRegressionSamples:
         assert ys == [4.0]
 
     def test_skips_infinite_values(self) -> None:
-        dataset = Dataset.from_list([
-            {
-                "model_metrics": {
-                    "llama": {
-                        "token_metrics": {"total": float("inf")},
-                        "latency_metrics": {"total_query_seconds": 2.0},
+        dataset = Dataset.from_list(
+            [
+                {
+                    "model_metrics": {
+                        "llama": {
+                            "token_metrics": {"total": float("inf")},
+                            "latency_metrics": {"total_query_seconds": 2.0},
+                        }
                     }
-                }
-            },
-        ])
+                },
+            ]
+        )
 
         xs, ys = _extract_regression_samples(
             dataset,
@@ -220,18 +237,20 @@ class TestExtractRegressionSamples:
         assert ys == []
 
     def test_extracts_nested_path(self) -> None:
-        dataset = Dataset.from_list([
-            {
-                "model_metrics": {
-                    "llama": {
-                        "token_metrics": {"total": 100},
-                        "power_metrics": {
-                            "gpu": {"per_query_watts": {"avg": 50.0}}
-                        },
+        dataset = Dataset.from_list(
+            [
+                {
+                    "model_metrics": {
+                        "llama": {
+                            "token_metrics": {"total": 100},
+                            "power_metrics": {
+                                "gpu": {"per_query_watts": {"avg": 50.0}}
+                            },
+                        }
                     }
-                }
-            },
-        ])
+                },
+            ]
+        )
 
         xs, ys = _extract_regression_samples(
             dataset,
@@ -359,18 +378,20 @@ class TestRegressionVisualization:
             }
         }
 
-        mock_dataset = Dataset.from_list([
-            {
-                "model_metrics": {
-                    "llama": {
-                        "token_metrics": {"input": 100, "output": 50, "total": 150},
-                        "latency_metrics": {"time_to_first_token_seconds": 0.5},
-                        "energy_metrics": {"per_query_joules": 10.0},
-                        "gpu_info": {"name": "RTX 3090"},
+        mock_dataset = Dataset.from_list(
+            [
+                {
+                    "model_metrics": {
+                        "llama": {
+                            "token_metrics": {"input": 100, "output": 50, "total": 150},
+                            "latency_metrics": {"time_to_first_token_seconds": 0.5},
+                            "energy_metrics": {"per_query_joules": 10.0},
+                            "gpu_info": {"name": "RTX 3090"},
+                        }
                     }
-                }
-            },
-        ])
+                },
+            ]
+        )
         mock_load_dataset.return_value = mock_dataset
 
         context = VisualizationContext(
@@ -402,9 +423,11 @@ class TestRegressionVisualization:
             }
         }
 
-        mock_dataset = Dataset.from_list([
-            {"model_metrics": {"llama": {}}},
-        ])
+        mock_dataset = Dataset.from_list(
+            [
+                {"model_metrics": {"llama": {}}},
+            ]
+        )
         mock_load_dataset.return_value = mock_dataset
 
         context = VisualizationContext(
@@ -429,15 +452,17 @@ class TestRegressionVisualization:
     ) -> None:
         mock_load_regression.return_value = {"data": {"regressions": {}}}
 
-        mock_dataset = Dataset.from_list([
-            {
-                "model_metrics": {
-                    "custom-model": {
-                        "gpu_info": {"name": "RTX 3090"},
+        mock_dataset = Dataset.from_list(
+            [
+                {
+                    "model_metrics": {
+                        "custom-model": {
+                            "gpu_info": {"name": "RTX 3090"},
+                        }
                     }
-                }
-            },
-        ])
+                },
+            ]
+        )
         mock_load_dataset.return_value = mock_dataset
 
         context = VisualizationContext(
@@ -450,4 +475,3 @@ class TestRegressionVisualization:
         result = viz.render(context)
 
         assert result.metadata["model"] == "custom-model"
-

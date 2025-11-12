@@ -11,15 +11,14 @@ import uuid
 from collections.abc import Mapping
 from typing import Any, Sequence
 
-from ..core.registry import ClientRegistry
-from ..core.types import ChatUsage, Response
-from .base import InferenceClient
-
 from vllm import SamplingParams
 from vllm.engine.arg_utils import AsyncEngineArgs
 from vllm.sampling_params import RequestOutputKind
 from vllm.v1.engine.async_llm import AsyncLLM
 
+from ..core.registry import ClientRegistry
+from ..core.types import ChatUsage, Response
+from .base import InferenceClient
 
 DEFAULT_WARMUP_COUNT = 10
 DEFAULT_WARMUP_MAX_TOKENS = 8
@@ -35,7 +34,9 @@ class _AsyncLoopRunner:
 
     def __init__(self) -> None:
         self._loop = asyncio.new_event_loop()
-        self._thread = threading.Thread(target=self._run_loop, name="ipw-vllm", daemon=True)
+        self._thread = threading.Thread(
+            target=self._run_loop, name="ipw-vllm", daemon=True
+        )
         self._thread.start()
 
     def run(self, coro) -> Any:
@@ -87,7 +88,9 @@ class VLLMClient(InferenceClient):
         self._ensure_engine(model)
         self._warmup_if_needed()
 
-    def stream_chat_completion(self, model: str, prompt: str, **params: Any) -> Response:
+    def stream_chat_completion(
+        self, model: str, prompt: str, **params: Any
+    ) -> Response:
         if self._closed:
             raise RuntimeError("vLLM client has been closed")
         self._ensure_engine(model)
@@ -99,7 +102,9 @@ class VLLMClient(InferenceClient):
         if runner is None:
             raise RuntimeError("vLLM client is shut down")
         return runner.run(
-            self._stream_response(prompt=prompt, request_id=request_id, sampling_params=sampling_params)
+            self._stream_response(
+                prompt=prompt, request_id=request_id, sampling_params=sampling_params
+            )
         )
 
     def list_models(self) -> Sequence[str]:
@@ -154,14 +159,16 @@ class VLLMClient(InferenceClient):
             max_tokens=self._warmup_max_tokens,
             temperature=0.0,
             top_p=1.0,
-            output_kind=RequestOutputKind.DELTA, 
+            output_kind=RequestOutputKind.DELTA,
         )
 
         for idx in range(self._warmup_count):
             prompt = prompts[idx % len(prompts)]
             request_id = f"warmup-{idx}-{uuid.uuid4()}"
             runner.run(
-                self._stream_response(prompt=prompt, request_id=request_id, sampling_params=sampling)
+                self._stream_response(
+                    prompt=prompt, request_id=request_id, sampling_params=sampling
+                )
             )
 
         self._warmup_done = True
@@ -210,7 +217,9 @@ class VLLMClient(InferenceClient):
         sampling["output_kind"] = RequestOutputKind.DELTA
         return SamplingParams(**sampling)
 
-    async def _stream_response(self, *, prompt: str, request_id: str, sampling_params: Any) -> Response:
+    async def _stream_response(
+        self, *, prompt: str, request_id: str, sampling_params: Any
+    ) -> Response:
         if self._engine is None:
             raise RuntimeError("vLLM engine is not initialized")
 
@@ -254,7 +263,12 @@ class VLLMClient(InferenceClient):
 
                     finished_reason = getattr(completion, "finished_reason", None)
                     if finished_reason is not None:
-                        if str(finished_reason).lower() in {"stop", "stopped", "eos", "eos_token"}:
+                        if str(finished_reason).lower() in {
+                            "stop",
+                            "stopped",
+                            "eos",
+                            "eos_token",
+                        }:
                             stop_requested = True
 
                 if stop_requested:
@@ -262,7 +276,9 @@ class VLLMClient(InferenceClient):
 
                 if getattr(chunk, "finished", False):
                     break
-        except Exception as exc:  # pragma: no cover - actual streaming exercised in integration
+        except (
+            Exception
+        ) as exc:  # pragma: no cover - actual streaming exercised in integration
             raise RuntimeError(f"vLLM offline generation failed: {exc}") from exc
 
         usage = ChatUsage(
@@ -271,4 +287,6 @@ class VLLMClient(InferenceClient):
             total_tokens=(prompt_tokens or 0) + completion_tokens,
         )
         content = "".join(content_parts)
-        return Response(content=content, usage=usage, time_to_first_token_ms=ttft_ms or 0.0)
+        return Response(
+            content=content, usage=usage, time_to_first_token_ms=ttft_ms or 0.0
+        )

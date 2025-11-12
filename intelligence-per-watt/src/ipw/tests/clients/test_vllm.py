@@ -6,7 +6,6 @@ import types
 from typing import Any, cast
 
 import pytest
-
 from ipw.clients.vllm import VLLMClient
 from ipw.core.registry import ClientRegistry
 
@@ -62,7 +61,9 @@ def _patch_vllm(monkeypatch: pytest.MonkeyPatch):
 
     monkeypatch.setattr(module, "SamplingParams", DummySamplingParams, raising=False)
     monkeypatch.setattr(module, "AsyncEngineArgs", DummyAsyncEngineArgs, raising=False)
-    monkeypatch.setattr(module, "RequestOutputKind", DummyRequestOutputKind, raising=False)
+    monkeypatch.setattr(
+        module, "RequestOutputKind", DummyRequestOutputKind, raising=False
+    )
     monkeypatch.setattr(module, "AsyncLLM", DummyAsyncLLM, raising=False)
     monkeypatch.setattr(module, "_VLLM_IMPORT_ERROR", None, raising=False)
 
@@ -128,7 +129,9 @@ def test_stream_chat_completion_accumulates_tokens() -> None:
     _queue_warmup_outputs(warmups)
     DummyAsyncLLM.next_outputs.append(
         [
-            _make_chunk("Hello", finished=False, prompt_tokens=2, delta_token_ids=[101]),
+            _make_chunk(
+                "Hello", finished=False, prompt_tokens=2, delta_token_ids=[101]
+            ),
             _make_chunk(" world", finished=True, delta_token_ids=[202, 303]),
         ]
     )
@@ -150,7 +153,9 @@ def test_stream_handles_cumulative_repeats() -> None:
 
     DummyAsyncLLM.next_outputs.append(
         [
-            _make_chunk("Step 1", finished=False, prompt_tokens=1, delta_token_ids=[11]),
+            _make_chunk(
+                "Step 1", finished=False, prompt_tokens=1, delta_token_ids=[11]
+            ),
             _make_chunk(" Step 2", finished=False, delta_token_ids=[12, 13]),
             _make_chunk("", finished=True),
         ]
@@ -172,7 +177,9 @@ def test_stream_handles_delta_token_payloads() -> None:
 
     DummyAsyncLLM.next_outputs.append(
         [
-            _make_chunk("Thinking", finished=False, prompt_tokens=1, delta_token_ids=[7]),
+            _make_chunk(
+                "Thinking", finished=False, prompt_tokens=1, delta_token_ids=[7]
+            ),
             _make_chunk(" aloud", finished=True, delta_token_ids=[8, 9]),
         ]
     )
@@ -250,7 +257,9 @@ def test_registry_entry_points() -> None:
     client = ClientRegistry.create("vllm", None)
     warmups = client._warmup_count
     _queue_warmup_outputs(warmups)
-    DummyAsyncLLM.next_outputs.append([_make_chunk("hi", finished=True, delta_token_ids=[1])])
+    DummyAsyncLLM.next_outputs.append(
+        [_make_chunk("hi", finished=True, delta_token_ids=[1])]
+    )
     try:
         assert isinstance(client, VLLMClient)
         assert client.base_url == "offline://vllm"
@@ -268,7 +277,9 @@ def test_prepare_runs_warmup_once() -> None:
     engine = DummyAsyncLLM.instances[0]
     assert len(engine.calls) == warmups
 
-    DummyAsyncLLM.next_outputs.append([_make_chunk("real", finished=True, delta_token_ids=[2])])
+    DummyAsyncLLM.next_outputs.append(
+        [_make_chunk("real", finished=True, delta_token_ids=[2])]
+    )
     client.stream_chat_completion("meta", "Prompt")
     assert len(engine.calls) == warmups + 1
 

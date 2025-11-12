@@ -15,11 +15,7 @@ _DEFAULT_DATASET_DIR = "mixed_1k_seed1_base"
 
 
 def _default_dataset_path() -> Path:
-    base = (
-        resources.files("ipw.datasets.ipw")
-        / "data"
-        / _DEFAULT_DATASET_DIR
-    )
+    base = resources.files("ipw.datasets.ipw") / "data" / _DEFAULT_DATASET_DIR
     return Path(base)
 
 
