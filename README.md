@@ -13,7 +13,7 @@ source .venv/bin/activate
 uv run scripts/build_energy_monitor.py
 
 # Install Intelligence Per Watt
-uv pip install -e intelligence_per_watt
+uv pip install -e intelligence-per-watt
 ```
 
 ## Quick Start

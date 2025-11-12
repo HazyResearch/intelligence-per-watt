@@ -47,7 +47,7 @@ For Intelligence Per Watt integration, use the provided build script:
 uv run scripts/build_energy_monitor.py
 ```
 
-This compiles the binary and installs it to `intelligence_per_watt/src/ipw/telemetry/bin/`.
+This compiles the binary and installs it to `intelligence-per-watt/src/ipw/telemetry/bin/`.
 
 ## Running
 

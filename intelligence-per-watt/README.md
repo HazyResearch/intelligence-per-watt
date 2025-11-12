@@ -28,7 +28,7 @@ pip install ipw
 Development installation:
 
 ```bash
-cd intelligence_per_watt
+cd intelligence-per-watt
 uv venv
 source .venv/bin/activate
 uv pip install -e .

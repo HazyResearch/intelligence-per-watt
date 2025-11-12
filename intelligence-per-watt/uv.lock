@@ -3461,7 +3461,7 @@ wheels = [
 ]
 
 [[package]]
-name = "intelligence_per_watt"
+name = "ipw"
 version = "0.1.0"
 source = { editable = "." }
 dependencies = [
