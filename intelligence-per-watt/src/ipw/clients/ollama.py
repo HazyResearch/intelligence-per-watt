@@ -32,7 +32,7 @@ class OllamaClient(InferenceClient):
         payload = self._build_payload(model, prompt, params)
         start = time.perf_counter()
         try:
-            stream = self._client.chat(**payload)
+            stream = self._client.generate(**payload)
         except ResponseError as exc:
             raise RuntimeError(f"Ollama error: {exc}") from exc
 
@@ -41,8 +41,7 @@ class OllamaClient(InferenceClient):
         ttft_ms: float | None = None
 
         for chunk in stream:
-            message = getattr(chunk, "message", None)
-            text = getattr(message, "content", None)
+            text = getattr(chunk, "response", None)
             if text:
                 if ttft_ms is None:
                     ttft_ms = (time.perf_counter() - start) * 1000
@@ -84,6 +83,6 @@ class OllamaClient(InferenceClient):
     ) -> dict[str, Any]:
         payload = dict(params)
         payload["model"] = model
-        payload.setdefault("messages", [{"role": "user", "content": prompt}])
+        payload["prompt"] = prompt
         payload["stream"] = True
         return payload
