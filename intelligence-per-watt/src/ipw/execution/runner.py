@@ -37,6 +37,8 @@ class ProfilerRunner:
     """Coordinate dataset iteration, inference calls, telemetry capture, and persistence."""
 
     _FLUSH_INTERVAL = 100
+    _HARDWARE_PRIME_TIMEOUT_SECONDS = 2.0
+    _HARDWARE_PRIME_POLL_INTERVAL_SECONDS = 0.05
 
     # The runner is intentionally a slim orchestrator, but it still handles a
     # fair amount of coordination work:
@@ -64,6 +66,7 @@ class ProfilerRunner:
         self._config = config
         self._records: list[ProfilingRecord] = []
         self._output_path: Optional[Path] = None
+        self._output_prepared: bool = False
         self._hardware_label: Optional[str] = None
         self._system_info: Optional[SystemInfo] = None
         self._gpu_info: Optional[GpuInfo] = None
@@ -105,6 +108,10 @@ class ProfilerRunner:
     ) -> None:
         total_queries = self._config.max_queries or dataset.size()
         iterator = enumerate(dataset)
+        # Prime hardware metadata early so the output directory label is accurate.
+        self._prime_hardware_metadata(telemetry)
+        # Prepare output directory (and confirm overwrite) before any inference.
+        self._ensure_output_prepared(dataset)
         with tqdm(total=total_queries, desc="Profiling", unit="query") as progress:
             for index, record in iterator:
                 if index >= total_queries:
@@ -350,21 +357,59 @@ class ProfilerRunner:
             except Exception:
                 LOGGER.warning("Failed to close inference client cleanly", exc_info=True)
 
-    def _persist_records(self, dataset) -> None:
-        if not self._records:
+    def _prime_hardware_metadata(self, telemetry: TelemetrySession) -> None:
+        """Wait briefly for telemetry samples so hardware labels are stable."""
+        try:
+            initial_samples = list(telemetry.readings() or [])
+        except TypeError:
+            initial_samples = []
+        if initial_samples:
+            self._update_hardware_metadata(initial_samples)
+        if self._hardware_label not in (None, "UNKNOWN_HW"):
             return
+
+        session_type = TelemetrySession
+        if not isinstance(session_type, type):
+            return
+        if not isinstance(telemetry, session_type):
+            return
+
+        deadline = time.time() + self._HARDWARE_PRIME_TIMEOUT_SECONDS
+        while time.time() < deadline:
+            try:
+                samples = list(telemetry.readings() or [])
+            except TypeError:
+                samples = []
+            if samples:
+                self._update_hardware_metadata(samples)
+                if self._hardware_label not in (None, "UNKNOWN_HW"):
+                    return
+            time.sleep(self._HARDWARE_PRIME_POLL_INTERVAL_SECONDS)
+
+    def _ensure_output_prepared(self, dataset) -> Path:
+        """Resolve and prepare the output directory once per run."""
+        if self._output_prepared:
+            return self._get_output_path()
 
         dataset_label = (
             getattr(dataset, "dataset_name", None)
             or getattr(dataset, "dataset_id", None)
             or self._config.dataset_id
         )
-
-        output_path = self._get_output_path(str(dataset_label).strip() or self._config.dataset_id)
+        output_path = self._get_output_path(
+            str(dataset_label).strip() or self._config.dataset_id
+        )
         if output_path.exists():
             self._confirm_overwrite(output_path)
             shutil.rmtree(output_path)
         output_path.parent.mkdir(parents=True, exist_ok=True)
+        self._output_prepared = True
+        return output_path
+
+    def _persist_records(self, dataset) -> None:
+        if not self._records:
+            return
+        output_path = self._ensure_output_prepared(dataset)
 
         dataset_obj = Dataset.from_list([asdict(record) for record in self._records])
         dataset_obj.save_to_disk(str(output_path))
