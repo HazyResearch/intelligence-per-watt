@@ -136,6 +136,7 @@ class TestProfilerRunner:
 
         mock_telemetry = Mock()
         mock_telemetry.window.return_value = []
+        mock_telemetry.readings.return_value = []
         mock_session.return_value.__enter__.return_value = mock_telemetry
 
         # Mock Dataset.from_list to return a mock with save_to_disk that creates the directory
