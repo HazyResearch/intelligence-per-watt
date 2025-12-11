@@ -36,7 +36,7 @@ LOGGER = logging.getLogger(__name__)
 class ProfilerRunner:
     """Coordinate dataset iteration, inference calls, telemetry capture, and persistence."""
 
-    _FLUSH_INTERVAL = 1
+    _FLUSH_INTERVAL = 100
     _HARDWARE_PRIME_TIMEOUT_SECONDS = 2.0
     _HARDWARE_PRIME_POLL_INTERVAL_SECONDS = 0.05
 
