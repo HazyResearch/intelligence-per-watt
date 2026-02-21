@@ -93,3 +93,10 @@ Desktop.ini
 .pytest_cache/
 
 runs/
+
+# Claude Code
+CLAUDE.md
+.claude/
+
+# MkDocs
+site/
