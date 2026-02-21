@@ -6,7 +6,7 @@ use std::sync::Arc;
 use tokio::sync::mpsc;
 use tokio_stream::wrappers::UnboundedReceiverStream;
 use tonic::{Request, Response, Status, transport::Server};
-use tracing::{error, info};
+use tracing::{debug, error, info};
 
 use crate::collectors::{CollectorSample, TelemetryCollector};
 use crate::config::Config;
@@ -67,13 +67,32 @@ impl EnergyMonitor for EnergyMonitorService {
         tokio::spawn(async move {
             let mut interval =
                 tokio::time::interval(tokio::time::Duration::from_millis(collection_interval_ms));
+            let mut sample_count: u64 = 0;
+            let start_time = std::time::Instant::now();
+            let mut last_log_time = start_time;
 
             loop {
                 interval.tick().await;
 
+                let collect_start = std::time::Instant::now();
                 // Collect telemetry
                 match collector.collect().await {
                     Ok(sample) => {
+                        let collect_duration = collect_start.elapsed();
+                        sample_count += 1;
+
+                        // Log every 10 seconds
+                        let now = std::time::Instant::now();
+                        if now.duration_since(last_log_time).as_secs() >= 10 {
+                            let elapsed = now.duration_since(start_time).as_secs_f64();
+                            let rate = sample_count as f64 / elapsed;
+                            debug!(
+                                "Telemetry streaming: {} samples in {:.1}s ({:.1}/s), last collect took {:?}",
+                                sample_count, elapsed, rate, collect_duration
+                            );
+                            last_log_time = now;
+                        }
+
                         let reading = assemble_reading(sample, &system_info);
                         if tx.send(Ok(reading)).is_err() {
                             // Client disconnected
@@ -93,7 +112,9 @@ impl EnergyMonitor for EnergyMonitorService {
                 }
             }
 
-            info!("Telemetry streaming stopped");
+            let elapsed = start_time.elapsed().as_secs_f64();
+            let rate = sample_count as f64 / elapsed;
+            info!("Telemetry streaming stopped: {} samples in {:.1}s ({:.1}/s)", sample_count, elapsed, rate);
         });
 
         Ok(Response::new(Box::pin(UnboundedReceiverStream::new(rx))))
@@ -129,7 +150,15 @@ fn assemble_reading(
         energy_joules: sample.energy_joules,
         temperature_celsius: sample.temperature_celsius,
         gpu_memory_usage_mb: sample.gpu_memory_usage_mb,
+        gpu_memory_total_mb: sample.gpu_memory_total_mb,
         cpu_memory_usage_mb: sample.cpu_memory_usage_mb,
+        cpu_power_watts: sample.cpu_power_watts,
+        cpu_energy_joules: sample.cpu_energy_joules,
+        ane_power_watts: sample.ane_power_watts,
+        ane_energy_joules: sample.ane_energy_joules,
+        gpu_compute_utilization_pct: sample.gpu_compute_utilization_pct,
+        gpu_memory_bandwidth_utilization_pct: sample.gpu_memory_bandwidth_utilization_pct,
+        gpu_tensor_core_utilization_pct: sample.gpu_tensor_core_utilization_pct,
         platform: sample.platform,
         timestamp_nanos: sample.timestamp_nanos,
         system_info: Some((**system_info).clone()),

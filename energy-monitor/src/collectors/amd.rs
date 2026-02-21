@@ -10,13 +10,18 @@ use tracing::{info, warn};
 use super::{CollectorSample, TelemetryCollector};
 use crate::energy::GpuInfo;
 
+const MICROWATTS_PER_WATT: f64 = 1_000_000.0;
+const BYTES_PER_MIB: f64 = 1024.0 * 1024.0;
+
 /// AMD telemetry collector using ROC-SMI
 pub struct AmdCollector {
     rsmi: Arc<Mutex<Option<RocmSmi>>>,
-    devices: Arc<Mutex<Vec<RocmSmiDevice>>>,
+    devices: Arc<Mutex<Vec<(u32, RocmSmiDevice)>>>,
     last_timestamp: Arc<Mutex<Option<Instant>>>,
     accumulated_energy_j: Arc<Mutex<f64>>,
     gpu_info: Arc<Mutex<GpuInfo>>,
+    #[cfg(target_os = "linux")]
+    rapl_reader: Mutex<Option<super::linux_rapl::RaplReader>>,
 }
 
 impl AmdCollector {
@@ -29,10 +34,10 @@ impl AmdCollector {
             return Err(anyhow::anyhow!("No AMD GPUs found"));
         }
 
-        let mut devices: Vec<RocmSmiDevice> = Vec::new();
+        let mut devices: Vec<(u32, RocmSmiDevice)> = Vec::new();
         for i in 0..count {
             if let Ok(dev) = RocmSmiDevice::new(i) {
-                devices.push(dev);
+                devices.push((i, dev));
             }
         }
         if devices.is_empty() {
@@ -40,7 +45,7 @@ impl AmdCollector {
         }
 
         let mut names: Vec<String> = Vec::with_capacity(devices.len());
-        for d in devices.iter_mut() {
+        for (_, d) in devices.iter_mut() {
             let name = match d.get_identifiers() {
                 Ok(id) => id.name.unwrap_or_else(|_| "Unknown GPU".to_string()),
                 Err(_) => "Unknown GPU".to_string(),
@@ -62,12 +67,24 @@ impl AmdCollector {
 
         info!("AMD GPUs detected for energy monitoring: {}", gpu_info.name);
 
+        // Initialize RAPL reader for CPU energy on Linux
+        #[cfg(target_os = "linux")]
+        let rapl_reader = {
+            let reader = super::linux_rapl::RaplReader::new();
+            if reader.is_some() {
+                info!("RAPL reader initialized for CPU energy monitoring");
+            }
+            Mutex::new(reader)
+        };
+
         Ok(Self {
             rsmi: Arc::new(Mutex::new(Some(rsmi))),
             devices: Arc::new(Mutex::new(devices)),
             last_timestamp: Arc::new(Mutex::new(None)),
             accumulated_energy_j: Arc::new(Mutex::new(0.0)),
             gpu_info: Arc::new(Mutex::new(gpu_info)),
+            #[cfg(target_os = "linux")]
+            rapl_reader,
         })
     }
 }
@@ -88,7 +105,15 @@ impl TelemetryCollector for AmdCollector {
             energy_joules: -1.0,
             temperature_celsius: -1.0,
             gpu_memory_usage_mb: -1.0,
+            gpu_memory_total_mb: -1.0,
             cpu_memory_usage_mb: -1.0,
+            cpu_power_watts: -1.0,
+            cpu_energy_joules: -1.0,
+            ane_power_watts: -1.0,
+            ane_energy_joules: -1.0,
+            gpu_compute_utilization_pct: -1.0,
+            gpu_memory_bandwidth_utilization_pct: -1.0,
+            gpu_tensor_core_utilization_pct: -1.0,
             platform: "amd".to_string(),
             timestamp_nanos: SystemTime::now().duration_since(UNIX_EPOCH)?.as_nanos() as i64,
             gpu_info: Some(self.gpu_info.lock().unwrap().clone()),
@@ -100,11 +125,30 @@ impl TelemetryCollector for AmdCollector {
         let mut temp_count: usize = 0;
         let mut mem_sum_mb: f64 = 0.0;
         let mut any_mem_ok = false;
+        let mut mem_total_sum_mb: f64 = 0.0;
+        let mut any_mem_total_ok = false;
+        let mut compute_util_sum: f64 = 0.0;
+        let mut compute_util_count: usize = 0;
+        let mut memory_util_sum: f64 = 0.0;
+        let mut memory_util_count: usize = 0;
 
         if let Ok(mut guard) = self.devices.lock() {
-            for dev in guard.iter_mut() {
-                if let Ok(power) = dev.get_power_data() {
-                    power_sum_w += power.current_power as f64 / 1_000_000.0;
+            for (device_index, dev) in guard.iter_mut() {
+                // Prefer current socket power: it's supported on MI300X VFs
+                // even when other power telemetry calls are not.
+                let mut socket_power_uw: u64 = 0;
+                let power_status = unsafe {
+                    rocm_smi_lib::rsmi_dev_current_socket_power_get(
+                        *device_index,
+                        &mut socket_power_uw,
+                    )
+                };
+                if power_status == 0 {
+                    power_sum_w += socket_power_uw as f64 / MICROWATTS_PER_WATT;
+                    any_power_ok = true;
+                } else if let Ok(power) = dev.get_power_data() {
+                    // Fallback within ROCm SMI for older devices.
+                    power_sum_w += power.current_power as f64 / MICROWATTS_PER_WATT;
                     any_power_ok = true;
                 }
 
@@ -125,9 +169,35 @@ impl TelemetryCollector for AmdCollector {
                 }
 
                 if let Ok(mem) = dev.get_memory_data() {
-                    let used_mb = mem.vram_used as f64 / (1024.0 * 1024.0);
+                    let used_mb = mem.vram_used as f64 / BYTES_PER_MIB;
                     mem_sum_mb += used_mb;
                     any_mem_ok = true;
+                    let total_mb = mem.vram_total as f64 / BYTES_PER_MIB;
+                    mem_total_sum_mb += total_mb;
+                    any_mem_total_ok = true;
+                }
+
+                // GPU utilization (compute)
+                let mut busy_pct: u32 = 0;
+                let status = unsafe {
+                    rocm_smi_lib::rsmi_dev_busy_percent_get(*device_index, &mut busy_pct)
+                };
+                if status == 0 {
+                    compute_util_sum += busy_pct as f64;
+                    compute_util_count += 1;
+                }
+
+                // Memory utilization (approx bandwidth utilization)
+                let mut mem_busy_pct: u32 = 0;
+                let status = unsafe {
+                    rocm_smi_lib::rsmi_dev_memory_busy_percent_get(
+                        *device_index,
+                        &mut mem_busy_pct,
+                    )
+                };
+                if status == 0 {
+                    memory_util_sum += mem_busy_pct as f64;
+                    memory_util_count += 1;
                 }
             }
         }
@@ -152,6 +222,30 @@ impl TelemetryCollector for AmdCollector {
 
         if any_mem_ok {
             sample.gpu_memory_usage_mb = mem_sum_mb;
+        }
+        if any_mem_total_ok {
+            sample.gpu_memory_total_mb = mem_total_sum_mb;
+        }
+        if compute_util_count > 0 {
+            sample.gpu_compute_utilization_pct =
+                compute_util_sum / (compute_util_count as f64);
+        }
+        if memory_util_count > 0 {
+            sample.gpu_memory_bandwidth_utilization_pct =
+                memory_util_sum / (memory_util_count as f64);
+        }
+
+        // Fill CPU energy using RAPL on Linux
+        #[cfg(target_os = "linux")]
+        {
+            if let Ok(mut rapl_guard) = self.rapl_reader.lock() {
+                if let Some(ref mut rapl) = *rapl_guard {
+                    if let Some((cpu_power, cpu_energy)) = rapl.read() {
+                        sample.cpu_power_watts = cpu_power;
+                        sample.cpu_energy_joules = cpu_energy;
+                    }
+                }
+            }
         }
 
         let mut sys = sysinfo::System::new_all();

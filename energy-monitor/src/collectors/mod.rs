@@ -5,6 +5,8 @@ use tracing::{debug, info};
 
 #[cfg(all(feature = "amd", not(target_os = "macos"), not(target_os = "windows")))]
 mod amd;
+#[cfg(target_os = "linux")]
+pub(crate) mod linux_rapl;
 #[cfg(target_os = "macos")]
 mod macos;
 #[cfg(not(target_os = "macos"))]
@@ -28,14 +30,22 @@ pub trait TelemetryCollector: Send + Sync {
     async fn is_available(&self) -> bool;
 }
 
-/// GPU-centric telemetry sample emitted by collectors.
+/// Telemetry sample emitted by collectors.
 #[derive(Clone, Debug)]
 pub struct CollectorSample {
     pub power_watts: f64,
     pub energy_joules: f64,
     pub temperature_celsius: f64,
     pub gpu_memory_usage_mb: f64,
+    pub gpu_memory_total_mb: f64,
     pub cpu_memory_usage_mb: f64,
+    pub cpu_power_watts: f64,
+    pub cpu_energy_joules: f64,
+    pub ane_power_watts: f64,
+    pub ane_energy_joules: f64,
+    pub gpu_compute_utilization_pct: f64,
+    pub gpu_memory_bandwidth_utilization_pct: f64,
+    pub gpu_tensor_core_utilization_pct: f64,
     pub platform: String,
     pub timestamp_nanos: i64,
     pub gpu_info: Option<GpuInfo>,
@@ -71,7 +81,15 @@ impl TelemetryCollector for NullCollector {
             energy_joules: -1.0,
             temperature_celsius: -1.0,
             gpu_memory_usage_mb: -1.0,
+            gpu_memory_total_mb: -1.0,
             cpu_memory_usage_mb: -1.0,
+            cpu_power_watts: -1.0,
+            cpu_energy_joules: -1.0,
+            ane_power_watts: -1.0,
+            ane_energy_joules: -1.0,
+            gpu_compute_utilization_pct: -1.0,
+            gpu_memory_bandwidth_utilization_pct: -1.0,
+            gpu_tensor_core_utilization_pct: -1.0,
             platform: "null".to_string(),
             timestamp_nanos: std::time::SystemTime::now()
                 .duration_since(std::time::UNIX_EPOCH)
