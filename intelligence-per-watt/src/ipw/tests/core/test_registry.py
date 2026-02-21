@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import pytest
-from ipw.core.registry import ClientRegistry, DatasetRegistry, RegistryBase
+from ipw.core.registry import AgentRegistry, ClientRegistry, DatasetRegistry, RegistryBase
 
 
 class DummyEntry:
@@ -70,3 +70,64 @@ def test_client_registry_independent_from_dataset_registry() -> None:
 
     assert ClientRegistry.get("client") is Client
     assert DatasetRegistry.get("dataset") is Dataset
+
+
+# ─── AgentRegistry tests ───────────────────────────────────────────
+
+
+def test_agent_registry_register_and_get() -> None:
+    AgentRegistry.clear()
+
+    @AgentRegistry.register("test_agent")
+    class TestAgent:
+        pass
+
+    assert AgentRegistry.get("test_agent") is TestAgent
+
+
+def test_agent_registry_create() -> None:
+    AgentRegistry.clear()
+
+    @AgentRegistry.register("creatable_agent")
+    class CreatableAgent:
+        def __init__(self, name: str) -> None:
+            self.name = name
+
+    instance = AgentRegistry.create("creatable_agent", "myname")
+    assert isinstance(instance, CreatableAgent)
+    assert instance.name == "myname"
+
+
+def test_agent_registry_duplicate_key_raises() -> None:
+    AgentRegistry.clear()
+
+    @AgentRegistry.register("dup_agent")
+    class DupAgent:
+        pass
+
+    with pytest.raises(ValueError):
+        AgentRegistry.register("dup_agent")(type("Another", (), {}))
+
+
+def test_agent_registry_isolated_from_client_registry() -> None:
+    AgentRegistry.clear()
+    ClientRegistry.clear()
+
+    @AgentRegistry.register("my_agent")
+    class MyAgent:
+        pass
+
+    @ClientRegistry.register("my_client")
+    class MyClient:
+        pass
+
+    assert AgentRegistry.has("my_agent")
+    assert not AgentRegistry.has("my_client")
+    assert ClientRegistry.has("my_client")
+    assert not ClientRegistry.has("my_agent")
+
+
+def test_agent_registry_get_unknown_raises() -> None:
+    AgentRegistry.clear()
+    with pytest.raises(KeyError):
+        AgentRegistry.get("nonexistent")
