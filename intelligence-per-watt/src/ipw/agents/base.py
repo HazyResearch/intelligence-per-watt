@@ -1,0 +1,52 @@
+"""Base class for all agents with optional MCP tool and telemetry support."""
+
+from __future__ import annotations
+
+from typing import TYPE_CHECKING, Any, Optional
+
+if TYPE_CHECKING:
+    from ipw.agents.mcp.base import BaseMCPServer
+    from ipw.telemetry.events import EventRecorder
+
+
+class BaseAgent:
+    """Base class for all agents with optional MCP tool and telemetry support."""
+
+    def __init__(
+        self,
+        mcp_tools: Optional[dict[str, "BaseMCPServer"]] = None,
+        event_recorder: Optional["EventRecorder"] = None,
+    ) -> None:
+        """Initialize the agent.
+
+        Args:
+            mcp_tools: Optional dictionary of MCP server instances for tool access.
+            event_recorder: Optional EventRecorder for per-action energy telemetry.
+        """
+        self.mcp_tools = mcp_tools or {}
+        self.event_recorder = event_recorder
+
+    def _record_event(self, event_type: str, **metadata: Any) -> None:
+        """Record an event if a recorder is attached.
+
+        Args:
+            event_type: Type of event (e.g., 'tool_call_start', 'lm_inference_end')
+            **metadata: Additional metadata to attach to the event
+        """
+        if self.event_recorder is not None:
+            self.event_recorder.record(event_type, **metadata)
+
+    def run(self, input: str, **kwargs: Any) -> Any:
+        """Run the agent.
+
+        Args:
+            input: The input message or prompt for the agent.
+            **kwargs: Additional keyword arguments.
+
+        Returns:
+            The output from the agent.
+
+        Raises:
+            NotImplementedError: Subclasses must implement this method.
+        """
+        raise NotImplementedError("Subclasses must implement the run method")
