@@ -27,6 +27,8 @@ from .hardware import derive_hardware_label
 from .telemetry_session import TelemetrySample, TelemetrySession
 from .types import (ComputeMetrics, EnergyMetrics, LatencyMetrics,
                     MemoryMetrics, MetricStats, ModelMetrics,
+                    HardwareUtilization, HardwareUtilizationDerived,
+                    HardwareUtilizationGpu, PhaseMetrics,
                     PowerComponentMetrics, PowerMetrics, ProfilingRecord,
                     TokenMetrics)
 
@@ -143,6 +145,9 @@ class ProfilerRunner:
         power_stats = _stat_summary(
             [reading.power_watts for reading in telemetry_readings]
         )
+        cpu_power_stats = _stat_summary(
+            [reading.cpu_power_watts for reading in telemetry_readings]
+        )
         temperature_stats = _stat_summary(
             [reading.temperature_celsius for reading in telemetry_readings]
         )
@@ -151,6 +156,22 @@ class ProfilerRunner:
         )
         gpu_memory_stats = _stat_summary(
             [reading.gpu_memory_usage_mb for reading in telemetry_readings]
+        )
+        compute_util_stats = _stat_summary(
+            [reading.gpu_compute_utilization_pct for reading in telemetry_readings]
+        )
+        memory_bw_util_stats = _stat_summary(
+            [reading.gpu_memory_bandwidth_utilization_pct for reading in telemetry_readings]
+        )
+        tensor_util_stats = _stat_summary(
+            [reading.gpu_tensor_core_utilization_pct for reading in telemetry_readings]
+        )
+
+        memory_used_gb = _max_gb(
+            [reading.gpu_memory_usage_mb for reading in telemetry_readings]
+        )
+        memory_total_gb = _max_gb(
+            [reading.gpu_memory_total_mb for reading in telemetry_readings]
         )
 
         usage = response.usage
@@ -181,6 +202,17 @@ class ProfilerRunner:
 
         model_name = self._config.model
 
+        hardware_utilization = HardwareUtilization(
+            gpu=HardwareUtilizationGpu(
+                compute_utilization_pct=compute_util_stats.avg,
+                memory_bandwidth_utilization_pct=memory_bw_util_stats.avg,
+                tensor_core_utilization_pct=tensor_util_stats.avg,
+                memory_used_gb=memory_used_gb,
+                memory_total_gb=memory_total_gb,
+            ),
+            derived=HardwareUtilizationDerived(),
+        )
+
         model_metrics = ModelMetrics(
             compute_metrics=ComputeMetrics(),
             energy_metrics=energy_metrics,
@@ -198,7 +230,16 @@ class ProfilerRunner:
                         median=power_stats.median,
                         min=power_stats.min,
                     ),
-                )
+                ),
+                cpu=PowerComponentMetrics(
+                    per_query_watts=cpu_power_stats,
+                    total_watts=MetricStats(
+                        avg=cpu_power_stats.avg,
+                        max=cpu_power_stats.max,
+                        median=cpu_power_stats.median,
+                        min=cpu_power_stats.min,
+                    ),
+                ),
             ),
             temperature_metrics=temperature_stats,
             token_metrics=TokenMetrics(
@@ -206,6 +247,7 @@ class ProfilerRunner:
                 output=completion_tokens,
                 total=prompt_tokens + completion_tokens,
             ),
+            hardware_utilization=hardware_utilization,
             gpu_info=self._gpu_info,
             system_info=self._system_info,
             lm_response=response.content,
@@ -230,13 +272,58 @@ class ProfilerRunner:
         Energy values should be monotonically increasing cumulative counters.
         Negative deltas indicate counter reset or data anomaly and are treated as None.
         """
-        energy_values = [
+        # GPU energy
+        gpu_energy_values = [
             reading.energy_joules
             for reading in readings
             if reading.energy_joules is not None
         ]
+        gpu_per_query = self._compute_energy_delta(gpu_energy_values)
+
+        # CPU energy
+        cpu_energy_values = [
+            reading.cpu_energy_joules
+            for reading in readings
+            if reading.cpu_energy_joules is not None
+        ]
+        cpu_per_query = self._compute_energy_delta(cpu_energy_values)
+
+        # ANE energy (macOS only)
+        ane_energy_values = [
+            reading.ane_energy_joules
+            for reading in readings
+            if reading.ane_energy_joules is not None
+        ]
+        ane_per_query = self._compute_energy_delta(ane_energy_values)
+
+        # Maintain baseline tracking for GPU (backward compat)
+        if gpu_energy_values:
+            start_value = gpu_energy_values[0]
+            end_value = gpu_energy_values[-1]
+            if self._baseline_energy is None:
+                self._baseline_energy = start_value
+            if (
+                self._last_energy_total is not None
+                and start_value < self._last_energy_total
+            ):
+                self._baseline_energy = start_value
+            self._last_energy_total = end_value
+
+        return EnergyMetrics(
+            per_query_joules=gpu_per_query,
+            total_joules=gpu_per_query,
+            cpu_per_query_joules=cpu_per_query,
+            cpu_total_joules=cpu_per_query,
+            ane_per_query_joules=ane_per_query,
+            ane_total_joules=ane_per_query,
+        )
+
+    def _compute_energy_delta(
+        self, energy_values: list[float]
+    ) -> Optional[float]:
+        """Compute energy delta from a list of cumulative energy values."""
         if not energy_values:
-            return EnergyMetrics()
+            return None
 
         start_value = energy_values[0]
         end_value = energy_values[-1]
@@ -248,30 +335,10 @@ class ProfilerRunner:
             and start_value >= 0
             and end_value >= 0
         ):
-            return EnergyMetrics()
+            return None
 
-        # Check for counter reset within the query window
-        if end_value < start_value:
-            return EnergyMetrics()
-
-        per_query = end_value - start_value
-
-        if self._baseline_energy is None:
-            self._baseline_energy = start_value
-
-        # If the counter reset between queries (current start < last end), rebase baseline
-        if (
-            self._last_energy_total is not None
-            and start_value < self._last_energy_total
-        ):
-            self._baseline_energy = start_value
-
-        self._last_energy_total = end_value
-
-        return EnergyMetrics(
-            per_query_joules=per_query,
-            total_joules=per_query,
-        )
+        per_query_delta = end_value - start_value
+        return per_query_delta if per_query_delta >= 0 else None
 
     def _update_hardware_metadata(self, readings: Sequence[TelemetrySample]) -> None:
         for sample in readings:
@@ -459,6 +526,14 @@ def _stat_summary(values: Iterable[Optional[float]]) -> MetricStats:
         median=statistics.median(filtered),
         min=min(filtered),
     )
+
+
+def _max_gb(values: Iterable[Optional[float]]) -> Optional[float]:
+    """Return the maximum value converted from MB to GB, or None."""
+    filtered = [float(v) for v in values if v is not None]
+    if not filtered:
+        return None
+    return max(filtered) / 1024.0
 
 
 def _slugify_model(model: str) -> str:

@@ -7,7 +7,7 @@ name = "ipw"
 version = "0.1.0"
 description = "Intelligence Per Watt"
 readme = "README.md"
-requires-python = ">=3.12"
+requires-python = ">=3.13"
 dependencies = [
     "httpx>=0.27",
     "aiohttp>=3.12.15",
@@ -29,10 +29,34 @@ dependencies = [
 [project.optional-dependencies]
 ollama = ["ollama"]
 vllm = ["vllm>=0.11.0"]
-all = ["ollama", "vllm>=0.11.0"]
+react = ["agno"]
+terminus = ["terminal-bench", "docker"]
+openhands = ["openhands-sdk"]
+agents = ["agno", "terminal-bench", "docker", "openhands-sdk"]
+tavily = ["tavily-python"]
+flops = ["calflops"]
+docs = ["mkdocs-material", "mkdocstrings[python]", "mkdocs-gen-files", "mkdocs-literate-nav"]
+all = [
+    "ollama",
+    "vllm>=0.11.0",
+    "agno",
+    "terminal-bench",
+    "docker",
+    "openhands-sdk",
+    "tavily-python",
+    "calflops",
+]
 
 [project.scripts]
 ipw = "ipw.cli:main"
 
 [tool.uv_build]
 package-data = {"ipw" = ["py.typed"], "ipw.telemetry" = ["bin/**"], "ipw.datasets.ipw" = ["data/**"]}
+
+[tool.pytest.ini_options]
+markers = [
+    "integration: marks tests as integration tests (may require hardware and running server)",
+    "auto_server: marks tests that use the auto-server functionality",
+    "submodel: marks tests that use multiple models/submodels",
+]
+timeout = 600
