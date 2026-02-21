@@ -8,6 +8,7 @@ from .analyze import analyze
 from .list import list_cmd
 from .plot import plot
 from .profile import profile
+from .run import run_cmd
 
 
 @click.group(help="Intelligence Per Watt development CLI tool")
@@ -19,6 +20,7 @@ cli.add_command(profile, "profile")
 cli.add_command(analyze, "analyze")
 cli.add_command(plot, "plot")
 cli.add_command(list_cmd, "list")
+cli.add_command(run_cmd, "run")
 
 
 def main() -> None:
