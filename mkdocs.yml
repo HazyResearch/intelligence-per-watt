@@ -1,6 +1,6 @@
 site_name: Intelligence Per Watt
 site_description: Benchmarking suite for LLM inference systems measuring accuracy alongside energy consumption
-site_url: https://hazyresearch.github.io/intelligence-per-watt/
+site_url: https://hazyresearch.stanford.edu/intelligence-per-watt/
 repo_url: https://github.com/HazyResearch/intelligence-per-watt
 repo_name: HazyResearch/intelligence-per-watt
 
