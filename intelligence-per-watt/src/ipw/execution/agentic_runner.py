@@ -2,8 +2,10 @@
 
 from __future__ import annotations
 
+import json
 import logging
 import math
+import re
 import statistics
 import time
 from dataclasses import asdict
@@ -34,6 +36,41 @@ from ..telemetry.events import EventRecorder, EventType
 
 LOGGER = logging.getLogger(__name__)
 
+# ---------------------------------------------------------------------------
+# Patch extraction helpers
+# ---------------------------------------------------------------------------
+
+_FENCED_DIFF_RE = re.compile(
+    r"```(?:diff|patch)\s*\n(.*?)```", re.DOTALL
+)
+_UNIFIED_DIFF_MARKERS = ("diff --git", "--- a/", "+++ b/", "@@ ")
+
+
+def _extract_patch(text: str) -> Optional[str]:
+    """Extract a unified-diff patch from agent response text.
+
+    Looks for fenced ``diff`` code blocks first, then falls back to raw
+    unified-diff markers.  Returns ``None`` when no patch is detected.
+    """
+    # 1. Fenced ```diff blocks
+    fenced = _FENCED_DIFF_RE.findall(text)
+    if fenced:
+        return "\n\n".join(block.strip() for block in fenced)
+
+    # 2. Raw unified diff markers
+    lines = text.splitlines()
+    patch_lines: list[str] = []
+    in_diff = False
+    for line in lines:
+        if any(line.startswith(m) for m in _UNIFIED_DIFF_MARKERS):
+            in_diff = True
+        if in_diff:
+            patch_lines.append(line)
+
+    if patch_lines:
+        return "\n".join(patch_lines)
+    return None
+
 
 class AgenticRunner:
     """Orchestrate multi-turn agent runs with energy telemetry correlation.
@@ -51,12 +88,14 @@ class AgenticRunner:
         telemetry_session: Optional[TelemetrySession] = None,
         config: Optional[dict[str, Any]] = None,
         event_recorder: Optional[EventRecorder] = None,
+        run_dir: Optional[Path] = None,
     ) -> None:
         self._agent = agent
         self._dataset = dataset
         self._telemetry = telemetry_session
         self._config = config or {}
         self._event_recorder = event_recorder if event_recorder is not None else EventRecorder()
+        self._run_dir = run_dir
         self._traces: list[QueryTrace] = []
         self._records: list[ProfilingRecord] = []
 
@@ -86,6 +125,10 @@ class AgenticRunner:
                 )
                 self._records.append(profiling_record)
 
+                # Save per-query artifacts (patches, responses, metadata)
+                if self._run_dir:
+                    self._save_query_artifacts(index, record, trace)
+
                 if len(self._traces) % self._FLUSH_INTERVAL == 0:
                     LOGGER.debug(
                         "Processed %d/%d queries", len(self._traces), total
@@ -112,6 +155,16 @@ class AgenticRunner:
         )
 
         self._event_recorder.clear()
+
+        # Set up per-query workspace for agents that support it
+        if self._run_dir and hasattr(self._agent, "set_workspace"):
+            instance_id = record.dataset_metadata.get("instance_id", "")
+            slug = re.sub(r"[^a-zA-Z0-9_-]", "_", str(instance_id))[:80]
+            workspace = (
+                self._run_dir / "artifacts" / f"q{index:04d}_{slug}" / "workspace"
+            )
+            workspace.mkdir(parents=True, exist_ok=True)
+            self._agent.set_workspace(str(workspace))
 
         # Run the agent
         try:
@@ -329,6 +382,46 @@ class AgenticRunner:
                     turn.cpu_energy_joules = total_cpu_energy * fraction
 
         return trace
+
+    def _save_query_artifacts(
+        self,
+        index: int,
+        record: DatasetRecord,
+        trace: QueryTrace,
+    ) -> None:
+        """Save per-query artifacts to structured subdirectories."""
+        assert self._run_dir is not None
+        instance_id = record.dataset_metadata.get("instance_id", "")
+        slug = re.sub(r"[^a-zA-Z0-9_-]", "_", str(instance_id))[:80]
+        query_dir = self._run_dir / "artifacts" / f"q{index:04d}_{slug}"
+        query_dir.mkdir(parents=True, exist_ok=True)
+
+        # response.txt — full agent response
+        (query_dir / "response.txt").write_text(
+            trace.response_text or "", encoding="utf-8"
+        )
+
+        # metadata.json — query-level metadata
+        meta: dict[str, object] = {
+            "query_id": trace.query_id,
+            "instance_id": str(instance_id),
+            "completed": trace.completed,
+            "wall_clock_s": trace.total_wall_clock_s,
+            "num_turns": trace.num_turns,
+        }
+        # Include select dataset metadata
+        for key in ("repo", "base_commit", "dataset_name"):
+            val = record.dataset_metadata.get(key)
+            if val is not None:
+                meta[key] = val
+        (query_dir / "metadata.json").write_text(
+            json.dumps(meta, indent=2, default=str), encoding="utf-8"
+        )
+
+        # patch.diff — extracted patch (if present)
+        patch = _extract_patch(trace.response_text or "")
+        if patch:
+            (query_dir / "patch.diff").write_text(patch, encoding="utf-8")
 
     def _build_profiling_record(
         self,

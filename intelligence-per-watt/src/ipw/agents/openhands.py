@@ -135,11 +135,17 @@ class OpenHands(BaseAgent):
         self._pending_tool: Optional[str] = None
         self._tool_names_used: List[str] = []
         self._num_turns: int = 0
+        self._workspace: str = os.getcwd()
+        self._max_turns = max_turns
 
         # Store references for use in callbacks
         self._ActionEvent = ActionEvent
         self._ObservationEvent = ObservationEvent
         self._LLMConvertibleEvent = LLMConvertibleEvent
+
+        # Store SDK classes for lazy conversation creation
+        self._LocalConversation = LocalConversation
+        self._LLMSummarizingCondenser = LLMSummarizingCondenser
 
         # Context condenser
         condenser = LLMSummarizingCondenser(
@@ -157,13 +163,7 @@ class OpenHands(BaseAgent):
             agent_kwargs["tools"] = extra_tool_specs
 
         self.agent = Agent(**agent_kwargs)
-
-        self.conversation = LocalConversation(
-            agent=self.agent,
-            callbacks=[self._instrumented_callback],
-            workspace=os.getcwd(),
-            max_iteration_per_run=max_turns,
-        )
+        self.conversation: Optional[Any] = None
         self.current_result = ""
 
     def _instrumented_callback(self, event: Any) -> None:
@@ -181,6 +181,19 @@ class OpenHands(BaseAgent):
 
         if isinstance(event, self._LLMConvertibleEvent):
             self.current_result = event.to_llm_message()
+
+    def set_workspace(self, workspace_path: str) -> None:
+        """Set the workspace directory for the next agent run."""
+        self._workspace = workspace_path
+
+    def _create_conversation(self) -> Any:
+        """Create a fresh LocalConversation for the next run."""
+        return self._LocalConversation(
+            agent=self.agent,
+            callbacks=[self._instrumented_callback],
+            workspace=self._workspace,
+            max_iteration_per_run=self._max_turns,
+        )
 
     @staticmethod
     def _extract_text(message: Any) -> str:
@@ -222,6 +235,10 @@ class OpenHands(BaseAgent):
         # Reset per-run tracking
         self._tool_names_used = []
         self._num_turns = 0
+
+        # Create a fresh conversation for each run (previous one is closed
+        # in the finally block, so we need a new one each time).
+        self.conversation = self._create_conversation()
 
         self._record_event("lm_inference_start", model=str(self.model))
         try:

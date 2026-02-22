@@ -130,4 +130,39 @@ def export_summary_json(
     return path
 
 
-__all__ = ["export_jsonl", "export_hf_dataset", "export_summary_json"]
+def export_artifacts_manifest(run_dir: Path) -> Optional[Path]:
+    """Scan ``{run_dir}/artifacts/`` and write ``artifacts_manifest.json``.
+
+    The manifest lists every per-query artifact directory together with
+    the files it contains, making it easy for downstream tools to discover
+    what was produced without walking the directory tree themselves.
+
+    Returns:
+        The manifest path, or ``None`` if there is no artifacts directory.
+    """
+    artifacts_root = run_dir / "artifacts"
+    if not artifacts_root.is_dir():
+        return None
+
+    entries: list[dict[str, object]] = []
+    for query_dir in sorted(artifacts_root.iterdir()):
+        if not query_dir.is_dir():
+            continue
+        files = sorted(
+            str(p.relative_to(artifacts_root))
+            for p in query_dir.rglob("*")
+            if p.is_file()
+        )
+        entries.append({"query_dir": query_dir.name, "files": files})
+
+    manifest_path = run_dir / "artifacts_manifest.json"
+    manifest_path.write_text(json.dumps(entries, indent=2), encoding="utf-8")
+    return manifest_path
+
+
+__all__ = [
+    "export_jsonl",
+    "export_hf_dataset",
+    "export_summary_json",
+    "export_artifacts_manifest",
+]

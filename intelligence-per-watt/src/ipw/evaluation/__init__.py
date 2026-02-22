@@ -8,6 +8,8 @@ from .mcq import BaseMCQHandler
 from .mmlu_pro import MMLUProHandler
 from .natural_reasoning import NaturalReasoningHandler
 from .simpleqa import SimpleQAHandler
+from .swebench import SWEBenchHandler
+from .swefficiency import SWEfficiencyHandler
 from .terminalbench import TerminalBenchHandler
 from .wildchat import WildChatHandler
 
@@ -23,6 +25,8 @@ __all__ = [
     "MMLUProHandler",
     "NaturalReasoningHandler",
     "SimpleQAHandler",
+    "SWEBenchHandler",
+    "SWEfficiencyHandler",
     "TerminalBenchHandler",
     "WildChatHandler",
 ]

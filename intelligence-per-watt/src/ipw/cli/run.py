@@ -111,7 +111,7 @@ def run_cmd(
     from ipw.agents import react as _react, openhands as _openhands, terminus as _terminus  # noqa: F401
     from ipw.core.registry import AgentRegistry, DatasetRegistry
     from ipw.execution.agentic_runner import AgenticRunner
-    from ipw.execution.exporters import export_hf_dataset, export_jsonl, export_summary_json
+    from ipw.execution.exporters import export_artifacts_manifest, export_hf_dataset, export_jsonl, export_summary_json
     from ipw.telemetry.events import EventRecorder
 
     # Parse agent kwargs
@@ -200,6 +200,7 @@ def run_cmd(
         telemetry_session=None,
         config=run_config,
         event_recorder=event_recorder,
+        run_dir=run_dir,
     )
 
     try:
@@ -244,6 +245,10 @@ def run_cmd(
 
     summary_path = export_summary_json(traces, run_config, run_dir / "summary.json")
     info(f"Exported summary: {summary_path}")
+
+    manifest_path = export_artifacts_manifest(run_dir)
+    if manifest_path:
+        info(f"Exported artifacts manifest: {manifest_path}")
 
     # Print summary
     info("")

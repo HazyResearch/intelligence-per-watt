@@ -4,10 +4,12 @@ import json
 import os
 from typing import Any, Dict, Iterable, List, MutableMapping, Optional, Sequence, Tuple
 
+from ..clients.base import InferenceClient
+
 from datasets import load_dataset
 
 from ..clients.base import InferenceClient
-from ..core.registry import ClientRegistry, DatasetRegistry, EvaluationRegistry
+from ..core.registry import DatasetRegistry
 from ..core.types import DatasetRecord
 from .base import DatasetProvider
 
@@ -82,6 +84,25 @@ class SWEfficiencyDataset(DatasetProvider):
 
     def size(self) -> int:
         return len(self._records)
+
+    def score(
+        self,
+        record: DatasetRecord,
+        response: str,
+        *,
+        eval_client: Optional[InferenceClient] = None,
+    ) -> Tuple[Optional[bool], Dict[str, object]]:
+        """Structural validation only — true correctness requires test execution."""
+        if not response or not response.strip():
+            return False, {"reason": "empty_response"}
+        has_patch = any(
+            m in response for m in ("diff --git", "---", "+++", "@@")
+        )
+        return None, {
+            "reason": "requires_test_execution",
+            "has_patch": has_patch,
+            "instance_id": record.dataset_metadata.get("instance_id", ""),
+        }
 
     # ------------------------------------------------------------------
     # Dataset loading
