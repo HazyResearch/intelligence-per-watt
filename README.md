@@ -9,6 +9,7 @@
 <p align="center">
   <a href="https://arxiv.org/abs/2511.07885"><img src="https://img.shields.io/badge/arXiv-2511.07885-b31b1b.svg" alt="arXiv"></a>
   <a href="https://www.intelligence-per-watt.ai/"><img src="https://img.shields.io/badge/project-intelligence--per--watt.ai-blue" alt="Project"></a>
+  <a href="https://hazyresearch.github.io/intelligence-per-watt/"><img src="https://img.shields.io/badge/docs-mkdocs-blue" alt="Docs"></a>
   <img src="https://img.shields.io/badge/python-%3E%3D3.12-blue" alt="Python">
   <img src="https://img.shields.io/badge/license-Apache%202.0-green" alt="License">
 </p>
@@ -17,9 +18,9 @@
 
 OpenJarvis measures **accuracy alongside energy** for any LLM inference system. It profiles single-turn and multi-turn agentic workloads, captures per-query energy telemetry, and computes two efficiency metrics: **Intelligence Per Joule (IPJ)** and **Intelligence Per Watt (IPW)**.
 
-Part of the [Intelligence Per Watt](https://www.intelligence-per-watt.ai/) research initiative at [Hazy Research](https://hazyresearch.stanford.edu/) and the [Scaling Intelligence Lab](https://scalingintelligence.stanford.edu/) at [Stanford SAIL](https://ai.stanford.edu/).
+From [Hazy Research](https://hazyresearch.stanford.edu/) and the [Scaling Intelligence Lab](https://scalingintelligence.stanford.edu/) at [Stanford SAIL](https://ai.stanford.edu/). Learn more at [intelligence-per-watt.ai](https://www.intelligence-per-watt.ai/).
 
-> **[Read the docs and getting started guide at intelligence-per-watt.ai](https://www.intelligence-per-watt.ai/)**
+> **[Documentation](https://hazyresearch.github.io/intelligence-per-watt/)** · **[Getting Started](https://hazyresearch.github.io/intelligence-per-watt/getting-started/)** · **[Project Site](https://www.intelligence-per-watt.ai/)**
 
 ## Installation
 
