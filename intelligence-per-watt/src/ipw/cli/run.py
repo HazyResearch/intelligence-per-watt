@@ -32,7 +32,8 @@ def _create_model_for_agent(agent_id: str, model: str, base_url: str, api_key: s
 
 @click.command(help="Run an agentic benchmark against a dataset.")
 @click.option("--agent", "agent_id", required=True, help="Agent identifier")
-@click.option("--model", required=True, help="Model name for the agent")
+@click.option("--model", default=None, help="Model name for the agent (or use --preset)")
+@click.option("--preset", "preset_name", default=None, help="Model preset name (e.g. glm-4.7-flash)")
 @click.option("--dataset", "dataset_id", required=True, help="Dataset identifier")
 @click.option(
     "--client-base-url",
@@ -90,7 +91,8 @@ def _create_model_for_agent(agent_id: str, model: str, base_url: str, api_key: s
 )
 def run_cmd(
     agent_id: str,
-    model: str,
+    model: str | None,
+    preset_name: str | None,
     dataset_id: str,
     client_base_url: str,
     api_key: str,
@@ -103,6 +105,21 @@ def run_cmd(
     eval_model: str,
 ) -> None:
     """Execute an agentic benchmark run."""
+    from .model_presets import resolve_preset
+
+    # Resolve model from --preset if provided
+    if preset_name and model:
+        raise click.ClickException("Specify either --model or --preset, not both.")
+    if preset_name:
+        try:
+            preset = resolve_preset(preset_name)
+        except KeyError as exc:
+            raise click.ClickException(str(exc)) from exc
+        model = preset["model_id"]
+        info(f"Preset: {preset_name} → {model}")
+    if not model:
+        raise click.ClickException("Either --model or --preset is required.")
+
     import ipw.datasets
 
     ipw.datasets.ensure_registered()
