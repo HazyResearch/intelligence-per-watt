@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="assets/openjarvis-logo-light.svg" width="460" alt="openjarvis">
+  <img src="assets/intelligence_per_watt_mood.png" width="500" alt="Intelligence Per Watt">
 </p>
 
 <p align="center">
