@@ -30,8 +30,7 @@ def _register_mcp_tools(mcp_tools: Dict[str, "BaseMCPServer"]) -> list:
     Returns:
         List of Tool specs that can be passed to Agent(tools=...).
     """
-    from openhands.sdk import Tool
-    from openhands.sdk.tool.registry import register_tool
+    from openhands.sdk import Tool, register_tool
     from openhands.sdk.tool.schema import Action, Observation
     from openhands.sdk.tool.tool import ToolAnnotations, ToolDefinition, ToolExecutor
 
@@ -122,11 +121,9 @@ class OpenHands(BaseAgent):
 
         # Lazy imports: openhands-sdk is optional
         try:
-            from openhands.sdk import Agent, Conversation, Event, LLMConvertibleEvent
-            from openhands.sdk.context.condenser.llm_summarizing_condenser import LLMSummarizingCondenser
+            from openhands.sdk import Agent, Event, LLMConvertibleEvent, LLMSummarizingCondenser, LocalConversation
             from openhands.sdk.event.llm_convertible.action import ActionEvent
             from openhands.sdk.event.llm_convertible.observation import ObservationEvent
-            from openhands.tools.preset.default import get_default_agent
         except ImportError:
             raise ImportError(
                 "openhands-sdk package is required for OpenHands agent. "
@@ -151,28 +148,17 @@ class OpenHands(BaseAgent):
             keep_first=2,
         )
 
+        agent_kwargs = {"llm": model, "condenser": condenser}
+
         if tools:
-            self.agent = Agent(llm=model, tools=tools, condenser=condenser)
+            agent_kwargs["tools"] = tools
         elif mcp_tools:
             extra_tool_specs = _register_mcp_tools(mcp_tools)
-            self.agent = get_default_agent(llm=model, cli_mode=True)
-            all_tools = list(self.agent.tools) + extra_tool_specs
-            self.agent = Agent(
-                llm=model,
-                tools=all_tools,
-                system_prompt_kwargs={"cli_mode": True},
-                condenser=condenser,
-            )
-        else:
-            self.agent = get_default_agent(llm=model, cli_mode=True)
-            self.agent = Agent(
-                llm=model,
-                tools=list(self.agent.tools),
-                system_prompt_kwargs={"cli_mode": True},
-                condenser=condenser,
-            )
+            agent_kwargs["tools"] = extra_tool_specs
 
-        self.conversation = Conversation(
+        self.agent = Agent(**agent_kwargs)
+
+        self.conversation = LocalConversation(
             agent=self.agent,
             callbacks=[self._instrumented_callback],
             workspace=os.getcwd(),

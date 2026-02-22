@@ -12,10 +12,40 @@ import click
 from ._console import error, info, success, warning
 
 
+def _create_model_for_agent(agent_id: str, model: str, base_url: str, api_key: str):
+    """Create the framework-specific model object for the given agent type."""
+    if agent_id == "react":
+        from agno.models.openai import OpenAIChat
+
+        return OpenAIChat(id=model, api_key=api_key, base_url=f"{base_url}/v1")
+    elif agent_id == "openhands":
+        from openhands.sdk import LLM
+
+        # litellm requires provider prefix for custom base URLs
+        litellm_model = model if "/" not in model or model.startswith("openai/") else f"openai/{model}"
+        return LLM(model=litellm_model, api_key=api_key, base_url=f"{base_url}/v1")
+    elif agent_id == "terminus":
+        return model  # Terminus takes a string
+    else:
+        return model  # Fallback: pass string
+
+
 @click.command(help="Run an agentic benchmark against a dataset.")
 @click.option("--agent", "agent_id", required=True, help="Agent identifier")
 @click.option("--model", required=True, help="Model name for the agent")
 @click.option("--dataset", "dataset_id", required=True, help="Dataset identifier")
+@click.option(
+    "--client-base-url",
+    default="http://localhost:8000",
+    show_default=True,
+    help="Inference server base URL",
+)
+@click.option(
+    "--api-key",
+    default="EMPTY",
+    show_default=True,
+    help="API key for the inference server",
+)
 @click.option(
     "--max-queries",
     type=int,
@@ -62,6 +92,8 @@ def run_cmd(
     agent_id: str,
     model: str,
     dataset_id: str,
+    client_base_url: str,
+    api_key: str,
     max_queries: int | None,
     output_dir: str,
     export_format: str,
@@ -125,9 +157,10 @@ def run_cmd(
 
     # Create event recorder and agent
     event_recorder = EventRecorder()
+    resolved_model = _create_model_for_agent(agent_id, model, client_base_url, api_key)
     try:
         agent_instance = agent_cls(
-            model=model,
+            model=resolved_model,
             event_recorder=event_recorder,
             **extra_kwargs,
         )
@@ -146,6 +179,7 @@ def run_cmd(
         "agent": agent_id,
         "model": model,
         "dataset": dataset_id,
+        "client_base_url": client_base_url,
         "max_queries": max_queries,
         "export_format": export_format,
         "estimate_flops": estimate_flops,

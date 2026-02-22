@@ -298,3 +298,28 @@ pytest intelligence-per-watt/src/ipw/tests/core/test_registry.py  # Single file
 ```bash
 uv run scripts/test_energy_monitor.py [--interval 2.0]
 ```
+
+## Citation
+
+If you use Intelligence Per Watt in your research, please cite:
+
+```bibtex
+@misc{saadfalcon2025intelligencewattmeasuringintelligence,
+      title={Intelligence per Watt: Measuring Intelligence Efficiency of Local AI},
+      author={Jon Saad-Falcon and Avanika Narayan and Hakki Orhun Akengin and J. Wes Griffin and Herumb Shandilya and Adrian Gamarra Lafuente and Medhya Goel and Rebecca Joseph and Shlok Natarajan and Etash Kumar Guha and Shang Zhu and Ben Athiwaratkun and John Hennessy and Azalia Mirhoseini and Christopher Ré},
+      year={2025},
+      eprint={2511.07885},
+      archivePrefix={arXiv},
+      primaryClass={cs.DC},
+      url={https://arxiv.org/abs/2511.07885},
+}
+```
+
+## Sponsors
+
+Intelligence Per Watt is supported by
+
+- [Laude Institute](https://www.laude.org/)
+- [Stanford Marlowe](https://datascience.stanford.edu/marlowe)
+- [Google Cloud Platform](https://cloud.google.com/)
+- [Lambda Labs](https://lambda.ai/)

@@ -15,6 +15,7 @@ from .base import InferenceClient
 MISSING_CLIENTS: Dict[str, str] = {}
 _CLIENT_CLASS_MAP = (
     ("openai", "ipw.clients.openai", "OpenAIClient", None),
+    ("openai-server", "ipw.clients.openai_server", "OpenAIServerClient", None),
     ("ollama", "ipw.clients.ollama", "OllamaClient", "ollama"),
     ("vllm", "ipw.clients.vllm", "VLLMClient", "vllm"),
 )

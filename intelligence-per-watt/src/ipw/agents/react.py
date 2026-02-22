@@ -25,7 +25,7 @@ class React(BaseAgent):
     def __init__(
         self,
         model: Any,
-        tools: List[Callable],
+        tools: List[Callable] | None = None,
         instructions: str | None = None,
         event_recorder: Optional["EventRecorder"] = None,
         **kwargs: Any,
@@ -34,7 +34,7 @@ class React(BaseAgent):
 
         Args:
             model: The Agno Model instance to use.
-            tools: List of callable tools/functions for the agent to use.
+            tools: Optional list of callable tools/functions for the agent to use.
             instructions: Optional custom instructions for the agent.
             event_recorder: Optional EventRecorder for per-action energy telemetry.
             **kwargs: Additional keyword arguments passed to the Agent constructor.
@@ -51,22 +51,25 @@ class React(BaseAgent):
             )
 
         self.model = model
-        self._original_tools = tools
+        self._original_tools = tools or []
         self.instructions = instructions or self.DEFAULT_INSTRUCTIONS
 
         # Instrument tools if event_recorder is provided
-        if event_recorder:
-            self.tools = self._instrument_tools(tools)
+        if event_recorder and self._original_tools:
+            self.tools = self._instrument_tools(self._original_tools)
         else:
-            self.tools = tools
+            self.tools = self._original_tools
 
-        self.agent = Agent(
-            model=self.model,
-            tools=self.tools,
-            tool_choice="auto",
-            instructions=self.instructions,
+        agent_kwargs: dict[str, Any] = {
+            "model": self.model,
+            "instructions": self.instructions,
             **kwargs,
-        )
+        }
+        if self.tools:
+            agent_kwargs["tools"] = self.tools
+            agent_kwargs["tool_choice"] = "auto"
+
+        self.agent = Agent(**agent_kwargs)
 
     def _instrument_tools(self, tools: List[Callable]) -> List[Callable]:
         """Wrap tools to emit start/end events for energy tracking."""

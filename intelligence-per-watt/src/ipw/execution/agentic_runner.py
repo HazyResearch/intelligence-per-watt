@@ -56,7 +56,7 @@ class AgenticRunner:
         self._dataset = dataset
         self._telemetry = telemetry_session
         self._config = config or {}
-        self._event_recorder = event_recorder or EventRecorder()
+        self._event_recorder = event_recorder if event_recorder is not None else EventRecorder()
         self._traces: list[QueryTrace] = []
         self._records: list[ProfilingRecord] = []
 
