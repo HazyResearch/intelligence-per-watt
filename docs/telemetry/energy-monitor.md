@@ -80,13 +80,99 @@ The Rust service auto-detects the appropriate collector at startup:
 
 The selected platform is reported in each `TelemetryReading.platform` field (e.g., `"nvidia"`, `"macos"`, `"amd"`, `"rapl"`, `"null"`).
 
-## Building
+## Platform Setup
 
-```bash
-uv run scripts/build_energy_monitor.py
-```
+=== "NVIDIA"
 
-This runs `cargo build --release` in the `energy-monitor/` directory and copies the binary to the appropriate platform subdirectory under `ipw/telemetry/bin/`.
+    1. Install NVIDIA drivers (if not already present):
+    ```bash
+    sudo apt install nvidia-driver-560
+    ```
+
+    2. Build the energy monitor:
+    ```bash
+    cd energy-monitor && cargo build --release
+    ```
+
+    3. Copy the binary:
+    ```bash
+    cp ./target/release/energy-monitor ../intelligence-per-watt/src/ipw/telemetry/bin/linux-x86_64/energy-monitor
+    cd ..
+    ```
+
+    4. Test the energy monitor:
+    ```bash
+    python scripts/test_energy_monitor.py
+    ```
+
+    5. Install IPW:
+    ```bash
+    uv venv && uv pip install -e 'intelligence-per-watt[all]'
+    ```
+
+=== "AMD"
+
+    1. Install ROCm:
+    ```bash
+    sudo apt install rocm rocm-smi
+    ```
+
+    2. Export paths:
+    ```bash
+    export LIBRARY_PATH=/opt/rocm/lib:$LIBRARY_PATH
+    export LD_LIBRARY_PATH=/opt/rocm/lib:$LD_LIBRARY_PATH
+    ```
+
+    3. Build the energy monitor:
+    ```bash
+    cd energy-monitor && cargo build --release --features amd
+    ```
+
+    4. Copy the binary:
+    ```bash
+    cp ./target/release/energy-monitor ../intelligence-per-watt/src/ipw/telemetry/bin/linux-x86_64/energy-monitor
+    cd ..
+    ```
+
+    5. Test the energy monitor:
+    ```bash
+    python scripts/test_energy_monitor.py
+    ```
+
+    6. Install IPW:
+    ```bash
+    uv venv && uv pip install -e 'intelligence-per-watt[all]'
+    ```
+
+=== "Apple"
+
+    Tested on Apple M4 Pro.
+
+    1. Install protobuf:
+    ```bash
+    brew install protobuf
+    ```
+
+    2. Build the energy monitor:
+    ```bash
+    cd energy-monitor && cargo build --release
+    ```
+
+    3. Copy the binary:
+    ```bash
+    cp ./target/release/energy-monitor ../intelligence-per-watt/src/ipw/telemetry/bin/macos-arm64/energy-monitor
+    cd ..
+    ```
+
+    4. Test the energy monitor:
+    ```bash
+    python scripts/test_energy_monitor.py
+    ```
+
+    5. Install IPW:
+    ```bash
+    uv venv && uv pip install -e 'intelligence-per-watt[all]'
+    ```
 
 ## Testing
 
