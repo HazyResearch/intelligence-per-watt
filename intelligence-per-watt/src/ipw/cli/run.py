@@ -21,9 +21,16 @@ def _create_model_for_agent(agent_id: str, model: str, base_url: str, api_key: s
     elif agent_id == "openhands":
         from openhands.sdk import LLM
 
-        # litellm requires provider prefix for custom base URLs
-        litellm_model = model if "/" not in model or model.startswith("openai/") else f"openai/{model}"
-        return LLM(model=litellm_model, api_key=api_key, base_url=f"{base_url}/v1")
+        # LiteLLM requires provider prefix: ollama/ for Ollama, openai/ for OpenAI-compatible
+        is_ollama = "11434" in base_url or "ollama" in base_url.lower()
+        if "/" in model and not model.startswith(("openai/", "ollama/")):
+            litellm_model = model
+        else:
+            prefix = "ollama" if is_ollama else "openai"
+            litellm_model = f"{prefix}/{model}"
+        # Ollama native API doesn't use /v1; OpenAI-compatible servers do
+        llm_base_url = base_url if is_ollama else f"{base_url}/v1"
+        return LLM(model=litellm_model, api_key=api_key, base_url=llm_base_url)
     elif agent_id == "terminus":
         return model  # Terminus takes a string
     else:
@@ -129,6 +136,8 @@ def run_cmd(
     from ipw.core.registry import AgentRegistry, DatasetRegistry
     from ipw.execution.agentic_runner import AgenticRunner
     from ipw.execution.exporters import export_artifacts_manifest, export_hf_dataset, export_jsonl, export_summary_json
+    from ipw.execution.telemetry_session import TelemetrySession
+    from ipw.telemetry import EnergyMonitorCollector
     from ipw.telemetry.events import EventRecorder
 
     # Parse agent kwargs
@@ -210,21 +219,22 @@ def run_cmd(
     info(f"Output: {run_dir}")
     info("")
 
-    # Run the agentic benchmark
-    runner = AgenticRunner(
-        agent=agent_instance,
-        dataset=dataset_instance,
-        telemetry_session=None,
-        config=run_config,
-        event_recorder=event_recorder,
-        run_dir=run_dir,
-    )
+    # Run the agentic benchmark with energy telemetry
+    collector = EnergyMonitorCollector()
+    with TelemetrySession(collector) as telemetry:
+        runner = AgenticRunner(
+            agent=agent_instance,
+            dataset=dataset_instance,
+            telemetry_session=telemetry,
+            config=run_config,
+            event_recorder=event_recorder,
+        )
 
-    try:
-        traces = asyncio.run(runner.run(max_queries=max_queries))
-    except Exception as exc:
-        error(f"Run failed: {exc}")
-        sys.exit(1)
+        try:
+            traces = asyncio.run(runner.run(max_queries=max_queries))
+        except Exception as exc:
+            error(f"Run failed: {exc}")
+            sys.exit(1)
 
     if not traces:
         warning("No traces collected.")
