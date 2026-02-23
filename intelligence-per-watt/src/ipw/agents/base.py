@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from pathlib import Path
 from typing import TYPE_CHECKING, Any, Optional
 
 if TYPE_CHECKING:
@@ -16,15 +17,23 @@ class BaseAgent:
         self,
         mcp_tools: Optional[dict[str, "BaseMCPServer"]] = None,
         event_recorder: Optional["EventRecorder"] = None,
+        artifact_dir: Optional["Path"] = None,
     ) -> None:
         """Initialize the agent.
 
         Args:
             mcp_tools: Optional dictionary of MCP server instances for tool access.
             event_recorder: Optional EventRecorder for per-action energy telemetry.
+            artifact_dir: Optional directory for agent file artifacts.
         """
         self.mcp_tools = mcp_tools or {}
         self.event_recorder = event_recorder
+        self._artifact_dir = artifact_dir
+
+    @property
+    def artifact_dir(self) -> Optional[Path]:
+        """Directory for storing file artifacts produced during agent runs."""
+        return self._artifact_dir
 
     def _record_event(self, event_type: str, **metadata: Any) -> None:
         """Record an event if a recorder is attached.

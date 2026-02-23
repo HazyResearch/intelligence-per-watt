@@ -11,13 +11,17 @@ def ensure_registered() -> None:
     from . import (  # noqa: F401
         frames,
         gaia,
+        gpqa,
         hle,
         ipw,
+        math500,
         mmlu_pro,
+        natural_reasoning,
         simpleqa,
         supergpqa,
         swebench,
         swefficiency,
+        wildchat,
     )
 
     # Optional-dependency datasets: import errors are silently ignored so
