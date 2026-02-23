@@ -16,7 +16,7 @@
 
 ----
 
-OpenJarvis measures **accuracy alongside energy** for any LLM inference system. It profiles single-turn and multi-turn agentic workloads, captures per-query energy telemetry, and computes two efficiency metrics: **Intelligence Per Joule (IPJ)** and **Intelligence Per Watt (IPW)**.
+Intelligence Per Watt measures **accuracy alongside energy** for any LLM inference system. It profiles single-turn and multi-turn agentic workloads, captures per-query energy telemetry, and computes two efficiency metrics: **Intelligence Per Joule (IPJ)** and **Intelligence Per Watt (IPW)**.
 
 > **[Documentation](https://hazyresearch.stanford.edu/intelligence-per-watt/)**
 >
