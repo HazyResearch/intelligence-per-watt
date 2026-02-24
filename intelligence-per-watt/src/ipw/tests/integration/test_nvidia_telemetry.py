@@ -8,6 +8,8 @@ from __future__ import annotations
 
 import itertools
 import shutil
+import subprocess
+import time
 import time
 from collections.abc import Iterator
 
@@ -41,6 +43,17 @@ def test_nvidia_smi_available() -> None:
     assert shutil.which("nvidia-smi") is not None
 
 
+def test_nvidia_smi_query_gpu() -> None:
+    """Verify nvidia-smi can query GPU properties."""
+    result = subprocess.run(
+        ["nvidia-smi", "--query-gpu=name,memory.total,power.draw", "--format=csv,noheader"],
+        capture_output=True,
+        text=True,
+        timeout=10,
+    )
+    assert result.returncode == 0
+    output = result.stdout.strip()
+    assert len(output) > 0, "nvidia-smi returned empty output"
 def test_nvml_telemetry_collection(monitor_target: str) -> None:
     """Collect NVML telemetry readings from a real NVIDIA GPU."""
     collector = EnergyMonitorCollector(target=monitor_target)
@@ -67,6 +80,107 @@ def test_gpu_energy_counter_monotonic(monitor_target: str) -> None:
     energy_values = [s.energy_joules for s in samples if s.energy_joules is not None]
     assert energy_values, "no energy_joules readings available"
 
+def test_energy_monitor_launches_and_responds() -> None:
+    """Test energy monitor binary launches and responds to health check."""
+    from ipw.telemetry.launcher import launch_monitor, wait_for_ready
+
+    try:
+        pid, target = launch_monitor(timeout=10.0)
+    except (RuntimeError, FileNotFoundError) as exc:
+        pytest.skip(f"Energy monitor binary not available: {exc}")
+
+    try:
+        assert wait_for_ready(target, timeout=5.0)
+    finally:
+        import os
+        import signal
+
+        try:
+            os.kill(pid, signal.SIGTERM)
+        except OSError:
+            pass
+
+
+def test_streaming_telemetry_produces_readings() -> None:
+    """Test streaming telemetry produces TelemetryReading with power and energy."""
+    from ipw.telemetry.launcher import ensure_monitor
+
+    try:
+        with ensure_monitor(timeout=10.0) as target:
+            from ipw.telemetry import EnergyMonitorCollector
+
+            collector = EnergyMonitorCollector(target=target)
+            readings = []
+            with collector.start():
+                deadline = time.monotonic() + 5.0
+                for reading in collector.stream_readings():
+                    readings.append(reading)
+                    if len(readings) >= 3 or time.monotonic() > deadline:
+                        break
+    except (RuntimeError, FileNotFoundError) as exc:
+        pytest.skip(f"Energy monitor not available: {exc}")
+
+    assert len(readings) >= 1, "No telemetry readings collected"
+
+    r = readings[0]
+    assert r.power_watts is not None
+    assert r.power_watts > 0
+    assert r.energy_joules is not None
+
+
+def test_gpu_memory_and_utilization_populated() -> None:
+    """Test GPU memory and utilization metrics are populated."""
+    from ipw.telemetry.launcher import ensure_monitor
+
+    try:
+        with ensure_monitor(timeout=10.0) as target:
+            from ipw.telemetry import EnergyMonitorCollector
+
+            collector = EnergyMonitorCollector(target=target)
+            readings = []
+            with collector.start():
+                deadline = time.monotonic() + 5.0
+                for reading in collector.stream_readings():
+                    readings.append(reading)
+                    if len(readings) >= 3 or time.monotonic() > deadline:
+                        break
+    except (RuntimeError, FileNotFoundError) as exc:
+        pytest.skip(f"Energy monitor not available: {exc}")
+
+    assert len(readings) >= 1
+    r = readings[0]
+    # GPU memory should be reported on NVIDIA hardware
+    assert r.gpu_memory_total_mb is not None or r.gpu_memory_usage_mb is not None
+
+
+def test_energy_counter_monotonically_increasing() -> None:
+    """Verify GPU energy counter is monotonically increasing during collection."""
+    from ipw.telemetry.launcher import ensure_monitor
+
+    try:
+        with ensure_monitor(timeout=10.0) as target:
+            from ipw.telemetry import EnergyMonitorCollector
+
+            collector = EnergyMonitorCollector(target=target)
+            readings = []
+            with collector.start():
+                deadline = time.monotonic() + 5.0
+                for reading in collector.stream_readings():
+                    readings.append(reading)
+                    if len(readings) >= 10 or time.monotonic() > deadline:
+                        break
+    except (RuntimeError, FileNotFoundError) as exc:
+        pytest.skip(f"Energy monitor not available: {exc}")
+
+    energies = [
+        r.energy_joules for r in readings
+        if r.energy_joules is not None
+    ]
+    assert len(energies) >= 2, "Not enough energy readings"
+
+    for i in range(1, len(energies)):
+        assert energies[i] >= energies[i - 1], (
+            f"Energy counter decreased: {energies[i-1]} -> {energies[i]}"
     for i in range(1, len(energy_values)):
         assert energy_values[i] >= energy_values[i - 1], (
             f"energy_joules decreased: {energy_values[i - 1]} -> {energy_values[i]}"
