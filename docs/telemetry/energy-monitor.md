@@ -84,33 +84,26 @@ The selected platform is reported in each `TelemetryReading.platform` field (e.g
 
 === "NVIDIA"
 
+    **Prerequisites:** Rust and `protoc` must be installed. See [Prerequisites](../getting-started/prerequisites.md).
+
     1. Install NVIDIA drivers (if not already present):
     ```bash
     sudo apt install nvidia-driver-560
     ```
 
-    2. Build the energy monitor:
+    2. Build and stage the energy monitor:
     ```bash
-    cd energy-monitor && cargo build --release
+    uv run scripts/build_energy_monitor.py
     ```
 
-    3. Copy the binary:
+    3. Test the energy monitor:
     ```bash
-    cp ./target/release/energy-monitor ../intelligence-per-watt/src/ipw/telemetry/bin/linux-x86_64/energy-monitor
-    cd ..
-    ```
-
-    4. Test the energy monitor:
-    ```bash
-    python scripts/test_energy_monitor.py
-    ```
-
-    5. Install IPW:
-    ```bash
-    uv venv && uv pip install -e 'intelligence-per-watt[all]'
+    uv run scripts/test_energy_monitor.py
     ```
 
 === "AMD"
+
+    **Prerequisites:** Rust and `protoc` must be installed. See [Prerequisites](../getting-started/prerequisites.md).
 
     1. Install ROCm:
     ```bash
@@ -123,55 +116,50 @@ The selected platform is reported in each `TelemetryReading.platform` field (e.g
     export LD_LIBRARY_PATH=/opt/rocm/lib:$LD_LIBRARY_PATH
     ```
 
-    3. Build the energy monitor:
+    3. Build the energy monitor with AMD support:
     ```bash
     cd energy-monitor && cargo build --release --features amd
     ```
 
-    4. Copy the binary:
+    4. Copy the binary to the staging directory:
     ```bash
     cp ./target/release/energy-monitor ../intelligence-per-watt/src/ipw/telemetry/bin/linux-x86_64/energy-monitor
     cd ..
     ```
 
+    !!! note
+        The AMD build requires the `--features amd` flag to enable ROCm SMI support. The build script (`scripts/build_energy_monitor.py`) does not currently pass feature flags, so a manual build is needed here.
+
     5. Test the energy monitor:
     ```bash
-    python scripts/test_energy_monitor.py
-    ```
-
-    6. Install IPW:
-    ```bash
-    uv venv && uv pip install -e 'intelligence-per-watt[all]'
+    uv run scripts/test_energy_monitor.py
     ```
 
 === "Apple"
 
     Tested on Apple M4 Pro.
 
-    1. Install protobuf:
+    **Prerequisites:** Rust and `protoc` must be installed. See [Prerequisites](../getting-started/prerequisites.md). On macOS, install `protoc` via Homebrew: `brew install protobuf`.
+
+    1. Build and stage the energy monitor:
     ```bash
-    brew install protobuf
+    uv run scripts/build_energy_monitor.py
     ```
 
-    2. Build the energy monitor:
+    2. Configure passwordless `sudo` for `powermetrics`:
+
+    The macOS collector requires `sudo` to run `powermetrics`. Without this configuration, you will be prompted for your password each time the energy monitor starts.
+
     ```bash
-    cd energy-monitor && cargo build --release
+    sudo sh -c "echo \"$(whoami) ALL=(ALL) NOPASSWD: /usr/bin/powermetrics\" > /etc/sudoers.d/powermetrics"
     ```
 
-    3. Copy the binary:
-    ```bash
-    cp ./target/release/energy-monitor ../intelligence-per-watt/src/ipw/telemetry/bin/macos-arm64/energy-monitor
-    cd ..
-    ```
+    !!! warning
+        This grants your user passwordless sudo access to `powermetrics` only. Review your organization's security policies before modifying sudoers.
 
-    4. Test the energy monitor:
+    3. Test the energy monitor:
     ```bash
-    python scripts/test_energy_monitor.py
-    ```
-
-    5. Install IPW:
-    ```bash
-    uv venv && uv pip install -e 'intelligence-per-watt[all]'
+    uv run scripts/test_energy_monitor.py
     ```
 
 ## Testing
