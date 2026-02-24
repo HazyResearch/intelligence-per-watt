@@ -34,7 +34,6 @@ reasoning: <brief explanation of why the answer is or is not correct>
 correct: <yes or no>"""
 
 
-@EvaluationRegistry.register("terminalbench")
 class TerminalBenchHandler(EvaluationHandler):
     """LLM-as-judge evaluation for TerminalBench tasks."""
 
