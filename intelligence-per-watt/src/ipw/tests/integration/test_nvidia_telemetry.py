@@ -6,11 +6,15 @@ They are skipped unless the environment provides NVIDIA tooling.
 
 from __future__ import annotations
 
+import itertools
 import shutil
 import subprocess
 import time
+import time
+from collections.abc import Iterator
 
 import pytest
+from ipw.telemetry import EnergyMonitorCollector, ensure_monitor
 
 pytestmark = [
     pytest.mark.integration,
@@ -20,6 +24,18 @@ pytestmark = [
         reason="nvidia-smi not available (no NVIDIA GPU)",
     ),
 ]
+
+
+@pytest.fixture(scope="module")
+def monitor_target() -> Iterator[str]:
+    try:
+        with ensure_monitor(timeout=15.0) as target:
+            time.sleep(0.5)
+            yield target
+    except FileNotFoundError as exc:
+        pytest.skip(f"Energy monitor binary missing: {exc}")
+    except RuntimeError as exc:
+        pytest.skip(f"Unable to launch energy monitor: {exc}")
 
 
 def test_nvidia_smi_available() -> None:
@@ -38,7 +54,31 @@ def test_nvidia_smi_query_gpu() -> None:
     assert result.returncode == 0
     output = result.stdout.strip()
     assert len(output) > 0, "nvidia-smi returned empty output"
+def test_nvml_telemetry_collection(monitor_target: str) -> None:
+    """Collect NVML telemetry readings from a real NVIDIA GPU."""
+    collector = EnergyMonitorCollector(target=monitor_target)
+    assert collector.is_available()
 
+    readings = collector.stream_readings()
+    samples = list(itertools.islice(readings, 5))
+
+    assert samples, "collector produced no telemetry samples"
+
+    sample = samples[0]
+    assert sample.platform == "nvidia", f"expected platform 'nvidia', got '{sample.platform}'"
+    assert isinstance(sample.timestamp_nanos, int)
+
+
+def test_gpu_energy_counter_monotonic(monitor_target: str) -> None:
+    """Verify GPU energy counter is monotonically non-decreasing."""
+    collector = EnergyMonitorCollector(target=monitor_target)
+    readings = collector.stream_readings()
+    samples = list(itertools.islice(readings, 10))
+
+    assert len(samples) >= 2, "need at least 2 samples to check monotonicity"
+
+    energy_values = [s.energy_joules for s in samples if s.energy_joules is not None]
+    assert energy_values, "no energy_joules readings available"
 
 def test_energy_monitor_launches_and_responds() -> None:
     """Test energy monitor binary launches and responds to health check."""
@@ -141,4 +181,7 @@ def test_energy_counter_monotonically_increasing() -> None:
     for i in range(1, len(energies)):
         assert energies[i] >= energies[i - 1], (
             f"Energy counter decreased: {energies[i-1]} -> {energies[i]}"
+    for i in range(1, len(energy_values)):
+        assert energy_values[i] >= energy_values[i - 1], (
+            f"energy_joules decreased: {energy_values[i - 1]} -> {energy_values[i]}"
         )

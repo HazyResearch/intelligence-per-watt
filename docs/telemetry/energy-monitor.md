@@ -80,13 +80,87 @@ The Rust service auto-detects the appropriate collector at startup:
 
 The selected platform is reported in each `TelemetryReading.platform` field (e.g., `"nvidia"`, `"macos"`, `"amd"`, `"rapl"`, `"null"`).
 
-## Building
+## Platform Setup
 
-```bash
-uv run scripts/build_energy_monitor.py
-```
+=== "NVIDIA"
 
-This runs `cargo build --release` in the `energy-monitor/` directory and copies the binary to the appropriate platform subdirectory under `ipw/telemetry/bin/`.
+    **Prerequisites:** Rust and `protoc` must be installed. See [Prerequisites](../getting-started/prerequisites.md).
+
+    1. Install NVIDIA drivers (if not already present):
+    ```bash
+    sudo apt install nvidia-driver-560
+    ```
+
+    2. Build and stage the energy monitor:
+    ```bash
+    uv run scripts/build_energy_monitor.py
+    ```
+
+    3. Test the energy monitor:
+    ```bash
+    uv run scripts/test_energy_monitor.py
+    ```
+
+=== "AMD"
+
+    **Prerequisites:** Rust and `protoc` must be installed. See [Prerequisites](../getting-started/prerequisites.md).
+
+    1. Install ROCm:
+    ```bash
+    sudo apt install rocm rocm-smi
+    ```
+
+    2. Export paths:
+    ```bash
+    export LIBRARY_PATH=/opt/rocm/lib:$LIBRARY_PATH
+    export LD_LIBRARY_PATH=/opt/rocm/lib:$LD_LIBRARY_PATH
+    ```
+
+    3. Build the energy monitor with AMD support:
+    ```bash
+    cd energy-monitor && cargo build --release --features amd
+    ```
+
+    4. Copy the binary to the staging directory:
+    ```bash
+    cp ./target/release/energy-monitor ../intelligence-per-watt/src/ipw/telemetry/bin/linux-x86_64/energy-monitor
+    cd ..
+    ```
+
+    !!! note
+        The AMD build requires the `--features amd` flag to enable ROCm SMI support. The build script (`scripts/build_energy_monitor.py`) does not currently pass feature flags, so a manual build is needed here.
+
+    5. Test the energy monitor:
+    ```bash
+    uv run scripts/test_energy_monitor.py
+    ```
+
+=== "Apple"
+
+    Tested on Apple M4 Pro.
+
+    **Prerequisites:** Rust and `protoc` must be installed. See [Prerequisites](../getting-started/prerequisites.md). On macOS, install `protoc` via Homebrew: `brew install protobuf`.
+
+    1. Build and stage the energy monitor:
+    ```bash
+    uv run scripts/build_energy_monitor.py
+    ```
+
+    2. Configure passwordless `sudo` for `powermetrics`:
+
+    The macOS collector requires `sudo` to run `powermetrics`. Without this configuration, you will be prompted for your password each time the energy monitor starts.
+
+    ```bash
+    sudo sh -c "echo \"$(whoami) ALL=(ALL) NOPASSWD: /usr/bin/powermetrics\" > /etc/sudoers.d/powermetrics"
+    ```
+
+    !!! warning
+        This grants your user passwordless sudo access to `powermetrics` only. Review your organization's security policies before modifying sudoers.
+
+    3. Test the energy monitor:
+    ```bash
+    uv run scripts/test_energy_monitor.py
+    ```
 
 ## Testing
 
