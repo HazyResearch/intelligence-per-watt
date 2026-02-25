@@ -84,11 +84,34 @@ MODEL_FACTORIES: Dict[str, Callable] = {
 }
 
 
-def create_model(client_id: str, model: str, base_url: str | None = None):
-    """Create an Agno model instance based on client type."""
+def create_model(client_id: str, model: str, base_url: str | None = None, agent_id: str | None = None):
+    """Create a model instance based on client type.
+
+    When *agent_id* is ``"openhands"``, returns an OpenHands ``LLM`` object
+    instead of an Agno model because the OpenHands SDK expects its own type.
+    """
+    if agent_id == "openhands":
+        return _create_openhands_llm(model, base_url, client_id)
     if client_id not in MODEL_FACTORIES:
         raise ValueError(f"Unknown client: {client_id}. Supported: {list(MODEL_FACTORIES.keys())}")
     return MODEL_FACTORIES[client_id](model, base_url)
+
+
+def _create_openhands_llm(model: str, base_url: str | None, client_id: str):
+    """Create an OpenHands SDK ``LLM`` instance."""
+    from openhands.sdk import LLM
+
+    kwargs: Dict[str, Any] = {"model": model, "api_key": "EMPTY"}
+    if base_url:
+        # litellm needs /v1 in the base_url (it appends /chat/completions)
+        clean_url = base_url.rstrip("/")
+        if not clean_url.endswith("/v1"):
+            clean_url = clean_url + "/v1"
+        kwargs["base_url"] = clean_url
+    # Prefix model name for litellm provider routing when using local vLLM
+    if client_id == "vllm" and not model.startswith("openai/"):
+        kwargs["model"] = f"openai/{model}"
+    return LLM(**kwargs)
 
 
 def get_model_alias(model_id: str) -> str:
@@ -361,10 +384,11 @@ def execute_benchmark(
         # Ensure URL has /v1 suffix for vLLM
         if client_id == "vllm" and not base_url.rstrip("/").endswith("/v1"):
             base_url = base_url.rstrip("/") + "/v1"
-        resolved_model = create_model(client_id, model_name, base_url)
+        resolved_model = create_model(client_id, model_name, base_url, agent_id=agent_id)
 
         # Warmup query (excluded from profiling)
-        if not skip_warmup and not auto_server:
+        # Skip agno warmup for openhands — it uses its own LLM type
+        if not skip_warmup and not auto_server and agent_id != "openhands":
             info("Running warmup query (excluded from measurements)...")
             _run_warmup_query(resolved_model)
 
