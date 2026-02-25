@@ -6,10 +6,27 @@ import json
 
 from unittest.mock import MagicMock, patch
 
+import sys
+
 import pytest
 
+from ipw.core.registry import AgentRegistry
 from ipw.core.types import AgentRunResult
 from ipw.telemetry.events import EventRecorder, EventType
+
+
+@pytest.fixture(autouse=True)
+def _clean_openhands_registration():
+    """Ensure the AgentRegistry 'openhands' entry is cleared between tests.
+
+    Each test re-imports ipw.agents.openhands (because the sys.modules mock
+    removes it on teardown), which re-triggers @AgentRegistry.register.
+    """
+    yield
+    entries = AgentRegistry._entries()
+    entries.pop("openhands", None)
+    # Remove cached module so next test can re-import cleanly
+    sys.modules.pop("ipw.agents.openhands", None)
 
 
 @pytest.fixture()

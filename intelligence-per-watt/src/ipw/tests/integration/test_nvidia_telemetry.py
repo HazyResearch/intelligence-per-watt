@@ -180,8 +180,5 @@ def test_energy_counter_monotonically_increasing() -> None:
 
     for i in range(1, len(energies)):
         assert energies[i] >= energies[i - 1], (
-            f"Energy counter decreased: {energies[i-1]} -> {energies[i]}"
-    for i in range(1, len(energy_values)):
-        assert energy_values[i] >= energy_values[i - 1], (
-            f"energy_joules decreased: {energy_values[i - 1]} -> {energy_values[i]}"
+            f"energy_joules decreased: {energies[i - 1]} -> {energies[i]}"
         )

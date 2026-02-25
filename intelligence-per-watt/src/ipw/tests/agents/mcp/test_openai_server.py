@@ -2,39 +2,52 @@
 
 from __future__ import annotations
 
+import importlib
 import sys
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
 
 import pytest
 
 from ipw.cost.pricing import OPENAI_PRICING, calculate_cost
 
-# Install a persistent mock for the openai module so that the lazy
-# ``from openai import OpenAI`` inside OpenAIMCPServer.__init__ succeeds.
-# This is done at module-level so it survives across tests without
-# repeatedly patching sys.modules (which can destabilize pyarrow).
-# We set __spec__ so importlib.util.find_spec("openai") doesn't crash.
-import importlib
-_MOCK_OPENAI = MagicMock()
-_MOCK_OPENAI.__spec__ = importlib.machinery.ModuleSpec("openai", None)
-if "openai" not in sys.modules:
-    sys.modules["openai"] = _MOCK_OPENAI
 
-from ipw.agents.mcp.openai_server import OpenAIMCPServer  # noqa: E402
+@pytest.fixture(autouse=True)
+def _mock_openai_module():
+    """Temporarily mock the openai module for the duration of each test.
+
+    Uses patch.dict so the original sys.modules state is always restored,
+    preventing pollution of the openai module for downstream tests.
+    """
+    mock_openai = MagicMock()
+    mock_openai.__spec__ = importlib.machinery.ModuleSpec("openai", None)
+
+    # Save and remove any cached ipw.agents.mcp.openai_server so it
+    # re-imports with the mocked openai.
+    saved = sys.modules.pop("ipw.agents.mcp.openai_server", None)
+    try:
+        with patch.dict("sys.modules", {"openai": mock_openai}):
+            yield mock_openai
+    finally:
+        # Remove the re-imported module so it doesn't leak either
+        sys.modules.pop("ipw.agents.mcp.openai_server", None)
+        if saved is not None:
+            sys.modules["ipw.agents.mcp.openai_server"] = saved
 
 
-def _make_server(model_name: str = "gpt-4o") -> OpenAIMCPServer:
+def _make_server(mock_openai: MagicMock, model_name: str = "gpt-4o"):
     """Create an OpenAIMCPServer with mocked openai client."""
-    _MOCK_OPENAI.OpenAI.reset_mock()
-    _MOCK_OPENAI.OpenAI.return_value = MagicMock()
+    from ipw.agents.mcp.openai_server import OpenAIMCPServer
+
+    mock_openai.OpenAI.reset_mock()
+    mock_openai.OpenAI.return_value = MagicMock()
     return OpenAIMCPServer(model_name=model_name, api_key="test-key")
 
 
 class TestOpenAIMCPServerPricing:
     """Test OpenAI server pricing calculations with mocked openai."""
 
-    def test_pricing_calculation_gpt4o(self) -> None:
-        server = _make_server("gpt-4o")
+    def test_pricing_calculation_gpt4o(self, _mock_openai_module: MagicMock) -> None:
+        server = _make_server(_mock_openai_module, "gpt-4o")
 
         assert server.pricing is not None
         assert server.pricing["input"] == 2.50
@@ -44,21 +57,27 @@ class TestOpenAIMCPServerPricing:
         expected = (1000 / 1_000_000) * 2.50 + (500 / 1_000_000) * 10.00
         assert cost == pytest.approx(expected)
 
-    def test_unknown_model_falls_back_to_gpt4o_pricing(self) -> None:
-        server = _make_server("totally-unknown-model")
+    def test_unknown_model_falls_back_to_gpt4o_pricing(
+        self, _mock_openai_module: MagicMock
+    ) -> None:
+        server = _make_server(_mock_openai_module, "totally-unknown-model")
         assert server.pricing["input"] == 2.50
         assert server.pricing["output"] == 10.00
 
-    def test_name_includes_model(self) -> None:
-        server = _make_server("gpt-4o-mini")
+    def test_name_includes_model(self, _mock_openai_module: MagicMock) -> None:
+        server = _make_server(_mock_openai_module, "gpt-4o-mini")
         assert server.name == "openai:gpt-4o-mini"
 
-    def test_execute_impl_with_mocked_stream(self) -> None:
-        _MOCK_OPENAI.OpenAI.reset_mock()
-        _MOCK_OPENAI.OpenAIError = type("OpenAIError", (Exception,), {})
+    def test_execute_impl_with_mocked_stream(
+        self, _mock_openai_module: MagicMock
+    ) -> None:
+        from ipw.agents.mcp.openai_server import OpenAIMCPServer
+
+        _mock_openai_module.OpenAI.reset_mock()
+        _mock_openai_module.OpenAIError = type("OpenAIError", (Exception,), {})
 
         mock_client = MagicMock()
-        _MOCK_OPENAI.OpenAI.return_value = mock_client
+        _mock_openai_module.OpenAI.return_value = mock_client
 
         # Build mock streaming response
         mock_chunk1 = MagicMock()

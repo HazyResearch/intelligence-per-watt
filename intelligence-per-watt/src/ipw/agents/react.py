@@ -55,7 +55,7 @@ class React(BaseAgent):
         self.instructions = instructions or self.DEFAULT_INSTRUCTIONS
 
         # Instrument tools if event_recorder is provided
-        if event_recorder and self._original_tools:
+        if event_recorder is not None and self._original_tools:
             self.tools = self._instrument_tools(self._original_tools)
         else:
             self.tools = self._original_tools

@@ -3,10 +3,12 @@
 from __future__ import annotations
 
 import shutil
+import sys
 from unittest.mock import MagicMock, patch
 
 import pytest
 
+from ipw.core.registry import AgentRegistry
 from ipw.core.types import AgentRunResult
 from ipw.telemetry.events import EventRecorder, EventType
 
@@ -19,15 +21,20 @@ pytestmark = [
 ]
 
 
+@pytest.fixture(autouse=True)
+def _clean_terminus_registration():
+    """Ensure the AgentRegistry 'terminus' entry is cleared between tests."""
+    yield
+    AgentRegistry._entries().pop("terminus", None)
+    sys.modules.pop("ipw.agents.terminus", None)
+
+
 class TestTerminusIntegrationMocked:
     """Tests for Terminus agent with mocked Docker/terminal-bench dependencies."""
 
-    @patch("ipw.agents.terminus.docker")
-    @patch("ipw.agents.terminus.Terminus2", create=True)
-    def test_initializes_with_model(
-        self, MockTerminus2: MagicMock, mock_docker: MagicMock
-    ) -> None:
-        # Patch the lazy imports
+    def test_initializes_with_model(self) -> None:
+        mock_docker = MagicMock()
+        MockTerminus2 = MagicMock()
         with patch.dict("sys.modules", {
             "docker": mock_docker,
             "terminal_bench": MagicMock(),
@@ -39,11 +46,9 @@ class TestTerminusIntegrationMocked:
             agent = Terminus(model="gpt-4o")
             MockTerminus2.assert_called_once_with(model_name="gpt-4o")
 
-    @patch("ipw.agents.terminus.docker")
-    @patch("ipw.agents.terminus.Terminus2", create=True)
-    def test_lm_events_recorded(
-        self, MockTerminus2: MagicMock, mock_docker: MagicMock
-    ) -> None:
+    def test_lm_events_recorded(self) -> None:
+        mock_docker = MagicMock()
+        MockTerminus2 = MagicMock()
         with patch.dict("sys.modules", {
             "docker": mock_docker,
             "terminal_bench": MagicMock(),

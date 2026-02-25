@@ -2,34 +2,56 @@
 
 from __future__ import annotations
 
+import sys
 from unittest.mock import MagicMock, patch
 
 import pytest
 
+from ipw.core.registry import AgentRegistry
 from ipw.core.types import AgentRunResult
 from ipw.telemetry.events import EventRecorder, EventType
+
+
+@pytest.fixture(autouse=True)
+def _clean_react_registration():
+    """Ensure the AgentRegistry 'react' entry is cleared between tests."""
+    yield
+    AgentRegistry._entries().pop("react", None)
+    sys.modules.pop("ipw.agents.react", None)
+
+
+@pytest.fixture()
+def _mock_agno():
+    """Patch agno imports used by the React agent."""
+    mock_agent_cls = MagicMock()
+
+    modules = {
+        "agno": MagicMock(),
+        "agno.agent": MagicMock(Agent=mock_agent_cls),
+    }
+
+    with patch.dict("sys.modules", modules):
+        yield {"Agent": mock_agent_cls}
 
 
 class TestReactIntegration:
     """Integration tests for the ReAct agent with mocked Agno backend."""
 
-    @patch("ipw.agents.react.Agent")
-    def test_initializes_with_model(self, MockAgent: MagicMock) -> None:
+    def test_initializes_with_model(self, _mock_agno: dict) -> None:
         from ipw.agents.react import React
 
         model = MagicMock()
         agent = React(model=model)
         assert agent.model is model
-        MockAgent.assert_called_once()
+        _mock_agno["Agent"].assert_called_once()
 
-    @patch("ipw.agents.react.Agent")
-    def test_run_returns_agent_run_result(self, MockAgent: MagicMock) -> None:
+    def test_run_returns_agent_run_result(self, _mock_agno: dict) -> None:
         from ipw.agents.react import React
 
         mock_result = MagicMock()
         mock_result.content = "The answer is 42."
         mock_result.metrics = None
-        MockAgent.return_value.run.return_value = mock_result
+        _mock_agno["Agent"].return_value.run.return_value = mock_result
 
         model = MagicMock()
         agent = React(model=model)
@@ -38,8 +60,7 @@ class TestReactIntegration:
         assert isinstance(result, AgentRunResult)
         assert result.content == "The answer is 42."
 
-    @patch("ipw.agents.react.Agent")
-    def test_token_metrics_captured(self, MockAgent: MagicMock) -> None:
+    def test_token_metrics_captured(self, _mock_agno: dict) -> None:
         from ipw.agents.react import React
 
         mock_result = MagicMock()
@@ -49,7 +70,7 @@ class TestReactIntegration:
         mock_metrics.output_tokens = 50
         mock_metrics.total_tokens = 150
         mock_result.metrics = mock_metrics
-        MockAgent.return_value.run.return_value = mock_result
+        _mock_agno["Agent"].return_value.run.return_value = mock_result
 
         model = MagicMock()
         agent = React(model=model)
@@ -58,8 +79,7 @@ class TestReactIntegration:
         assert result.input_tokens == 100
         assert result.output_tokens == 50
 
-    @patch("ipw.agents.react.Agent")
-    def test_tool_instrumentation_emits_events(self, MockAgent: MagicMock) -> None:
+    def test_tool_instrumentation_emits_events(self, _mock_agno: dict) -> None:
         from ipw.agents.react import React
 
         mock_result = MagicMock()
@@ -73,7 +93,7 @@ class TestReactIntegration:
             if "tools" in kwargs:
                 captured_tools.extend(kwargs["tools"])
 
-        MockAgent.side_effect = lambda **kw: (agent_init(**kw) or MagicMock(run=MagicMock(return_value=mock_result)))
+        _mock_agno["Agent"].side_effect = lambda **kw: (agent_init(**kw) or MagicMock(run=MagicMock(return_value=mock_result)))
 
         def my_tool(x: str) -> str:
             return f"result: {x}"
@@ -95,14 +115,13 @@ class TestReactIntegration:
         assert tool_events[0].metadata["tool"] == "my_tool"
         assert tool_events[1].event_type == EventType.TOOL_CALL_END
 
-    @patch("ipw.agents.react.Agent")
-    def test_lm_inference_events_recorded(self, MockAgent: MagicMock) -> None:
+    def test_lm_inference_events_recorded(self, _mock_agno: dict) -> None:
         from ipw.agents.react import React
 
         mock_result = MagicMock()
         mock_result.content = "Answer"
         mock_result.metrics = None
-        MockAgent.return_value.run.return_value = mock_result
+        _mock_agno["Agent"].return_value.run.return_value = mock_result
 
         recorder = EventRecorder()
         model = MagicMock()
@@ -114,11 +133,10 @@ class TestReactIntegration:
         assert EventType.LM_INFERENCE_START in event_types
         assert EventType.LM_INFERENCE_END in event_types
 
-    @patch("ipw.agents.react.Agent")
-    def test_exception_still_records_end_event(self, MockAgent: MagicMock) -> None:
+    def test_exception_still_records_end_event(self, _mock_agno: dict) -> None:
         from ipw.agents.react import React
 
-        MockAgent.return_value.run.side_effect = RuntimeError("model error")
+        _mock_agno["Agent"].return_value.run.side_effect = RuntimeError("model error")
 
         recorder = EventRecorder()
         model = MagicMock()
