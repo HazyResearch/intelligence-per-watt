@@ -10,7 +10,7 @@
   <a href="https://arxiv.org/abs/2511.07885"><img src="https://img.shields.io/badge/arXiv-2511.07885-b31b1b.svg" alt="arXiv"></a>
   <a href="https://www.intelligence-per-watt.ai/"><img src="https://img.shields.io/badge/project-intelligence--per--watt.ai-blue" alt="Project"></a>
   <a href="https://hazyresearch.stanford.edu/intelligence-per-watt/"><img src="https://img.shields.io/badge/docs-mkdocs-blue" alt="Docs"></a>
-  <img src="https://img.shields.io/badge/python-%3E%3D3.12-blue" alt="Python">
+  <img src="https://img.shields.io/badge/python-%3E%3D3.13-blue" alt="Python">
   <img src="https://img.shields.io/badge/license-Apache%202.0-green" alt="License">
 </p>
 
@@ -21,6 +21,15 @@ Intelligence Per Watt measures **accuracy alongside energy** for any LLM inferen
 > **[Documentation](https://hazyresearch.stanford.edu/intelligence-per-watt/)**
 >
 > **[Project Site](https://www.intelligence-per-watt.ai/)**
+
+## Prerequisites
+
+- **Python >= 3.13** -- managed with [uv](https://docs.astral.sh/uv/getting-started/installation/)
+- **Rust compiler** -- for the energy monitor ([install](https://www.rust-lang.org/tools/install))
+- **protoc** -- Protocol Buffer compiler ([install](https://grpc.io/docs/protoc-installation/))
+- **An inference runtime** -- [Ollama](https://ollama.ai/), [vLLM](https://docs.vllm.ai/), or an OpenAI-compatible API
+
+See [Prerequisites](https://hazyresearch.stanford.edu/intelligence-per-watt/getting-started/prerequisites/) for platform-specific setup (NVIDIA NVML, AMD ROCm, Apple Silicon, Linux RAPL).
 
 ## Installation
 
@@ -38,7 +47,26 @@ uv run scripts/build_energy_monitor.py    # Build Rust energy monitor
 uv pip install -e intelligence-per-watt
 ```
 
+There is also an automated setup script that handles virtual environment creation, package installation, and energy monitor build:
+
+```bash
+bash intelligence-per-watt/scripts/setup.sh
+```
+
 Optional extras: `ollama`, `vllm`, `react`, `openhands`, `terminus`, `agents`, `tavily`, `flops`, `all`.
+
+## Verify Installation
+
+```bash
+# Run the test suite
+pytest intelligence-per-watt
+
+# Check the CLI
+ipw --help
+
+# Test energy monitoring on your hardware
+uv run scripts/test_energy_monitor.py
+```
 
 ## Quick Start
 

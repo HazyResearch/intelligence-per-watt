@@ -21,7 +21,7 @@ uv pip install -e 'intelligence-per-watt[vllm]'    # With vLLM client
 
 ### Prerequisites
 - Rust compiler + `protoc` (Protocol Buffer compiler)
-- Python >=3.12, managed with `uv`
+- Python >=3.13, managed with `uv`
 - Ollama or vLLM as inference runtime
 - OpenAI-compatible API for LLM judge evaluation (set `IPW_EVAL_API_KEY` or `OPENAI_API_KEY` in `.env`)
 

@@ -1,6 +1,23 @@
 # Quickstart
 
-This guide walks through running your first profiling session and viewing the results.
+This guide walks through verifying your installation and running your first profiling session.
+
+## Verify Your Setup
+
+After [installation](installation.md), confirm everything works:
+
+```bash
+# Check the CLI is available
+ipw --help
+
+# Run the test suite (should pass with no failures)
+pytest intelligence-per-watt
+
+# Test energy monitoring on your hardware
+uv run scripts/test_energy_monitor.py
+```
+
+If the energy monitor test reports readings, your platform's telemetry collector is working. If it skips or fails, see [Platform Support](../telemetry/platform-support.md) for hardware-specific setup (NVIDIA NVML drivers, Linux RAPL permissions, macOS sudo for powermetrics).
 
 ## Single-Turn Profiling
 

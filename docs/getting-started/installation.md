@@ -11,9 +11,26 @@ Before installing Intelligence Per Watt, ensure you have:
 
 See [Prerequisites](prerequisites.md) for platform-specific details.
 
-## Base Install
+## Quick Setup (Automated)
 
-Clone the repository and set up the Python environment:
+An automated setup script handles virtual environment creation, package installation, and energy monitor build:
+
+```bash
+git clone https://github.com/HazyResearch/intelligence-per-watt.git
+cd intelligence-per-watt
+bash intelligence-per-watt/scripts/setup.sh
+source .venv/bin/activate
+```
+
+The script auto-installs `uv` if missing, creates a Python 3.13 virtual environment, installs the package, and builds the energy monitor (if Rust and protoc are available). Pass extras as arguments:
+
+```bash
+bash intelligence-per-watt/scripts/setup.sh ollama react
+```
+
+## Manual Setup
+
+Clone the repository and set up the Python environment step by step:
 
 ```bash
 git clone https://github.com/HazyResearch/intelligence-per-watt.git
@@ -126,6 +143,11 @@ ipw --help
 # List available components
 ipw list all
 
-# Test energy monitoring
+# Run the test suite (all tests should pass)
+pytest intelligence-per-watt
+
+# Test energy monitoring on your hardware
 uv run scripts/test_energy_monitor.py
 ```
+
+If `pytest` reports failures, check that your Python version is >= 3.13 and all dependencies are installed. Platform-specific integration tests (NVIDIA, AMD, Apple) are automatically skipped on unsupported hardware.
