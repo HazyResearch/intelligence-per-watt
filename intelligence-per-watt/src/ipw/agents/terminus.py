@@ -117,7 +117,7 @@ class Terminus(BaseAgent):
 
         return container
 
-    def get_session(self, tmux_session=None):
+    def get_session(self, tmux_session: Any = None) -> Any:
         """Get or create a TmuxSession.
 
         Args:
@@ -144,7 +144,7 @@ class Terminus(BaseAgent):
     def run(
         self,
         input: str,
-        tmux_session=None,
+        tmux_session: Any = None,
         **kwargs: Any,
     ) -> AgentRunResult:
         """Run the Terminus agent.

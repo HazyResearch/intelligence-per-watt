@@ -168,7 +168,7 @@ class QueryTrace:
         return traces
 
     @staticmethod
-    def to_hf_dataset(traces: List[QueryTrace]):
+    def to_hf_dataset(traces: List[QueryTrace]) -> Any:
         """Convert a list of QueryTrace objects to a HuggingFace Dataset.
 
         Returns:
