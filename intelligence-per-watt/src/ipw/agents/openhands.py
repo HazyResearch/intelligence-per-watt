@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import logging
 import os
 import re
@@ -87,6 +88,127 @@ def _register_mcp_tools(mcp_tools: Dict[str, "BaseMCPServer"]) -> list:
         logger.info(f"Registered OpenHands MCP tool: {oh_name}")
 
     return tool_specs
+
+
+def _parse_openhands_stats(output: str) -> dict[str, Any]:
+    """Parse OpenHands conversation stats from captured terminal output.
+
+    Looks for common OpenHands log patterns such as:
+    - ``Accumulated cost: $1.23``
+    - ``Total tokens: 12345`` or ``input_tokens: 1000, output_tokens: 500``
+    - ``Number of turns: 5``
+    - ``Metrics: {...}`` JSON blob
+
+    Returns a dict with keys: input_tokens, output_tokens, cost, num_turns.
+    Missing fields default to 0.
+    """
+    result: dict[str, Any] = {
+        "input_tokens": 0,
+        "output_tokens": 0,
+        "cost": 0.0,
+        "num_turns": 0,
+    }
+
+    if not output:
+        return result
+
+    # Try to find a Metrics JSON blob (OpenHands >= 0.14)
+    metrics_match = re.search(
+        r"(?:Metrics|metrics)\s*[:=]\s*(\{[^}]+\})", output
+    )
+    if metrics_match:
+        try:
+            import json
+
+            metrics = json.loads(metrics_match.group(1))
+            result["input_tokens"] = int(metrics.get("accumulated_input_tokens", 0))
+            result["output_tokens"] = int(metrics.get("accumulated_output_tokens", 0))
+            result["cost"] = float(metrics.get("accumulated_cost", 0.0))
+            result["num_turns"] = int(metrics.get("num_turns", 0))
+            return result
+        except (json.JSONDecodeError, ValueError, TypeError):
+            pass
+
+    # Accumulated cost
+    cost_match = re.search(
+        r"[Aa]ccumulated\s+cost\s*[:=]\s*\$?([\d.]+)", output
+    )
+    if cost_match:
+        try:
+            result["cost"] = float(cost_match.group(1))
+        except ValueError:
+            pass
+
+    # Token counts
+    for pattern, key in [
+        (r"input_tokens\s*[:=]\s*(\d+)", "input_tokens"),
+        (r"output_tokens\s*[:=]\s*(\d+)", "output_tokens"),
+        (r"[Tt]otal\s+tokens\s*[:=]\s*(\d+)", "_total_tokens"),
+    ]:
+        m = re.search(pattern, output)
+        if m:
+            try:
+                val = int(m.group(1))
+                if key == "_total_tokens" and result["input_tokens"] == 0:
+                    # Rough split when only total is available
+                    result["input_tokens"] = int(val * 0.7)
+                    result["output_tokens"] = val - result["input_tokens"]
+                else:
+                    result[key] = val
+            except ValueError:
+                pass
+
+    # Number of turns / iterations
+    turns_match = re.search(
+        r"(?:[Nn]umber\s+of\s+turns|[Ii]terations?|num_turns)\s*[:=]\s*(\d+)",
+        output,
+    )
+    if turns_match:
+        try:
+            result["num_turns"] = int(turns_match.group(1))
+        except ValueError:
+            pass
+
+    return result
+
+
+def _read_openhands_trajectory(session: Any) -> dict[str, Any]:
+    """Read token/cost metrics from OpenHands trajectory files inside Docker.
+
+    OpenHands saves trajectory JSON to ``/agent-logs/`` inside the container
+    (via ``SAVE_TRAJECTORY_PATH``).  The trajectory ``metrics`` dict contains
+    ``accumulated_input_tokens``, ``accumulated_output_tokens``,
+    ``accumulated_cost``, and ``num_turns``.
+
+    Returns a dict with keys: input_tokens, output_tokens, cost, num_turns.
+    """
+    result: dict[str, Any] = {
+        "input_tokens": 0,
+        "output_tokens": 0,
+        "cost": 0.0,
+        "num_turns": 0,
+    }
+    try:
+        find = session.container.exec_run(
+            ["find", "/agent-logs", "-name", "*.json", "-type", "f"]
+        )
+        if find.exit_code != 0 or not find.output.strip():
+            return result
+        files = find.output.decode().strip().split("\n")
+        # Take the last (most recent) trajectory file
+        cat = session.container.exec_run(["cat", files[-1]])
+        if cat.exit_code != 0:
+            return result
+        trajectory = json.loads(cat.output.decode())
+        if "metrics" in trajectory:
+            m = trajectory["metrics"]
+            result["input_tokens"] = int(m.get("accumulated_input_tokens", 0))
+            result["output_tokens"] = int(m.get("accumulated_output_tokens", 0))
+            result["cost"] = float(m.get("accumulated_cost", 0.0))
+            result["num_turns"] = int(m.get("num_turns", 0))
+    except Exception:
+        logger.warning("Failed to read OH trajectory", exc_info=True)
+    return result
 
 
 @AgentRegistry.register("openhands")
@@ -325,7 +447,28 @@ class OpenHands(BaseAgent):
             llm_base_url = llm_base_url.replace("127.0.0.1", "host.docker.internal")
             env_vars["LLM_BASE_URL"] = llm_base_url
 
+        # Fix model name for litellm provider routing: models served via an
+        # OpenAI-compatible endpoint need an "openai/" prefix so litellm
+        # routes to the correct provider inside the Docker container.
+        _KNOWN_PREFIXES = (
+            "openai/", "anthropic/", "gemini/", "google/",
+            "azure/", "bedrock/", "vertex_ai/", "ollama/",
+        )
+        if llm_base_url and not model_str.startswith(_KNOWN_PREFIXES):
+            model_str = f"openai/{model_str}"
+
+        # Forward LLM_API_KEY so litellm inside Docker can authenticate.
+        llm_api_key = os.environ.get("LLM_API_KEY", "")
+        if not llm_api_key:
+            llm_api_key = os.environ.get("OPENAI_API_KEY", "")
+        if llm_api_key:
+            env_vars["LLM_API_KEY"] = llm_api_key
+
         terminal_output = ""
+        extracted_input_tokens = 0
+        extracted_output_tokens = 0
+        extracted_cost: float = 0.0
+        extracted_num_turns = 0
 
         self._record_event("lm_inference_start", model=model_str)
         try:
@@ -344,6 +487,16 @@ class OpenHands(BaseAgent):
             except Exception:
                 logger.warning("Failed to capture terminal output")
 
+            # Primary: read trajectory file from container
+            stats = _read_openhands_trajectory(session)
+            # Fallback: parse terminal output if trajectory returned nothing
+            if stats["input_tokens"] == 0 and stats["output_tokens"] == 0:
+                stats = _parse_openhands_stats(terminal_output)
+            extracted_input_tokens = stats.get("input_tokens", 0)
+            extracted_output_tokens = stats.get("output_tokens", 0)
+            extracted_cost = stats.get("cost", 0.0)
+            extracted_num_turns = stats.get("num_turns", 0)
+
         except Exception:
             logger.exception("OpenHands TB agent failed on task %s", task_id)
         finally:
@@ -351,5 +504,9 @@ class OpenHands(BaseAgent):
 
         return AgentRunResult(
             content=terminal_output,
+            input_tokens=extracted_input_tokens,
+            output_tokens=extracted_output_tokens,
+            num_turns=extracted_num_turns,
+            cost_usd=extracted_cost,
             metadata={"task_id": task_id},
         )

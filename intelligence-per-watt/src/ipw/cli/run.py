@@ -265,6 +265,7 @@ def run_cmd(
             telemetry_session=telemetry,
             config=run_config,
             event_recorder=event_recorder,
+            run_dir=run_dir,
             concurrency=concurrency,
             agent_factory=_make_agent if concurrency > 1 else None,
         )

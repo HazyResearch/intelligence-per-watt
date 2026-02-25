@@ -644,16 +644,32 @@ def build_server_configs(
     submodel_specs: List[str],
     base_port: int = 8000,
     main_backend: str = "vllm",
+    extra_args: Optional[Dict[str, Any]] = None,
 ) -> List[ServerConfig]:
-    """Build server configurations for main model and submodels."""
+    """Build server configurations for main model and submodels.
+
+    Args:
+        extra_args: Optional vLLM arguments from a preset. ``tensor_parallel_size``
+            is applied to :attr:`ServerConfig.tensor_parallel_size`; remaining
+            keys are forwarded to :attr:`ServerConfig.extra_args`.
+    """
     configs = []
     vllm_port = base_port
+
+    tp_size = 1
+    server_extra: Dict[str, Any] = {}
+    if extra_args:
+        ea = dict(extra_args)
+        tp_size = ea.pop("tensor_parallel_size", 1)
+        server_extra = ea
 
     main_config = ServerConfig(
         model_id=main_model,
         alias=main_alias,
         backend=main_backend,
         port=vllm_port if main_backend == "vllm" else 11434,
+        tensor_parallel_size=tp_size,
+        extra_args=dict(server_extra),
     )
     configs.append(main_config)
     if main_backend == "vllm":

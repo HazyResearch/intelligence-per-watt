@@ -27,6 +27,24 @@ MODEL_PRESETS: Dict[str, Dict[str, Any]] = {
         "model_id": "moonshotai/Kimi-K2.5",
         "vllm_args": {"tensor_parallel_size": 4},
     },
+    "qwen35-35b-a3b": {
+        "model_id": "Qwen/Qwen3.5-35B-A3B",
+        "vllm_args": {
+            "tensor_parallel_size": 1,
+            "reasoning_parser": "qwen3",
+            "tool_call_parser": "qwen3_coder",
+            "language_model_only": True,
+        },
+    },
+    "qwen35-27b": {
+        "model_id": "Qwen/Qwen3.5-27B",
+        "vllm_args": {
+            "tensor_parallel_size": 1,
+            "reasoning_parser": "qwen3",
+            "tool_call_parser": "qwen3_coder",
+            "language_model_only": True,
+        },
+    },
 }
 
 

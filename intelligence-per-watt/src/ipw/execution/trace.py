@@ -74,6 +74,11 @@ class QueryTrace:
     turns: List[TurnTrace] = field(default_factory=list)
     total_wall_clock_s: float = 0.0
     completed: bool = False
+    # Query-level energy fields (populated even when turns are empty)
+    query_gpu_energy_joules: Optional[float] = None
+    query_cpu_energy_joules: Optional[float] = None
+    query_gpu_power_avg_watts: Optional[float] = None
+    query_cpu_power_avg_watts: Optional[float] = None
 
     @property
     def num_turns(self) -> int:
@@ -98,7 +103,16 @@ class QueryTrace:
     @property
     def total_gpu_energy_joules(self) -> Optional[float]:
         values = [t.gpu_energy_joules for t in self.turns if t.gpu_energy_joules is not None]
-        return sum(values) if values else None
+        if values:
+            return sum(values)
+        return self.query_gpu_energy_joules
+
+    @property
+    def total_cpu_energy_joules(self) -> Optional[float]:
+        values = [t.cpu_energy_joules for t in self.turns if t.cpu_energy_joules is not None]
+        if values:
+            return sum(values)
+        return self.query_cpu_energy_joules
 
     @property
     def total_cost_usd(self) -> Optional[float]:
@@ -114,6 +128,10 @@ class QueryTrace:
             "turns": [t.to_dict() for t in self.turns],
             "total_wall_clock_s": self.total_wall_clock_s,
             "completed": self.completed,
+            "query_gpu_energy_joules": self.query_gpu_energy_joules,
+            "query_cpu_energy_joules": self.query_cpu_energy_joules,
+            "query_gpu_power_avg_watts": self.query_gpu_power_avg_watts,
+            "query_cpu_power_avg_watts": self.query_cpu_power_avg_watts,
         }
 
     @classmethod
@@ -126,6 +144,10 @@ class QueryTrace:
             turns=[TurnTrace.from_dict(t) for t in d.get("turns", [])],
             total_wall_clock_s=d.get("total_wall_clock_s", 0.0),
             completed=d.get("completed", False),
+            query_gpu_energy_joules=d.get("query_gpu_energy_joules"),
+            query_cpu_energy_joules=d.get("query_cpu_energy_joules"),
+            query_gpu_power_avg_watts=d.get("query_gpu_power_avg_watts"),
+            query_cpu_power_avg_watts=d.get("query_cpu_power_avg_watts"),
         )
 
     def save_jsonl(self, path: Path) -> None:
@@ -167,6 +189,7 @@ class QueryTrace:
                 "total_tool_calls": trace.total_tool_calls,
                 "total_wall_clock_s": trace.total_wall_clock_s,
                 "total_gpu_energy_joules": trace.total_gpu_energy_joules,
+                "total_cpu_energy_joules": trace.total_cpu_energy_joules,
                 "total_cost_usd": trace.total_cost_usd,
                 "completed": trace.completed,
                 "trace_json": json.dumps(trace.to_dict()),

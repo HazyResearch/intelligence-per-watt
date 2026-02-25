@@ -7,8 +7,13 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from ipw.core.types import AgentRunResult, DatasetRecord
-from ipw.execution.agentic_runner import AgenticRunner
+from ipw.core.types import AgentRunResult, DatasetRecord, TelemetryReading
+from ipw.execution.agentic_runner import (
+    AgenticRunner,
+    _compute_energy_delta,
+    _compute_power_avg,
+)
+from ipw.execution.telemetry_session import TelemetrySample
 from ipw.execution.trace import QueryTrace, TurnTrace
 from ipw.telemetry.events import EventRecorder
 
@@ -381,3 +386,325 @@ class TestAgenticRunner:
         asyncio.run(runner.run())
 
         assert call_order == ["enter", "set_metadata", "agent_run", "run_tests", "exit"]
+
+    def test_synthetic_turn_from_agent_result(self) -> None:
+        """When EventRecorder has no events but AgentRunResult has tokens,
+        a synthetic turn is created to preserve token counts."""
+        agent = MagicMock()
+        agent.run.return_value = AgentRunResult(
+            content="result from docker",
+            input_tokens=500,
+            output_tokens=200,
+            num_turns=3,
+            cost_usd=0.05,
+        )
+
+        runner = self._make_runner(agent=agent)
+        traces = asyncio.run(runner.run())
+
+        assert len(traces) == 1
+        trace = traces[0]
+        # Synthetic turn should be created
+        assert trace.num_turns == 1
+        assert trace.total_input_tokens == 500
+        assert trace.total_output_tokens == 200
+        assert trace.turns[0].cost_usd == 0.05
+
+    def test_no_synthetic_turn_when_zero_tokens(self) -> None:
+        """No synthetic turn is created when AgentRunResult has 0 tokens."""
+        agent = MagicMock()
+        agent.run.return_value = AgentRunResult(
+            content="no tokens",
+            input_tokens=0,
+            output_tokens=0,
+        )
+
+        runner = self._make_runner(agent=agent)
+        traces = asyncio.run(runner.run())
+
+        assert len(traces) == 1
+        assert traces[0].num_turns == 0
+
+    def test_query_level_energy_without_turns(self) -> None:
+        """Query-level energy is populated from telemetry even with 0 turns."""
+        agent = MagicMock()
+        agent.run.return_value = AgentRunResult(content="ok")
+
+        dataset = MagicMock()
+        records = [
+            DatasetRecord(
+                problem="Q1", answer="A1", subject="s",
+                dataset_metadata={"dataset_name": "test"},
+            )
+        ]
+        dataset.__iter__ = MagicMock(return_value=iter(records))
+        dataset.size.return_value = 1
+        dataset.create_task_env.return_value = None
+
+        # Create a mock telemetry session with GPU energy readings
+        telemetry = MagicMock()
+        telemetry.readings.return_value = []
+        telemetry.window.return_value = iter([
+            TelemetrySample(
+                timestamp=1000.0,
+                reading=TelemetryReading(
+                    energy_joules=100.0,
+                    power_watts=200.0,
+                    cpu_energy_joules=50.0,
+                    cpu_power_watts=80.0,
+                ),
+            ),
+            TelemetrySample(
+                timestamp=1001.0,
+                reading=TelemetryReading(
+                    energy_joules=110.0,
+                    power_watts=220.0,
+                    cpu_energy_joules=55.0,
+                    cpu_power_watts=90.0,
+                ),
+            ),
+        ])
+
+        runner = AgenticRunner(
+            agent=agent,
+            dataset=dataset,
+            telemetry_session=telemetry,
+            config={"model": "test-model"},
+        )
+        traces = asyncio.run(runner.run())
+
+        assert len(traces) == 1
+        trace = traces[0]
+        assert trace.query_gpu_energy_joules == pytest.approx(10.0)
+        assert trace.query_cpu_energy_joules == pytest.approx(5.0)
+        assert trace.query_gpu_power_avg_watts == pytest.approx(210.0)
+        assert trace.query_cpu_power_avg_watts == pytest.approx(85.0)
+        # total_gpu_energy_joules should fall back to query-level
+        assert trace.total_gpu_energy_joules == pytest.approx(10.0)
+
+    def test_cost_computation_wired(self) -> None:
+        """Cost is computed from pricing tables when trace has no cost but has tokens."""
+        agent = MagicMock()
+        agent.run.return_value = AgentRunResult(
+            content="result",
+            input_tokens=1000,
+            output_tokens=500,
+        )
+
+        dataset = MagicMock()
+        records = [
+            DatasetRecord(
+                problem="Q1", answer="A1", subject="s",
+                dataset_metadata={"dataset_name": "test"},
+            )
+        ]
+        dataset.__iter__ = MagicMock(return_value=iter(records))
+        dataset.size.return_value = 1
+        dataset.create_task_env.return_value = None
+
+        runner = AgenticRunner(
+            agent=agent,
+            dataset=dataset,
+            config={"model": "gpt-4o", "provider": "openai"},
+        )
+        asyncio.run(runner.run())
+
+        record = runner.records[0]
+        metrics = record.model_metrics["gpt-4o"]
+        # gpt-4o: $2.50/1M input, $10.00/1M output
+        expected = (1000 / 1_000_000) * 2.50 + (500 / 1_000_000) * 10.00
+        assert metrics.cost.total_cost_usd == pytest.approx(expected)
+
+    def test_cost_not_computed_for_unknown_provider(self) -> None:
+        """Cost remains None when provider/model isn't in pricing tables."""
+        agent = MagicMock()
+        agent.run.return_value = AgentRunResult(
+            content="result",
+            input_tokens=1000,
+            output_tokens=500,
+        )
+
+        dataset = MagicMock()
+        records = [
+            DatasetRecord(
+                problem="Q1", answer="A1", subject="s",
+                dataset_metadata={"dataset_name": "test"},
+            )
+        ]
+        dataset.__iter__ = MagicMock(return_value=iter(records))
+        dataset.size.return_value = 1
+        dataset.create_task_env.return_value = None
+
+        runner = AgenticRunner(
+            agent=agent,
+            dataset=dataset,
+            config={"model": "unknown-model", "provider": "unknown"},
+        )
+        asyncio.run(runner.run())
+
+        record = runner.records[0]
+        metrics = record.model_metrics["unknown-model"]
+        assert metrics.cost.total_cost_usd is None
+
+    def test_is_resolved_persisted_in_artifacts(self, tmp_path) -> None:
+        """is_resolved and test_results from dataset_metadata are saved to metadata.json."""
+        agent = MagicMock()
+        agent.run.return_value = AgentRunResult(content="ok")
+
+        dataset = MagicMock()
+        records = [
+            DatasetRecord(
+                problem="Q1", answer="A1", subject="s",
+                dataset_metadata={
+                    "dataset_name": "test",
+                    "instance_id": "inst_001",
+                    "is_resolved": True,
+                    "test_results": {"passed": 5, "failed": 0},
+                },
+            )
+        ]
+        dataset.__iter__ = MagicMock(return_value=iter(records))
+        dataset.size.return_value = 1
+        dataset.create_task_env.return_value = None
+
+        runner = AgenticRunner(
+            agent=agent,
+            dataset=dataset,
+            config={"model": "test-model"},
+            run_dir=tmp_path,
+        )
+        asyncio.run(runner.run())
+
+        import json
+
+        meta_path = tmp_path / "artifacts" / "q0000_inst_001" / "metadata.json"
+        assert meta_path.exists()
+        meta = json.loads(meta_path.read_text())
+        assert meta["is_resolved"] is True
+        assert meta["test_results"] == {"passed": 5, "failed": 0}
+
+
+    def test_local_model_cost_is_zero(self) -> None:
+        """Cost = 0.0 when client_base_url is localhost (local inference)."""
+        agent = MagicMock()
+        agent.run.return_value = AgentRunResult(
+            content="result",
+            input_tokens=1000,
+            output_tokens=500,
+        )
+
+        dataset = MagicMock()
+        records = [
+            DatasetRecord(
+                problem="Q1", answer="A1", subject="s",
+                dataset_metadata={"dataset_name": "test"},
+            )
+        ]
+        dataset.__iter__ = MagicMock(return_value=iter(records))
+        dataset.size.return_value = 1
+        dataset.create_task_env.return_value = None
+
+        runner = AgenticRunner(
+            agent=agent,
+            dataset=dataset,
+            config={
+                "model": "glm-4-flash",
+                "provider": "",
+                "client_base_url": "http://localhost:8000/v1",
+            },
+        )
+        asyncio.run(runner.run())
+
+        record = runner.records[0]
+        metrics = record.model_metrics["glm-4-flash"]
+        assert metrics.cost.total_cost_usd == 0.0
+
+    def test_local_model_cost_127(self) -> None:
+        """Cost = 0.0 when client_base_url is 127.0.0.1."""
+        agent = MagicMock()
+        agent.run.return_value = AgentRunResult(
+            content="result",
+            input_tokens=500,
+            output_tokens=200,
+        )
+
+        dataset = MagicMock()
+        records = [
+            DatasetRecord(
+                problem="Q1", answer="A1", subject="s",
+                dataset_metadata={"dataset_name": "test"},
+            )
+        ]
+        dataset.__iter__ = MagicMock(return_value=iter(records))
+        dataset.size.return_value = 1
+        dataset.create_task_env.return_value = None
+
+        runner = AgenticRunner(
+            agent=agent,
+            dataset=dataset,
+            config={
+                "model": "local-model",
+                "provider": "",
+                "client_base_url": "http://127.0.0.1:8000/v1",
+            },
+        )
+        asyncio.run(runner.run())
+
+        record = runner.records[0]
+        metrics = record.model_metrics["local-model"]
+        assert metrics.cost.total_cost_usd == 0.0
+
+
+class TestEnergyHelpers:
+    """Test _compute_energy_delta and _compute_power_avg helpers."""
+
+    def test_compute_energy_delta(self) -> None:
+        readings = [
+            TelemetrySample(
+                timestamp=1.0,
+                reading=TelemetryReading(energy_joules=100.0),
+            ),
+            TelemetrySample(
+                timestamp=2.0,
+                reading=TelemetryReading(energy_joules=115.0),
+            ),
+        ]
+        assert _compute_energy_delta(readings, "energy_joules") == pytest.approx(15.0)
+
+    def test_compute_energy_delta_none_with_single_reading(self) -> None:
+        readings = [
+            TelemetrySample(
+                timestamp=1.0,
+                reading=TelemetryReading(energy_joules=100.0),
+            ),
+        ]
+        assert _compute_energy_delta(readings, "energy_joules") is None
+
+    def test_compute_energy_delta_none_for_missing_field(self) -> None:
+        readings = [
+            TelemetrySample(
+                timestamp=1.0,
+                reading=TelemetryReading(),
+            ),
+            TelemetrySample(
+                timestamp=2.0,
+                reading=TelemetryReading(),
+            ),
+        ]
+        assert _compute_energy_delta(readings, "energy_joules") is None
+
+    def test_compute_power_avg(self) -> None:
+        readings = [
+            TelemetrySample(
+                timestamp=1.0,
+                reading=TelemetryReading(power_watts=200.0),
+            ),
+            TelemetrySample(
+                timestamp=2.0,
+                reading=TelemetryReading(power_watts=300.0),
+            ),
+        ]
+        assert _compute_power_avg(readings, "power_watts") == pytest.approx(250.0)
+
+    def test_compute_power_avg_none_for_empty(self) -> None:
+        assert _compute_power_avg([], "power_watts") is None

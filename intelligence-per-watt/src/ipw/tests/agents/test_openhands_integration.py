@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import json
+
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -149,3 +151,111 @@ class TestOpenHandsIntegration:
         agent = OpenHands(model=model)
         agent.set_workspace("/tmp/workspace")
         assert agent._workspace == "/tmp/workspace"
+
+
+class TestReadOpenhandsTrajectory:
+    """Tests for _read_openhands_trajectory()."""
+
+    def test_reads_metrics_from_trajectory(self, _mock_openhands: dict) -> None:
+        from ipw.agents.openhands import _read_openhands_trajectory
+
+        trajectory = {
+            "metrics": {
+                "accumulated_input_tokens": 1200,
+                "accumulated_output_tokens": 800,
+                "accumulated_cost": 0.05,
+                "num_turns": 7,
+            }
+        }
+
+        session = MagicMock()
+        find_result = MagicMock()
+        find_result.exit_code = 0
+        find_result.output = b"/agent-logs/traj_001.json\n"
+
+        cat_result = MagicMock()
+        cat_result.exit_code = 0
+        cat_result.output = json.dumps(trajectory).encode()
+
+        session.container.exec_run.side_effect = [find_result, cat_result]
+
+        stats = _read_openhands_trajectory(session)
+        assert stats["input_tokens"] == 1200
+        assert stats["output_tokens"] == 800
+        assert stats["cost"] == 0.05
+        assert stats["num_turns"] == 7
+
+    def test_returns_zeros_when_no_files(self, _mock_openhands: dict) -> None:
+        from ipw.agents.openhands import _read_openhands_trajectory
+
+        session = MagicMock()
+        find_result = MagicMock()
+        find_result.exit_code = 1
+        find_result.output = b""
+
+        session.container.exec_run.return_value = find_result
+
+        stats = _read_openhands_trajectory(session)
+        assert stats["input_tokens"] == 0
+        assert stats["output_tokens"] == 0
+        assert stats["cost"] == 0.0
+        assert stats["num_turns"] == 0
+
+    def test_returns_zeros_when_cat_fails(self, _mock_openhands: dict) -> None:
+        from ipw.agents.openhands import _read_openhands_trajectory
+
+        session = MagicMock()
+        find_result = MagicMock()
+        find_result.exit_code = 0
+        find_result.output = b"/agent-logs/traj.json\n"
+
+        cat_result = MagicMock()
+        cat_result.exit_code = 1
+        cat_result.output = b""
+
+        session.container.exec_run.side_effect = [find_result, cat_result]
+
+        stats = _read_openhands_trajectory(session)
+        assert stats["input_tokens"] == 0
+        assert stats["output_tokens"] == 0
+
+    def test_returns_zeros_on_exception(self, _mock_openhands: dict) -> None:
+        from ipw.agents.openhands import _read_openhands_trajectory
+
+        session = MagicMock()
+        session.container.exec_run.side_effect = RuntimeError("docker error")
+
+        stats = _read_openhands_trajectory(session)
+        assert stats["input_tokens"] == 0
+        assert stats["output_tokens"] == 0
+        assert stats["cost"] == 0.0
+
+    def test_picks_last_trajectory_file(self, _mock_openhands: dict) -> None:
+        from ipw.agents.openhands import _read_openhands_trajectory
+
+        trajectory = {
+            "metrics": {
+                "accumulated_input_tokens": 500,
+                "accumulated_output_tokens": 300,
+                "accumulated_cost": 0.0,
+                "num_turns": 3,
+            }
+        }
+
+        session = MagicMock()
+        find_result = MagicMock()
+        find_result.exit_code = 0
+        find_result.output = b"/agent-logs/traj_001.json\n/agent-logs/traj_002.json\n"
+
+        cat_result = MagicMock()
+        cat_result.exit_code = 0
+        cat_result.output = json.dumps(trajectory).encode()
+
+        session.container.exec_run.side_effect = [find_result, cat_result]
+
+        stats = _read_openhands_trajectory(session)
+        assert stats["input_tokens"] == 500
+        # Verify it cat'd the last file
+        session.container.exec_run.assert_called_with(
+            ["cat", "/agent-logs/traj_002.json"]
+        )

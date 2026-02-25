@@ -92,7 +92,7 @@ def start(
         if not model:
             error("--model is required for vLLM")
             raise click.Abort()
-        _start_vllm(model, port, gpu_memory_utilization, tensor_parallel_size)
+        _start_vllm(model, port, gpu_memory_utilization, tensor_parallel_size, None)
 
 
 def _start_ollama(port: Optional[int]) -> None:
@@ -131,8 +131,14 @@ def _start_vllm(
     port: Optional[int],
     gpu_memory_utilization: float,
     tensor_parallel_size: int,
+    extra_args: Optional[dict] = None,
 ) -> None:
-    """Start vLLM server."""
+    """Start vLLM server.
+
+    Args:
+        extra_args: Additional vLLM flags from a preset (e.g. reasoning_parser,
+            tool_call_parser, language_model_only).
+    """
     import os
 
     actual_port = port or 8000
@@ -147,6 +153,25 @@ def _start_vllm(
             "--gpu-memory-utilization", str(gpu_memory_utilization),
             "--tensor-parallel-size", str(tensor_parallel_size),
         ]
+
+        if extra_args:
+            ea = dict(extra_args)
+            # Pop keys already handled above
+            ea.pop("tensor_parallel_size", None)
+
+            tool_parser = ea.pop("tool_call_parser", None)
+            if tool_parser:
+                cmd.extend(["--enable-auto-tool-choice", "--tool-call-parser", tool_parser])
+
+            for key, value in ea.items():
+                if value is None:
+                    continue
+                flag = f"--{key.replace('_', '-')}"
+                if isinstance(value, bool):
+                    if value:
+                        cmd.append(flag)
+                else:
+                    cmd.extend([flag, str(value)])
 
         env = os.environ.copy()
         env.pop("RUST_LOG", None)
@@ -239,6 +264,7 @@ def launch(
         raise click.Abort()
 
     # Resolve preset if provided
+    preset_extra_args: Optional[dict] = None
     if preset:
         from ipw.cli.model_presets import resolve_preset
         try:
@@ -250,10 +276,11 @@ def launch(
             warning(f"--model overrides preset model ({preset_config['model_id']})")
         else:
             model = preset_config["model_id"]
+        vllm_args = preset_config.get("vllm_args", {})
         if tensor_parallel_size is None:
-            tensor_parallel_size = preset_config.get("vllm_args", {}).get(
-                "tensor_parallel_size", 1
-            )
+            tensor_parallel_size = vllm_args.get("tensor_parallel_size", 1)
+        # Collect remaining vllm_args (excluding tensor_parallel_size) for _start_vllm
+        preset_extra_args = {k: v for k, v in vllm_args.items() if k != "tensor_parallel_size"}
 
     if tensor_parallel_size is None:
         tensor_parallel_size = 1
@@ -264,7 +291,7 @@ def launch(
         if not model:
             error("--model is required for vLLM (or use --preset)")
             raise click.Abort()
-        _launch_vllm(model, port, gpu_memory_utilization, tensor_parallel_size, wait_timeout)
+        _launch_vllm(model, port, gpu_memory_utilization, tensor_parallel_size, wait_timeout, preset_extra_args)
 
 
 def _launch_ollama(port: Optional[int], model: Optional[str], timeout: int) -> None:
@@ -315,6 +342,7 @@ def _launch_vllm(
     gpu_memory_utilization: float,
     tensor_parallel_size: int,
     timeout: int,
+    extra_args: Optional[dict] = None,
 ) -> None:
     """Launch vLLM server and wait for it to be ready."""
     actual_port = port or 8000
@@ -324,7 +352,7 @@ def _launch_vllm(
         success(f"vLLM server ready at http://localhost:{actual_port}")
         return
 
-    _start_vllm(model, port, gpu_memory_utilization, tensor_parallel_size)
+    _start_vllm(model, port, gpu_memory_utilization, tensor_parallel_size, extra_args)
     info(f"Waiting for vLLM to load model {model} (this may take a while)...")
 
     if not _wait_for_server("vllm", actual_port, timeout):

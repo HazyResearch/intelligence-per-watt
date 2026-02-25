@@ -40,6 +40,43 @@ from ..telemetry.events import EventRecorder, EventType
 
 LOGGER = logging.getLogger(__name__)
 
+
+# ---------------------------------------------------------------------------
+# Energy computation helpers
+# ---------------------------------------------------------------------------
+
+
+def _compute_energy_delta(
+    readings: list[TelemetrySample],
+    field: str,
+) -> float | None:
+    """Compute energy delta from first to last reading for *field*."""
+    values = [
+        getattr(s.reading, field)
+        for s in readings
+        if getattr(s.reading, field, None) is not None
+        and math.isfinite(getattr(s.reading, field))
+    ]
+    if len(values) >= 2:
+        delta = values[-1] - values[0]
+        return delta if delta >= 0 else None
+    return None
+
+
+def _compute_power_avg(
+    readings: list[TelemetrySample],
+    field: str,
+) -> float | None:
+    """Compute average power across readings for *field*."""
+    values = [
+        getattr(s.reading, field)
+        for s in readings
+        if getattr(s.reading, field, None) is not None
+        and math.isfinite(getattr(s.reading, field))
+    ]
+    return statistics.mean(values) if values else None
+
+
 # ---------------------------------------------------------------------------
 # Patch extraction helpers
 # ---------------------------------------------------------------------------
@@ -320,6 +357,23 @@ class AgenticRunner:
         events = event_recorder.get_events()
         turns = self._build_turn_traces(events, readings)
 
+        # When EventRecorder captured nothing, create a synthetic turn from
+        # AgentRunResult so token counts and wall clock are preserved.
+        if not turns and (result.input_tokens > 0 or result.output_tokens > 0):
+            turns = [TurnTrace(
+                turn_index=0,
+                input_tokens=result.input_tokens,
+                output_tokens=result.output_tokens,
+                wall_clock_s=end_time - start_time,
+                cost_usd=result.cost_usd if result.cost_usd else None,
+            )]
+
+        # Always compute query-level energy from telemetry window
+        query_gpu_energy = _compute_energy_delta(readings, "energy_joules")
+        query_cpu_energy = _compute_energy_delta(readings, "cpu_energy_joules")
+        query_gpu_power_avg = _compute_power_avg(readings, "power_watts")
+        query_cpu_power_avg = _compute_power_avg(readings, "cpu_power_watts")
+
         trace = QueryTrace(
             query_id=query_id,
             workload_type=str(workload_type),
@@ -328,6 +382,10 @@ class AgenticRunner:
             turns=turns,
             total_wall_clock_s=end_time - start_time,
             completed=True,
+            query_gpu_energy_joules=query_gpu_energy,
+            query_cpu_energy_joules=query_cpu_energy,
+            query_gpu_power_avg_watts=query_gpu_power_avg,
+            query_cpu_power_avg_watts=query_cpu_power_avg,
         )
 
         # Correlate energy data with trace
@@ -537,7 +595,7 @@ class AgenticRunner:
             "num_turns": trace.num_turns,
         }
         # Include select dataset metadata
-        for key in ("repo", "base_commit", "dataset_name"):
+        for key in ("repo", "base_commit", "dataset_name", "is_resolved", "test_results"):
             val = record.dataset_metadata.get(key)
             if val is not None:
                 meta[key] = val
@@ -561,12 +619,9 @@ class AgenticRunner:
         total_output_tokens = trace.total_output_tokens
         total_seconds = trace.total_wall_clock_s
 
-        # Energy metrics from trace
+        # Energy metrics from trace (per-turn sums, falling back to query-level)
         gpu_energy = trace.total_gpu_energy_joules
-        cpu_energy = sum(
-            (t.cpu_energy_joules for t in trace.turns if t.cpu_energy_joules is not None),
-            0.0,
-        ) or None
+        cpu_energy = trace.total_cpu_energy_joules
 
         energy_metrics = EnergyMetrics(
             per_query_joules=gpu_energy,
@@ -588,8 +643,21 @@ class AgenticRunner:
             total_query_seconds=total_seconds,
         )
 
-        # Cost
+        # Cost — use trace cost if available, otherwise compute from pricing
         cost = trace.total_cost_usd
+        if cost is None and total_input_tokens > 0:
+            from ..cost.pricing import calculate_cost
+
+            provider = self._config.get("provider", "")
+            cost = calculate_cost(provider, model, total_input_tokens, total_output_tokens)
+            if cost == 0.0:
+                cost = None
+
+        # Local models (localhost inference) have zero dollar cost
+        base_url = self._config.get("client_base_url", "")
+        if cost is None and ("localhost" in base_url or "127.0.0.1" in base_url):
+            cost = 0.0
+
         cost_metrics = CostMetrics(total_cost_usd=cost)
 
         model_metrics = ModelMetrics(

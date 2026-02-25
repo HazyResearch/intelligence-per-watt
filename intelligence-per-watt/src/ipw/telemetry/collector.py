@@ -96,6 +96,12 @@ class EnergyMonitorCollector:
             cpu_memory_usage_mb=_safe_float(
                 getattr(message, "cpu_memory_usage_mb", None)
             ),
+            cpu_power_watts=_safe_float(
+                getattr(message, "cpu_power_watts", None)
+            ),
+            cpu_energy_joules=_safe_float(
+                getattr(message, "cpu_energy_joules", None)
+            ),
             platform=getattr(message, "platform", None),
             timestamp_nanos=getattr(message, "timestamp_nanos", None),
             system_info=system,

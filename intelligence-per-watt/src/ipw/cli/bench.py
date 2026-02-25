@@ -271,6 +271,7 @@ def execute_benchmark(
     base_port: int = 8000,
     seed: int | None = None,
     api_key: str = "EMPTY",
+    preset_vllm_args: Dict[str, Any] | None = None,
 ) -> Dict[str, Any]:
     """Execute a benchmark run with energy telemetry.
 
@@ -320,6 +321,7 @@ def execute_benchmark(
             submodel_specs=all_submodels,
             base_port=base_port,
             main_backend=client_id,
+            extra_args=preset_vllm_args,
         )
 
         server_manager = InferenceServerManager(configs)
@@ -695,6 +697,7 @@ def bench(
         error("Specify either --model or --preset, not both.")
         raise click.Abort()
 
+    preset_vllm_args: Dict[str, Any] | None = None
     if preset_name:
         from ipw.cli.model_presets import resolve_preset
         try:
@@ -703,6 +706,7 @@ def bench(
             error(str(exc))
             raise click.Abort()
         model = preset_config["model_id"]
+        preset_vllm_args = preset_config.get("vllm_args")
         info(f"Preset: {preset_name} -> {model}")
 
     if not model:
@@ -760,6 +764,7 @@ def bench(
             base_port=base_port,
             seed=seed,
             api_key=api_key,
+            preset_vllm_args=preset_vllm_args,
         )
 
         # Remove internal fields from display

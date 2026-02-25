@@ -127,3 +127,35 @@ class TestBuildServerConfigs:
         # Second vLLM on 8001
         assert configs[2].port == 8001
         assert configs[2].backend == "vllm"
+
+    def test_extra_args_sets_tp_and_forwards_rest(self) -> None:
+        """extra_args applies tensor_parallel_size and forwards remaining keys."""
+        configs = build_server_configs(
+            main_model="Qwen/Qwen3.5-27B",
+            main_alias="main",
+            submodel_specs=[],
+            extra_args={
+                "tensor_parallel_size": 2,
+                "reasoning_parser": "qwen3",
+                "tool_call_parser": "qwen3_coder",
+                "language_model_only": True,
+            },
+        )
+        assert len(configs) == 1
+        assert configs[0].tensor_parallel_size == 2
+        assert configs[0].extra_args["reasoning_parser"] == "qwen3"
+        assert configs[0].extra_args["tool_call_parser"] == "qwen3_coder"
+        assert configs[0].extra_args["language_model_only"] is True
+        # tensor_parallel_size should NOT be in extra_args
+        assert "tensor_parallel_size" not in configs[0].extra_args
+
+    def test_extra_args_none_uses_defaults(self) -> None:
+        """extra_args=None keeps default tensor_parallel_size and empty extra_args."""
+        configs = build_server_configs(
+            main_model="test/model",
+            main_alias="main",
+            submodel_specs=[],
+            extra_args=None,
+        )
+        assert configs[0].tensor_parallel_size == 1
+        assert configs[0].extra_args == {}

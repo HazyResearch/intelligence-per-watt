@@ -137,6 +137,85 @@ class TestQueryTrace:
         )
         assert trace.total_cost_usd is None
 
+    def test_query_level_gpu_energy_fallback(self) -> None:
+        """total_gpu_energy_joules falls back to query_gpu_energy_joules when no turns have energy."""
+        trace = QueryTrace(
+            query_id="q0",
+            workload_type="test",
+            turns=[TurnTrace(turn_index=0)],
+            query_gpu_energy_joules=42.0,
+        )
+        assert trace.total_gpu_energy_joules == 42.0
+
+    def test_query_level_gpu_energy_not_used_when_turns_have_energy(self) -> None:
+        """Per-turn energy takes precedence over query-level energy."""
+        trace = QueryTrace(
+            query_id="q0",
+            workload_type="test",
+            turns=[TurnTrace(turn_index=0, gpu_energy_joules=10.0)],
+            query_gpu_energy_joules=42.0,
+        )
+        assert trace.total_gpu_energy_joules == 10.0
+
+    def test_total_cpu_energy_joules_from_turns(self) -> None:
+        trace = QueryTrace(
+            query_id="q0",
+            workload_type="test",
+            turns=[
+                TurnTrace(turn_index=0, cpu_energy_joules=3.0),
+                TurnTrace(turn_index=1, cpu_energy_joules=5.0),
+            ],
+        )
+        assert trace.total_cpu_energy_joules == 8.0
+
+    def test_total_cpu_energy_joules_fallback(self) -> None:
+        """total_cpu_energy_joules falls back to query_cpu_energy_joules."""
+        trace = QueryTrace(
+            query_id="q0",
+            workload_type="test",
+            turns=[TurnTrace(turn_index=0)],
+            query_cpu_energy_joules=15.0,
+        )
+        assert trace.total_cpu_energy_joules == 15.0
+
+    def test_total_cpu_energy_joules_none_when_empty(self) -> None:
+        trace = QueryTrace(
+            query_id="q0",
+            workload_type="test",
+            turns=[TurnTrace(turn_index=0)],
+        )
+        assert trace.total_cpu_energy_joules is None
+
+    def test_query_energy_fields_in_to_dict(self) -> None:
+        trace = QueryTrace(
+            query_id="q0",
+            workload_type="test",
+            query_gpu_energy_joules=10.0,
+            query_cpu_energy_joules=5.0,
+            query_gpu_power_avg_watts=200.0,
+            query_cpu_power_avg_watts=80.0,
+        )
+        d = trace.to_dict()
+        assert d["query_gpu_energy_joules"] == 10.0
+        assert d["query_cpu_energy_joules"] == 5.0
+        assert d["query_gpu_power_avg_watts"] == 200.0
+        assert d["query_cpu_power_avg_watts"] == 80.0
+
+    def test_query_energy_fields_roundtrip(self) -> None:
+        trace = QueryTrace(
+            query_id="q0",
+            workload_type="test",
+            query_gpu_energy_joules=10.0,
+            query_cpu_energy_joules=5.0,
+            query_gpu_power_avg_watts=200.0,
+            query_cpu_power_avg_watts=80.0,
+        )
+        restored = QueryTrace.from_dict(trace.to_dict())
+        assert restored.query_gpu_energy_joules == 10.0
+        assert restored.query_cpu_energy_joules == 5.0
+        assert restored.query_gpu_power_avg_watts == 200.0
+        assert restored.query_cpu_power_avg_watts == 80.0
+
     def test_to_dict_from_dict_roundtrip(self) -> None:
         trace = self._make_trace()
         d = trace.to_dict()
