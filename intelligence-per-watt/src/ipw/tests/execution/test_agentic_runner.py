@@ -202,3 +202,182 @@ class TestAgenticRunner:
         assert trace.turns[0].output_tokens == 20
         assert trace.turns[1].input_tokens == 30
         assert trace.turns[1].output_tokens == 10
+
+    def test_task_env_integration(self) -> None:
+        """Verify create_task_env context wraps agent.run() and run_tests() is called."""
+        agent = MagicMock()
+        agent.run.return_value = AgentRunResult(content="done")
+
+        mock_env = MagicMock()
+        mock_env.__enter__ = MagicMock(return_value=mock_env)
+        mock_env.__exit__ = MagicMock(return_value=False)
+
+        dataset = MagicMock()
+        records = [
+            DatasetRecord(
+                problem="Task 1", answer="", subject="test",
+                dataset_metadata={"dataset_name": "test"},
+            )
+        ]
+        dataset.__iter__ = MagicMock(return_value=iter(records))
+        dataset.size.return_value = 1
+        dataset.create_task_env.return_value = mock_env
+
+        runner = AgenticRunner(
+            agent=agent,
+            dataset=dataset,
+            config={"model": "test-model"},
+        )
+        traces = asyncio.run(runner.run())
+
+        assert len(traces) == 1
+        assert traces[0].completed is True
+        dataset.create_task_env.assert_called_once()
+        mock_env.__enter__.assert_called_once()
+        mock_env.__exit__.assert_called_once()
+        mock_env.run_tests.assert_called_once()
+
+    def test_task_env_none_uses_nullcontext(self) -> None:
+        """When create_task_env returns None, agent.run() still works."""
+        agent = MagicMock()
+        agent.run.return_value = AgentRunResult(content="ok")
+
+        dataset = MagicMock()
+        records = [
+            DatasetRecord(
+                problem="Q", answer="A", subject="s",
+                dataset_metadata={"dataset_name": "test"},
+            )
+        ]
+        dataset.__iter__ = MagicMock(return_value=iter(records))
+        dataset.size.return_value = 1
+        dataset.create_task_env.return_value = None
+
+        runner = AgenticRunner(
+            agent=agent,
+            dataset=dataset,
+            config={"model": "test-model"},
+        )
+        traces = asyncio.run(runner.run())
+
+        assert len(traces) == 1
+        assert traces[0].completed is True
+        agent.run.assert_called_once()
+
+    def test_concurrent_execution(self) -> None:
+        """Test concurrency > 1 processes all queries and returns correct count."""
+        agent = MagicMock()
+        agent.run.return_value = AgentRunResult(content="concurrent ok")
+
+        dataset = MagicMock()
+        records = [
+            DatasetRecord(
+                problem=f"Q{i}", answer=f"A{i}", subject="s",
+                dataset_metadata={"dataset_name": "test"},
+            )
+            for i in range(4)
+        ]
+        dataset.__iter__ = MagicMock(return_value=iter(records))
+        dataset.size.return_value = 4
+        dataset.create_task_env.return_value = None
+
+        def make_agent():
+            a = MagicMock()
+            a.run.return_value = AgentRunResult(content="concurrent ok")
+            return a
+
+        runner = AgenticRunner(
+            agent=agent,
+            dataset=dataset,
+            config={"model": "test-model"},
+            concurrency=2,
+            agent_factory=make_agent,
+        )
+        traces = asyncio.run(runner.run())
+
+        assert len(traces) == 4
+        assert all(t.completed for t in traces)
+
+    def test_concurrent_uses_agent_factory(self) -> None:
+        """Verify agent_factory is called for each concurrent task."""
+        factory_calls = []
+
+        def tracked_factory():
+            a = MagicMock()
+            a.run.return_value = AgentRunResult(content="factory agent")
+            factory_calls.append(a)
+            return a
+
+        agent = MagicMock()
+        agent.run.return_value = AgentRunResult(content="main agent")
+
+        dataset = MagicMock()
+        records = [
+            DatasetRecord(
+                problem=f"Q{i}", answer=f"A{i}", subject="s",
+                dataset_metadata={"dataset_name": "test"},
+            )
+            for i in range(3)
+        ]
+        dataset.__iter__ = MagicMock(return_value=iter(records))
+        dataset.size.return_value = 3
+        dataset.create_task_env.return_value = None
+
+        runner = AgenticRunner(
+            agent=agent,
+            dataset=dataset,
+            config={"model": "test-model"},
+            concurrency=3,
+            agent_factory=tracked_factory,
+        )
+        traces = asyncio.run(runner.run())
+
+        assert len(traces) == 3
+        assert len(factory_calls) == 3
+
+    def test_set_task_metadata_called_inside_context(self) -> None:
+        """Verify set_task_metadata is called after context enters."""
+        call_order = []
+
+        class TrackingEnv:
+            def __enter__(self):
+                call_order.append("enter")
+                return self
+
+            def __exit__(self, *args):
+                call_order.append("exit")
+                return False
+
+            def run_tests(self):
+                call_order.append("run_tests")
+
+        agent = MagicMock()
+
+        def tracked_set_metadata(metadata):
+            call_order.append("set_metadata")
+
+        agent.set_task_metadata = tracked_set_metadata
+        agent.run.side_effect = lambda *a, **kw: (
+            call_order.append("agent_run"),
+            AgentRunResult(content="ok"),
+        )[1]
+
+        dataset = MagicMock()
+        records = [
+            DatasetRecord(
+                problem="Q", answer="A", subject="s",
+                dataset_metadata={"dataset_name": "test"},
+            )
+        ]
+        dataset.__iter__ = MagicMock(return_value=iter(records))
+        dataset.size.return_value = 1
+        dataset.create_task_env.return_value = TrackingEnv()
+
+        runner = AgenticRunner(
+            agent=agent,
+            dataset=dataset,
+            config={"model": "test-model"},
+        )
+        asyncio.run(runner.run())
+
+        assert call_order == ["enter", "set_metadata", "agent_run", "run_tests", "exit"]

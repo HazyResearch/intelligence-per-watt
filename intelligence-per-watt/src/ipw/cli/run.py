@@ -85,6 +85,18 @@ def _create_model_for_agent(agent_id: str, model: str, base_url: str, api_key: s
     help="JSON string of extra agent keyword arguments",
 )
 @click.option(
+    "--dataset-kwargs",
+    default=None,
+    help="JSON string of extra dataset keyword arguments",
+)
+@click.option(
+    "--concurrency",
+    type=int,
+    default=1,
+    show_default=True,
+    help="Number of tasks to run in parallel",
+)
+@click.option(
     "--eval-client",
     default="openai",
     show_default=True,
@@ -108,6 +120,8 @@ def run_cmd(
     export_format: str,
     estimate_flops: bool,
     agent_kwargs: str | None,
+    dataset_kwargs: str | None,
+    concurrency: int,
     eval_client: str,
     eval_model: str,
 ) -> None:
@@ -132,7 +146,7 @@ def run_cmd(
     ipw.datasets.ensure_registered()
 
     # Ensure agent modules are imported for registry population
-    from ipw.agents import react as _react, openhands as _openhands, terminus as _terminus  # noqa: F401
+    from ipw.agents import react as _react, openhands as _openhands, terminus as _terminus, terminus_tb as _terminus_tb  # noqa: F401
     from ipw.core.registry import AgentRegistry, DatasetRegistry
     from ipw.execution.agentic_runner import AgenticRunner
     from ipw.execution.exporters import export_artifacts_manifest, export_hf_dataset, export_jsonl, export_summary_json
@@ -148,6 +162,16 @@ def run_cmd(
         except json.JSONDecodeError as exc:
             raise click.ClickException(
                 f"Invalid JSON for --agent-kwargs: {exc}"
+            ) from exc
+
+    # Parse dataset kwargs
+    extra_dataset_kwargs: dict = {}
+    if dataset_kwargs:
+        try:
+            extra_dataset_kwargs = json.loads(dataset_kwargs)
+        except json.JSONDecodeError as exc:
+            raise click.ClickException(
+                f"Invalid JSON for --dataset-kwargs: {exc}"
             ) from exc
 
     # Resolve agent
@@ -170,7 +194,7 @@ def run_cmd(
 
     # Preflight: dataset requirements
     try:
-        dataset_instance = dataset_cls()
+        dataset_instance = dataset_cls(**extra_dataset_kwargs)
         issues = dataset_instance.verify_requirements()
         if issues:
             raise click.ClickException(
@@ -207,6 +231,7 @@ def run_cmd(
         "dataset": dataset_id,
         "client_base_url": client_base_url,
         "max_queries": max_queries,
+        "concurrency": concurrency,
         "export_format": export_format,
         "estimate_flops": estimate_flops,
         "eval_client": eval_client,
@@ -216,8 +241,20 @@ def run_cmd(
     info(f"Agent: {agent_id}")
     info(f"Model: {model}")
     info(f"Dataset: {dataset_id}")
+    if concurrency > 1:
+        info(f"Concurrency: {concurrency}")
     info(f"Output: {run_dir}")
     info("")
+
+    # Build an agent factory for concurrent execution so each thread gets
+    # its own agent instance with independent state.
+    _model_ref = resolved_model
+    _agent_cls_ref = agent_cls
+    _extra_kwargs_ref = dict(extra_kwargs)
+
+    def _make_agent() -> "BaseAgent":
+        rec = EventRecorder()
+        return _agent_cls_ref(model=_model_ref, event_recorder=rec, **_extra_kwargs_ref)
 
     # Run the agentic benchmark with energy telemetry
     collector = EnergyMonitorCollector()
@@ -228,6 +265,8 @@ def run_cmd(
             telemetry_session=telemetry,
             config=run_config,
             event_recorder=event_recorder,
+            concurrency=concurrency,
+            agent_factory=_make_agent if concurrency > 1 else None,
         )
 
         try:

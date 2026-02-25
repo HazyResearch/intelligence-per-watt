@@ -188,3 +188,84 @@ ipw run --agent terminus --model gpt-4o --dataset terminalbench --max-queries 10
 ```
 
 This requires Docker to be available for the Terminus agent's container management.
+
+## TerminalBench Native
+
+Native integration with terminal-bench that manages Docker containers at the runner level, allowing any agent to work with TerminalBench tasks.
+
+| Property | Value |
+|----------|-------|
+| Dataset ID | `terminalbench-native` |
+| Source | Local `terminal-bench` package (task YAMLs) |
+| Evaluation | Test scripts inside Docker (`terminalbench-native` handler) |
+| Requirements | `terminal-bench` package, Docker |
+
+### Features
+
+- Loads task definitions directly from the `terminal_bench` package
+- Per-task Docker lifecycle managed by `TerminalBenchTaskEnv` context manager
+- Test-based scoring: no LLM judge needed
+- Supports concurrent execution with `--concurrency`
+- Any agent can work with this dataset (not just Terminus)
+
+### Usage
+
+```bash
+# With terminus-tb agent
+ipw run --agent terminus-tb --model gpt-4o --dataset terminalbench-native --max-queries 10
+
+# With OpenHands agent and concurrency
+ipw run \
+  --agent openhands \
+  --preset glm-4.7-flash \
+  --dataset terminalbench-native \
+  --concurrency 4 \
+  --dataset-kwargs '{"n_tasks": 20}'
+
+# Filter specific tasks
+ipw run \
+  --agent terminus-tb \
+  --model gpt-4o \
+  --dataset terminalbench-native \
+  --dataset-kwargs '{"task_ids": ["hello_world", "curl_debug"]}'
+```
+
+### Dataset Kwargs
+
+Pass to `--dataset-kwargs` as a JSON string:
+
+| Key | Type | Default | Description |
+|-----|------|---------|-------------|
+| `name` | str | `terminal-bench-core` | Dataset name |
+| `version` | str | `0.1.1` | Dataset version |
+| `path` | str | none | Local path (overrides name/version) |
+| `task_ids` | list[str] | none | Filter to specific task IDs |
+| `n_tasks` | int | none | Limit total number of tasks |
+
+### Architecture
+
+The `terminalbench-native` dataset uses a decoupled architecture:
+
+1. **Dataset** (`terminalbench_native.py`): Loads task YAML configs, creates `DatasetRecord` objects with full task metadata
+2. **Task Environment** (`terminalbench_env.py`): `TerminalBenchTaskEnv` context manager handles Docker spin-up, tmux session creation, and test execution
+3. **Runner** (`agentic_runner.py`): Wraps each task in the environment context, calls `set_task_metadata()` on the agent, then runs tests after the agent finishes
+4. **Agent**: Any agent implementing `set_task_metadata()` can access the tmux session
+
+### Metadata
+
+Each record's `dataset_metadata` includes:
+
+- `task_id` — unique task identifier
+- `task` — parsed Task object from terminal-bench
+- `task_paths` — TaskPaths with file locations
+- `category` — task category
+- `difficulty` — difficulty level
+- `timeout` — max agent timeout in seconds
+
+During execution, the environment adds:
+
+- `terminal` — terminal handle (available inside context)
+- `session` — tmux session handle (available inside context)
+- `container` — Docker container name (available inside context)
+- `is_resolved` — whether tests passed (set by `run_tests()`)
+- `test_results` — detailed test output (set by `run_tests()`)

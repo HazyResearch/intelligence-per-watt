@@ -2,15 +2,19 @@
 
 from __future__ import annotations
 
+import asyncio
+import copy
 import json
 import logging
 import math
 import re
 import statistics
+import threading
 import time
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import asdict
 from pathlib import Path
-from typing import Any, Optional, Sequence
+from typing import Any, Callable, Optional, Sequence
 
 from tqdm.auto import tqdm
 
@@ -89,6 +93,8 @@ class AgenticRunner:
         config: Optional[dict[str, Any]] = None,
         event_recorder: Optional[EventRecorder] = None,
         run_dir: Optional[Path] = None,
+        concurrency: int = 1,
+        agent_factory: Optional[Callable[[], BaseAgent]] = None,
     ) -> None:
         self._agent = agent
         self._dataset = dataset
@@ -98,6 +104,9 @@ class AgenticRunner:
         self._run_dir = run_dir
         self._traces: list[QueryTrace] = []
         self._records: list[ProfilingRecord] = []
+        self._concurrency = max(1, concurrency)
+        self._agent_factory = agent_factory
+        self._results_lock = threading.Lock()
 
     async def run(self, max_queries: Optional[int] = None) -> list[QueryTrace]:
         """Run the agent over the dataset, collecting traces and telemetry.
@@ -111,40 +120,146 @@ class AgenticRunner:
         total = max_queries or self._dataset.size()
         model = self._config.get("model", "unknown")
 
-        with tqdm(total=total, desc="Agent run", unit="query") as progress:
-            for index, record in enumerate(self._dataset):
-                if index >= total:
-                    break
+        # Collect the records we'll process
+        work_items: list[tuple[int, DatasetRecord]] = []
+        for index, record in enumerate(self._dataset):
+            if index >= total:
+                break
+            work_items.append((index, record))
 
-                trace = await self._run_single_query(index, record, model)
+        if self._concurrency <= 1:
+            return await self._run_sequential(work_items, model)
+        return await self._run_concurrent(work_items, model)
+
+    async def _run_sequential(
+        self,
+        work_items: list[tuple[int, DatasetRecord]],
+        model: str,
+    ) -> list[QueryTrace]:
+        """Original sequential execution path."""
+        with tqdm(total=len(work_items), desc="Agent run", unit="query") as progress:
+            for index, record in work_items:
+                trace = await self._run_single_query(
+                    index, record, model, self._agent, self._event_recorder
+                )
                 self._traces.append(trace)
 
-                # Build profiling record for energy data persistence
                 profiling_record = self._build_profiling_record(
                     record, trace, model
                 )
                 self._records.append(profiling_record)
 
-                # Save per-query artifacts (patches, responses, metadata)
                 if self._run_dir:
                     self._save_query_artifacts(index, record, trace)
 
                 if len(self._traces) % self._FLUSH_INTERVAL == 0:
                     LOGGER.debug(
-                        "Processed %d/%d queries", len(self._traces), total
+                        "Processed %d/%d queries",
+                        len(self._traces),
+                        len(work_items),
                     )
 
                 progress.update(1)
 
         return self._traces
 
+    async def _run_concurrent(
+        self,
+        work_items: list[tuple[int, DatasetRecord]],
+        model: str,
+    ) -> list[QueryTrace]:
+        """Run tasks concurrently using a thread pool.
+
+        Each task gets its own agent instance (from agent_factory) to avoid
+        shared state conflicts.  Results are collected in index order.
+        """
+        total = len(work_items)
+        LOGGER.info(
+            "Running %d queries with concurrency=%d",
+            total,
+            self._concurrency,
+        )
+
+        # Pre-allocate result slots so we preserve index ordering
+        result_slots: list[Optional[tuple[QueryTrace, ProfilingRecord]]] = [
+            None
+        ] * total
+        progress = tqdm(total=total, desc="Agent run", unit="query")
+        semaphore = asyncio.Semaphore(self._concurrency)
+        loop = asyncio.get_event_loop()
+
+        async def _process(slot: int, index: int, record: DatasetRecord) -> None:
+            async with semaphore:
+                # Each concurrent task gets a fresh agent + event recorder
+                if self._agent_factory is not None:
+                    agent = self._agent_factory()
+                else:
+                    agent = copy.deepcopy(self._agent)
+                recorder = EventRecorder()
+
+                # Run the blocking work in a thread
+                trace = await loop.run_in_executor(
+                    None,
+                    self._run_single_query_sync,
+                    index,
+                    record,
+                    model,
+                    agent,
+                    recorder,
+                )
+
+                profiling_record = self._build_profiling_record(
+                    record, trace, model
+                )
+
+                if self._run_dir:
+                    self._save_query_artifacts(index, record, trace)
+
+                with self._results_lock:
+                    result_slots[slot] = (trace, profiling_record)
+                    progress.update(1)
+
+        tasks = [
+            _process(slot, index, record)
+            for slot, (index, record) in enumerate(work_items)
+        ]
+        await asyncio.gather(*tasks)
+        progress.close()
+
+        # Collect results in original order
+        for slot_result in result_slots:
+            if slot_result is not None:
+                trace, profiling_record = slot_result
+                self._traces.append(trace)
+                self._records.append(profiling_record)
+
+        return self._traces
+
+    def _run_single_query_sync(
+        self,
+        index: int,
+        record: DatasetRecord,
+        model: str,
+        agent: BaseAgent,
+        event_recorder: EventRecorder,
+    ) -> QueryTrace:
+        """Synchronous wrapper for _run_single_query (used by thread pool)."""
+        return asyncio.run(
+            self._run_single_query(index, record, model, agent, event_recorder)
+        )
+
     async def _run_single_query(
         self,
         index: int,
         record: DatasetRecord,
         model: str,
+        agent: Optional[BaseAgent] = None,
+        event_recorder: Optional[EventRecorder] = None,
     ) -> QueryTrace:
         """Run a single query through the agent with telemetry capture."""
+        agent = agent or self._agent
+        event_recorder = event_recorder or self._event_recorder
+
         query_id = f"q{index:04d}"
         workload_type = record.dataset_metadata.get("workload_type", "agentic")
 
@@ -154,21 +269,33 @@ class AgenticRunner:
             list(self._telemetry.readings()) if self._telemetry else []
         )
 
-        self._event_recorder.clear()
+        event_recorder.clear()
 
         # Set up per-query workspace for agents that support it
-        if self._run_dir and hasattr(self._agent, "set_workspace"):
+        if self._run_dir and hasattr(agent, "set_workspace"):
             instance_id = record.dataset_metadata.get("instance_id", "")
             slug = re.sub(r"[^a-zA-Z0-9_-]", "_", str(instance_id))[:80]
             workspace = (
                 self._run_dir / "artifacts" / f"q{index:04d}_{slug}" / "workspace"
             )
             workspace.mkdir(parents=True, exist_ok=True)
-            self._agent.set_workspace(str(workspace))
+            agent.set_workspace(str(workspace))
 
-        # Run the agent
+        # Create per-task execution environment (e.g. Docker for TerminalBench)
+        from contextlib import nullcontext
+
+        task_env = self._dataset.create_task_env(record)
+        ctx = task_env if task_env is not None else nullcontext()
+
         try:
-            result: AgentRunResult = self._agent.run(record.problem)
+            with ctx:
+                # set_task_metadata INSIDE context so metadata has session
+                agent.set_task_metadata(record.dataset_metadata)
+
+                result: AgentRunResult = agent.run(record.problem)
+
+                if task_env is not None:
+                    task_env.run_tests()
         except Exception as exc:
             LOGGER.warning("Agent failed on query %s: %s", query_id, exc)
             end_time = time.time()
@@ -190,7 +317,7 @@ class AgenticRunner:
             readings = list(self._telemetry.window(start_time, end_time))
 
         # Build turn traces from event recorder
-        events = self._event_recorder.get_events()
+        events = event_recorder.get_events()
         turns = self._build_turn_traces(events, readings)
 
         trace = QueryTrace(

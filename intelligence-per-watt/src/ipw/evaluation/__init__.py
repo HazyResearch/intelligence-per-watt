@@ -11,6 +11,7 @@ from .simpleqa import SimpleQAHandler
 from .swebench import SWEBenchHandler
 from .swefficiency import SWEfficiencyHandler
 from .terminalbench import TerminalBenchHandler
+from .terminalbench_native import TerminalBenchNativeHandler
 from .wildchat import WildChatHandler
 
 __all__ = [
@@ -28,5 +29,6 @@ __all__ = [
     "SWEBenchHandler",
     "SWEfficiencyHandler",
     "TerminalBenchHandler",
+    "TerminalBenchNativeHandler",
     "WildChatHandler",
 ]

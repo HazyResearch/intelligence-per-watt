@@ -23,6 +23,9 @@ ipw run --agent <agent> --model <model> --dataset <dataset> [options]
 | `--max-queries` | all | Limit number of tasks to run |
 | `--output-dir` | `./runs/` | Directory for results |
 | `--max-turns` | 20 | Maximum agent turns per task |
+| `--concurrency` | 1 | Number of tasks to run in parallel |
+| `--dataset-kwargs` | none | JSON string of extra dataset keyword arguments |
+| `--agent-kwargs` | none | JSON string of extra agent keyword arguments |
 | `--eval-client` | `openai` | Client for evaluation judging |
 | `--eval-model` | `gpt-5-nano-2025-08-07` | Model for evaluation |
 
@@ -43,6 +46,21 @@ An agentic profiling run follows this sequence:
     - Save the `QueryTrace` as a JSONL line
 4. **Export results** -- Write traces as JSONL and HuggingFace Arrow datasets.
 5. **Run analysis** -- Evaluate responses with the LLM judge and compute accuracy/efficiency metrics.
+
+## Concurrent Execution
+
+Use `--concurrency N` to run multiple tasks in parallel via a thread pool. Each concurrent task gets its own agent instance (created from `--agent-kwargs`) to avoid shared state conflicts. Results are collected in original index order.
+
+```bash
+ipw run \
+  --agent openhands \
+  --model gpt-4o \
+  --dataset terminalbench-native \
+  --concurrency 4 \
+  --max-queries 20
+```
+
+Concurrency is most useful for agentic workloads where each task takes minutes (e.g., TerminalBench, SWE-bench). For fast single-turn benchmarks, sequential execution is usually sufficient.
 
 ## Agent Setup
 
@@ -98,6 +116,41 @@ The Terminus agent:
 2. Installs tmux inside the container
 3. Runs the agent's `perform_task()` in a tmux session
 4. Captures the terminal output as the response
+
+### Terminus-TB Agent
+
+The Terminus-TB agent is a lightweight wrapper around Terminus2 designed for the `terminalbench-native` dataset. Unlike the original Terminus agent, it does not manage Docker containers — that lifecycle is handled by the runner via `TerminalBenchTaskEnv`:
+
+```bash
+ipw run \
+  --agent terminus-tb \
+  --model gpt-4o \
+  --dataset terminalbench-native \
+  --concurrency 4 \
+  --max-queries 10
+```
+
+### TerminalBench Native Mode
+
+Any agent can work with TerminalBench tasks via the `terminalbench-native` dataset. The runner creates a per-task Docker container, sets up a tmux session, and runs test scripts after the agent finishes:
+
+```bash
+# OpenHands with TerminalBench
+ipw run \
+  --agent openhands \
+  --preset glm-4.7-flash \
+  --dataset terminalbench-native \
+  --concurrency 4 \
+  --dataset-kwargs '{"n_tasks": 20}'
+```
+
+The `--dataset-kwargs` option passes arguments to the dataset constructor. Supported keys for `terminalbench-native`:
+
+- `name` — dataset name (default: `terminal-bench-core`)
+- `version` — dataset version (default: `0.1.1`)
+- `path` — local path to dataset directory (overrides name/version)
+- `task_ids` — list of specific task IDs to include
+- `n_tasks` — limit total number of tasks
 
 ## Tool Configuration
 

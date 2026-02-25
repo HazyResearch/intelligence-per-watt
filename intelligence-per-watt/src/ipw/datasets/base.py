@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
+from contextlib import AbstractContextManager
 from typing import Dict, Iterable, Iterator, Optional, Tuple
 
 from ..core.types import DatasetRecord
@@ -50,6 +51,20 @@ class DatasetProvider(ABC):
             - metadata: method-specific evaluation details
         """
         raise NotImplementedError("score() is not implemented for this dataset")
+
+    def create_task_env(
+        self, record: DatasetRecord
+    ) -> Optional[AbstractContextManager]:
+        """Return a per-task execution environment, or ``None``.
+
+        Override in datasets that need a managed environment (e.g. Docker
+        container) for each task.  The runner will use the returned context
+        manager to wrap the agent call::
+
+            with dataset.create_task_env(record):
+                agent.run(record.problem)
+        """
+        return None
 
     def verify_requirements(self) -> list[str]:
         """

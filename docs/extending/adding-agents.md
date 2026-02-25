@@ -204,8 +204,32 @@ AgentRunResult(
 - Use lazy imports so missing optional dependencies produce clear error messages.
 - If the agent fails mid-execution, return whatever partial content is available.
 
+## Per-Task Metadata
+
+For agents that need access to task-level environment information (e.g., a tmux session for TerminalBench), override `set_task_metadata()`:
+
+```python
+class MyAgent(BaseAgent):
+    def __init__(self, model, **kwargs):
+        super().__init__(**kwargs)
+        self._task_metadata = None
+
+    def set_task_metadata(self, metadata):
+        self._task_metadata = metadata
+
+    def run(self, input, **kwargs):
+        session = self._task_metadata.get("session")
+        # Use the session to interact with the environment
+        ...
+```
+
+The runner calls `set_task_metadata()` inside the task environment context (after Docker is ready), so metadata fields like `session`, `terminal`, and `container` are populated.
+
+See `ipw/agents/terminus_tb.py` for a complete example.
+
 ## Existing Agents for Reference
 
 - `ipw/agents/react.py` -- Simple tool wrapping with Agno
 - `ipw/agents/openhands.py` -- Callback-based instrumentation with context condensing
 - `ipw/agents/terminus.py` -- Docker container management with tmux sessions
+- `ipw/agents/terminus_tb.py` -- Lightweight Terminus2 wrapper using runner-managed Docker

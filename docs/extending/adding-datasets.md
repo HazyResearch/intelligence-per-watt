@@ -212,9 +212,38 @@ prompt = f"Answer the following question concisely:\n\n{question}"
 prompt = f"Given the following context:\n{context}\n\nAnswer: {question}"
 ```
 
+## Managed Execution Environments
+
+For datasets that need a managed environment per task (e.g., a Docker container), override `create_task_env()`:
+
+```python
+class MyDataset(DatasetProvider):
+    def create_task_env(self, record):
+        """Return a context manager for per-task environment setup."""
+        return MyTaskEnv(record.dataset_metadata)
+```
+
+The returned context manager is used by the runner to wrap each agent call:
+
+```python
+with dataset.create_task_env(record):
+    agent.set_task_metadata(record.dataset_metadata)
+    agent.run(record.problem)
+    env.run_tests()  # If the env supports post-task testing
+```
+
+The context manager should:
+
+1. Set up the environment in `__enter__` (e.g., spin up a Docker container)
+2. Populate `dataset_metadata` with environment handles (e.g., session, container name)
+3. Clean up in `__exit__` (e.g., tear down the container)
+
+See `ipw/datasets/terminalbench_native.py` and `ipw/execution/terminalbench_env.py` for a complete example.
+
 ## Existing Datasets for Reference
 
 - `ipw/datasets/mmlu_pro.py` -- MCQ with option formatting
 - `ipw/datasets/gaia.py` -- Agentic with file attachments and caching
 - `ipw/datasets/swebench.py` -- Coding with variant support
 - `ipw/datasets/simpleqa.py` -- Simple factual QA
+- `ipw/datasets/terminalbench_native.py` -- Docker-managed tasks with test-based scoring

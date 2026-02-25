@@ -118,6 +118,7 @@ class AgentRunResult:
     output_tokens: int = 0
     cost_usd: float = 0.0
     trace: "QueryTrace | None" = None
+    metadata: dict[str, Any] = field(default_factory=dict)
 
 
 __all__ = [

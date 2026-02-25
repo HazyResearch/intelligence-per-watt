@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Optional
+from typing import TYPE_CHECKING, Any, MutableMapping, Optional
 
 if TYPE_CHECKING:
     from ipw.agents.mcp.base import BaseMCPServer
@@ -44,6 +44,13 @@ class BaseAgent:
         """
         if self.event_recorder is not None:
             self.event_recorder.record(event_type, **metadata)
+
+    def set_task_metadata(self, metadata: MutableMapping[str, Any]) -> None:
+        """Receive per-task metadata before ``run()``.
+
+        Override in agents that need access to task-level information such as
+        a tmux session for TerminalBench environments.  Default is a no-op.
+        """
 
     def run(self, input: str, **kwargs: Any) -> Any:
         """Run the agent.

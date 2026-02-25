@@ -32,5 +32,10 @@ def ensure_registered() -> None:
     except ImportError:
         pass
 
+    try:
+        from . import terminalbench_native  # noqa: F401
+    except ImportError:
+        pass
+
 
 __all__ = ["DatasetProvider", "ensure_registered"]

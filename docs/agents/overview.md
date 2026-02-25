@@ -18,7 +18,23 @@ class BaseAgent:
 
     def run(self, input: str, **kwargs) -> Any:
         raise NotImplementedError
+
+    def set_task_metadata(self, metadata: MutableMapping[str, Any]) -> None:
+        """Receive per-task metadata before run(). Default is a no-op."""
 ```
+
+### Per-Task Environments
+
+For datasets with managed execution environments (e.g., Docker containers), the runner calls `dataset.create_task_env(record)` to get a context manager that wraps the agent call. Inside the context, `agent.set_task_metadata()` is called so the agent can access environment-specific data (e.g., a tmux session handle). After the agent finishes, the environment runs any post-task actions (e.g., test scripts).
+
+```
+with dataset.create_task_env(record):
+    agent.set_task_metadata(record.dataset_metadata)
+    agent.run(record.problem)
+    env.run_tests()
+```
+
+This architecture decouples the Docker lifecycle from agents, allowing any agent to work with container-based datasets.
 
 ### Key Concepts
 
@@ -59,6 +75,7 @@ class AgentRunResult:
 | `react` | [Agno](https://github.com/agno-agi/agno) | `ipw[react]` | General tool-augmented reasoning |
 | `openhands` | [OpenHands SDK](https://github.com/All-Hands-AI/OpenHands) | `ipw[openhands]` | Autonomous task execution, coding |
 | `terminus` | [terminal-bench](https://github.com/terminal-bench/terminal-bench) | `ipw[terminus]` | Terminal/CLI task benchmarking |
+| `terminus-tb` | [terminal-bench](https://github.com/terminal-bench/terminal-bench) | `ipw[terminus]` | TerminalBench native (Docker managed by runner) |
 
 ## Registration
 

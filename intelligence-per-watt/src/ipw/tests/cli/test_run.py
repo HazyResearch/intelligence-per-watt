@@ -66,3 +66,21 @@ class TestRunCmd:
         # Should fail with "Unknown agent" not a crash
         assert result.exit_code != 0
         assert "Unknown agent" in result.output or "nonexistent-agent" in result.output
+
+    def test_help_includes_concurrency(self, runner: CliRunner) -> None:
+        """Verify --concurrency appears in help text."""
+        result = runner.invoke(cli, ["run", "--help"])
+        assert result.exit_code == 0
+        assert "--concurrency" in result.output
+
+    def test_help_includes_dataset_kwargs(self, runner: CliRunner) -> None:
+        """Verify --dataset-kwargs appears in help text."""
+        result = runner.invoke(cli, ["run", "--help"])
+        assert result.exit_code == 0
+        assert "--dataset-kwargs" in result.output
+
+    def test_help_includes_agent_kwargs(self, runner: CliRunner) -> None:
+        """Verify --agent-kwargs appears in help text."""
+        result = runner.invoke(cli, ["run", "--help"])
+        assert result.exit_code == 0
+        assert "--agent-kwargs" in result.output

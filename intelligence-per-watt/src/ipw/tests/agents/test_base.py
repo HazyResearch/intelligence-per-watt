@@ -56,3 +56,41 @@ class TestBaseAgent:
         agent = CustomAgent()
         result = agent.run("hello")
         assert result == "processed: hello"
+
+    def test_set_task_metadata_default_is_noop(self) -> None:
+        """Default set_task_metadata does nothing and raises no errors."""
+        agent = BaseAgent()
+        metadata: dict = {"session": "mock", "terminal": "mock"}
+        agent.set_task_metadata(metadata)
+        # No exception, metadata unchanged
+        assert metadata == {"session": "mock", "terminal": "mock"}
+
+    def test_set_task_metadata_can_be_overridden(self) -> None:
+        """Subclass can override set_task_metadata to store metadata."""
+
+        class MetadataAgent(BaseAgent):
+            def __init__(self) -> None:
+                super().__init__()
+                self.stored_metadata = None
+
+            def set_task_metadata(self, metadata):
+                self.stored_metadata = metadata
+
+            def run(self, input: str, **kwargs):
+                return f"session={self.stored_metadata.get('session')}"
+
+        agent = MetadataAgent()
+        agent.set_task_metadata({"session": "tmux-1"})
+        assert agent.stored_metadata is not None
+        assert agent.stored_metadata["session"] == "tmux-1"
+
+    def test_artifact_dir_property(self) -> None:
+        """artifact_dir property returns the value set at init."""
+        from pathlib import Path
+
+        agent = BaseAgent(artifact_dir=Path("/tmp/artifacts"))
+        assert agent.artifact_dir == Path("/tmp/artifacts")
+
+    def test_artifact_dir_default_none(self) -> None:
+        agent = BaseAgent()
+        assert agent.artifact_dir is None

@@ -5,7 +5,7 @@ from __future__ import annotations
 import logging
 import os
 import re
-from typing import TYPE_CHECKING, Any, Dict, List, Optional, Sequence
+from typing import TYPE_CHECKING, Any, Dict, List, MutableMapping, Optional, Sequence
 
 from ipw.agents.base import BaseAgent
 from ipw.core.registry import AgentRegistry
@@ -165,6 +165,7 @@ class OpenHands(BaseAgent):
         self.agent = Agent(**agent_kwargs)
         self.conversation: Optional[Any] = None
         self.current_result = ""
+        self._task_metadata: Optional[MutableMapping[str, Any]] = None
 
     def _instrumented_callback(self, event: Any) -> None:
         """Instrumented callback that emits telemetry events for tool calls."""
@@ -181,6 +182,9 @@ class OpenHands(BaseAgent):
 
         if isinstance(event, self._LLMConvertibleEvent):
             self.current_result = event.to_llm_message()
+
+    def set_task_metadata(self, metadata: MutableMapping[str, Any]) -> None:
+        self._task_metadata = metadata
 
     def set_workspace(self, workspace_path: str) -> None:
         """Set the workspace directory for the next agent run."""
@@ -223,6 +227,10 @@ class OpenHands(BaseAgent):
     def run(self, input: str, **kwargs: Any) -> AgentRunResult:
         """Run the OpenHands agent with telemetry.
 
+        Dispatches to TerminalBench mode when task metadata contains a
+        ``session`` (set by :class:`~ipw.execution.terminalbench_env.TerminalBenchTaskEnv`),
+        otherwise runs locally via ``LocalConversation``.
+
         Args:
             input: The input message or prompt for the agent.
             **kwargs: Additional keyword arguments.
@@ -230,6 +238,9 @@ class OpenHands(BaseAgent):
         Returns:
             AgentRunResult with content, tool_names_used, and num_turns.
         """
+        if self._task_metadata and self._task_metadata.get("session"):
+            return self._run_terminalbench(input)
+
         from openhands.sdk.conversation.response_utils import get_agent_final_response
 
         # Reset per-run tracking
@@ -278,3 +289,67 @@ class OpenHands(BaseAgent):
                 self.conversation.close()
             except Exception as e:
                 logger.warning(f"Error closing conversation: {e}")
+
+    # ------------------------------------------------------------------
+    # TerminalBench mode
+    # ------------------------------------------------------------------
+
+    def _run_terminalbench(self, input: str) -> AgentRunResult:
+        """Run OpenHands inside a TerminalBench Docker container.
+
+        Uses TB's ``OpenHandsAgent`` (an ``AbstractInstalledAgent``) which
+        installs OpenHands inside the container and runs it headless.  The
+        host LLM endpoint is forwarded via ``host.docker.internal``.
+        """
+        from terminal_bench.agents.installed_agents.openhands.openhands_agent import (
+            OpenHandsAgent as TBOpenHandsAgent,
+        )
+
+        assert self._task_metadata is not None
+        session = self._task_metadata["session"]
+        terminal = self._task_metadata["terminal"]
+        task = self._task_metadata["task"]
+        task_id = self._task_metadata.get("task_id", "unknown")
+
+        # TB's OpenHandsAgent needs an LLM model string and optional env vars.
+        # Translate localhost URLs to host.docker.internal for container access.
+        model_str = str(self.model)
+        env_vars: dict[str, str] = {}
+
+        llm_base_url = os.environ.get("LLM_BASE_URL", "")
+        if not llm_base_url:
+            # Fall back to the client base URL if set
+            llm_base_url = os.environ.get("IPW_CLIENT_BASE_URL", "")
+        if llm_base_url:
+            llm_base_url = llm_base_url.replace("localhost", "host.docker.internal")
+            llm_base_url = llm_base_url.replace("127.0.0.1", "host.docker.internal")
+            env_vars["LLM_BASE_URL"] = llm_base_url
+
+        terminal_output = ""
+
+        self._record_event("lm_inference_start", model=model_str)
+        try:
+            tb_agent = TBOpenHandsAgent(model_name=model_str)
+
+            logger.info(
+                "Running OpenHands (TB installed agent) on task %s", task_id
+            )
+            tb_agent.perform_task(
+                instruction=task.instruction,
+                session=session,
+            )
+
+            try:
+                terminal_output = session.capture_pane(capture_entire=True)
+            except Exception:
+                logger.warning("Failed to capture terminal output")
+
+        except Exception:
+            logger.exception("OpenHands TB agent failed on task %s", task_id)
+        finally:
+            self._record_event("lm_inference_end", model=model_str)
+
+        return AgentRunResult(
+            content=terminal_output,
+            metadata={"task_id": task_id},
+        )
