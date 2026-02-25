@@ -16,7 +16,21 @@ message TelemetryReading {
   // Memory metrics (instantaneous)
   double gpu_memory_usage_mb = 4;            // Current GPU memory usage in MB (-1 if unavailable)
   double cpu_memory_usage_mb = 5;            // Current system memory usage in MB (-1 if unavailable)
-  
+
+  // CPU metrics
+  double cpu_power_watts = 10;               // Current CPU power draw in watts (-1 if unavailable)
+  double cpu_energy_joules = 11;             // Accumulated CPU energy since baseline (-1 if unavailable)
+
+  // ANE (Apple Neural Engine) metrics - macOS only
+  double ane_power_watts = 12;               // Current ANE power draw in watts (-1 if unavailable)
+  double ane_energy_joules = 13;             // Accumulated ANE energy since baseline (-1 if unavailable)
+
+  // GPU utilization metrics (instantaneous)
+  double gpu_compute_utilization_pct = 14;           // SM / compute utilization (%), -1 if unavailable
+  double gpu_memory_bandwidth_utilization_pct = 15;  // Memory controller utilization (%), -1 if unavailable
+  double gpu_tensor_core_utilization_pct = 16;       // Tensor core utilization (%), -1 if unavailable
+  double gpu_memory_total_mb = 17;                   // Total GPU memory in MB (-1 if unavailable)
+
   // Metadata
   string platform = 6;                       // "nvidia", "macos", or "null"
   int64 timestamp_nanos = 7;                 // Unix timestamp in nanoseconds

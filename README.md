@@ -1,128 +1,151 @@
-# Intelligence Per Watt
-
 <p align="center">
   <img src="assets/intelligence_per_watt_mood.png" width="500" alt="Intelligence Per Watt">
 </p>
 
-A benchmarking suite for LLM inference systems. Intelligence Per Watt sends workloads to your inference service and collects detailed telemetry—energy consumption, power usage, memory, temperature, and latency—to help you optimize performance and compare hardware configurations.
+<p align="center">
+  <b>Benchmarking intelligence efficiency for LLM inference systems.</b>
+</p>
+
+<p align="center">
+  <a href="https://arxiv.org/abs/2511.07885"><img src="https://img.shields.io/badge/arXiv-2511.07885-b31b1b.svg" alt="arXiv"></a>
+  <a href="https://www.intelligence-per-watt.ai/"><img src="https://img.shields.io/badge/project-intelligence--per--watt.ai-blue" alt="Project"></a>
+  <a href="https://hazyresearch.stanford.edu/intelligence-per-watt/"><img src="https://img.shields.io/badge/docs-mkdocs-blue" alt="Docs"></a>
+  <img src="https://img.shields.io/badge/python-%3E%3D3.13-blue" alt="Python">
+  <img src="https://img.shields.io/badge/license-Apache%202.0-green" alt="License">
+</p>
+
+----
+
+Intelligence Per Watt measures **accuracy alongside energy** for any LLM inference system. It profiles single-turn and multi-turn agentic workloads, captures per-query energy telemetry, and computes two efficiency metrics: **Intelligence Per Joule (IPJ)** and **Intelligence Per Watt (IPW)**.
+
+> **[Documentation](https://hazyresearch.stanford.edu/intelligence-per-watt/)**
+>
+> **[Project Site](https://www.intelligence-per-watt.ai/)**
+
+## Prerequisites
+
+- **Python >= 3.13** -- managed with [uv](https://docs.astral.sh/uv/getting-started/installation/)
+- **Rust compiler** -- for the energy monitor ([install](https://www.rust-lang.org/tools/install))
+- **protoc** -- Protocol Buffer compiler ([install](https://grpc.io/docs/protoc-installation/))
+- **An inference runtime** -- [Ollama](https://ollama.ai/), [vLLM](https://docs.vllm.ai/), or an OpenAI-compatible API
+
+See [Prerequisites](https://hazyresearch.stanford.edu/intelligence-per-watt/getting-started/prerequisites/) for platform-specific setup (NVIDIA NVML, AMD ROCm, Apple Silicon, Linux RAPL).
 
 ## Installation
 
-### Prerequisites
-- [Rust compiler](https://www.rust-lang.org/tools/install) (for building energy monitor)
-- [Protocol Buffer compiler](https://protobuf.dev/installation/) (`protoc`)
-- [Ollama](https://ollama.ai/) or [vLLM](https://docs.vllm.ai/) (inference client)
+```bash
+pip install intelligence-per-watt
+```
 
-### Setup
+Or from source:
+
 ```bash
 git clone https://github.com/HazyResearch/intelligence-per-watt.git
-
-# Create and activate virtual environment
-uv venv
-source .venv/bin/activate
-
-# Build energy monitoring
-uv run scripts/build_energy_monitor.py
-
-# Install Intelligence Per Watt
+cd intelligence-per-watt
+uv venv && source .venv/bin/activate
+uv run scripts/build_energy_monitor.py    # Build Rust energy monitor
 uv pip install -e intelligence-per-watt
 ```
 
-Optional inference clients ship as extras—install each one you need from the package directory, e.g. `uv pip install -e 'intelligence-per-watt[ollama]'` or `uv pip install -e 'intelligence-per-watt[vllm]'`.
+There is also an automated setup script that handles virtual environment creation, package installation, and energy monitor build:
+
+```bash
+bash intelligence-per-watt/scripts/setup.sh
+```
+
+Optional extras: `ollama`, `vllm`, `react`, `openhands`, `terminus`, `agents`, `tavily`, `flops`, `all`.
+
+## Verify Installation
+
+```bash
+# Run the test suite
+pytest intelligence-per-watt
+
+# Check the CLI
+ipw --help
+
+# Test energy monitoring on your hardware
+uv run scripts/test_energy_monitor.py
+```
 
 ## Quick Start
 
+**Profile an inference server:**
+
 ```bash
-# 1. List available inference clients
-ipw list clients
+ipw profile --client ollama --model llama3.2:1b --client-base-url http://localhost:11434
+```
 
-# 2, Run a benchmark
-ipw profile \
-  --client ollama \
-  --model llama3.2:1b \
-  --client-base-url http://localhost:11434
+**Run an agentic benchmark:**
 
-# 3. Analyze the results
+```bash
+ipw run --agent react --model gpt-4o --dataset gaia --max-queries 10
+```
+
+**Analyze and plot results:**
+
+```bash
 ipw analyze ./runs/profile_*
-
-# 4. Generate plots
 ipw plot ./runs/profile_*
 ```
 
-**What gets measured:** For each query, Intelligence Per Watt captures energy consumption, power draw, GPU/CPU memory usage, temperature, time-to-first-token, throughput, and token counts.
+Each query captures: energy (Joules), power (Watts), GPU/CPU memory, temperature, TTFT, throughput, token counts, API cost, and FLOPs.
 
-## Commands
+## What's Included
 
-### `ipw profile`
+**Inference clients** -- Ollama, vLLM (offline), OpenAI-compatible servers
 
-Send prompts to the device, profile hardware usage, and calculate IPW/IPJ.
+**Agent harnesses** -- [ReAct](https://github.com/agno-agi/agno) (Agno), [OpenHands](https://github.com/All-Hands-AI/OpenHands), [Terminus](https://github.com/terminal-bench/terminal-bench)
 
-```bash
-ipw profile --client <client> --model <model> [options]
-```
+**Benchmarks** -- MMLU-Pro, SuperGPQA, GAIA, FRAMES, HLE, SimpleQA, SWE-bench, SWEfficiency, TerminalBench, and a built-in 1K mixed set
 
-**Options:**
-- `--client` - Inference client (e.g., `ollama`, `vllm`)
-- `--model` - Model name
-- `--client-base-url` - Client base URL
-- `--eval-client` - Judge client for scoring (default: `openai`)
-- `--eval-base-url` - Judge service URL (default: `https://api.openai.com/v1`)
-- `--eval-model` - Judge model (default: `gpt-5-nano-2025-08-07`)
-- `--max-queries` - Limit queries for testing
-- `--dataset` - Workload dataset (default: `ipw`)
-- `--output-dir` - Where to save results
+**Energy telemetry** -- Rust gRPC service (50ms sampling) with NVIDIA NVML, AMD ROCm, Apple Silicon powermetrics, and Linux RAPL collectors
 
-Example:
-```bash
-ipw profile \
-  --client ollama \
-  --model llama3.2:1b \
-  --client-base-url http://localhost:11434 \
-  --max-queries 100
-```
+**Evaluation** -- LLM-as-judge, MCQ exact match, and task-specific scorers
 
-### `ipw analyze`
-
-By default, `ipw analyze` calculates IPW and IPJ for a dataset. summary stats. To see energy, power, and latency vs. intput/output length, use `--analysis regression`.
-
-```bash
-ipw analyze <results_dir>
-# or explicitly choose a different analysis
-# ipw analyze <results_dir> --analysis regression
-```
-
-### `ipw plot`
-
-Visualize profiling data (scatter plots, regression lines, distributions).
-
-```bash
-ipw plot <results_dir> [--output <dir>]
-```
-
-### `ipw list`
-
-Discover available clients, datasets, and analysis types.
-
-```bash
-ipw list <clients|datasets|analyses|visualizations|all>
-```
-
-### Energy monitor test script
-
-Validate that your system can collect energy telemetry before running full workloads.
-
-```bash
-uv run scripts/test_energy_monitor.py [--interval 2.0]
-```
-
-## Output
-
-Profiling runs save to `./runs/profile_<hardware>_<model>/`:
+## Architecture
 
 ```
-runs/profile_<hardware>_<model>/
-├── data-*.arrow        # Per-query metrics (HuggingFace dataset format)
-├── summary.json        # Run metadata and totals
-├── analysis/           # Regression coefficients, statistics
-└── plots/              # Graphs
+ipw/
+├── cli/          CLI commands (profile, run, analyze, plot, list)
+├── clients/      Inference adapters (Ollama, vLLM, OpenAI)
+├── agents/       Agent harnesses with per-turn telemetry
+├── datasets/     Dataset providers (10+ benchmarks)
+├── evaluation/   Scoring handlers
+├── analysis/     IPJ/IPW computation, regression fitting
+├── execution/    ProfilerRunner, AgenticRunner, TelemetrySession
+└── telemetry/    Energy monitor launcher + gRPC collector
+
+energy-monitor/   Rust gRPC service with platform-specific collectors
+```
+
+All components self-register via the **registry pattern** (`@ClientRegistry.register("id")`, etc.) and are resolved by string key through the CLI.
+
+## About
+
+[Intelligence Per Watt](https://www.intelligence-per-watt.ai/) is a research initiative studying the efficiency of on-device AI systems. The project is developed at [Hazy Research](https://hazyresearch.stanford.edu/) and the [Scaling Intelligence Lab](https://scalingintelligence.stanford.edu/) at [Stanford SAIL](https://ai.stanford.edu/).
+
+## Sponsors
+
+<p>
+  <a href="https://www.laude.org/">Laude Institute</a> &bull;
+  <a href="https://datascience.stanford.edu/marlowe">Stanford Marlowe</a> &bull;
+  <a href="https://cloud.google.com/">Google Cloud Platform</a> &bull;
+  <a href="https://lambda.ai/">Lambda Labs</a>
+</p>
+
+## Citation
+
+If you use Intelligence Per Watt in your research, please cite:
+
+```bibtex
+@misc{saadfalcon2025intelligencewattmeasuringintelligence,
+      title={Intelligence per Watt: Measuring Intelligence Efficiency of Local AI},
+      author={Jon Saad-Falcon and Avanika Narayan and Hakki Orhun Akengin and J. Wes Griffin and Herumb Shandilya and Adrian Gamarra Lafuente and Medhya Goel and Rebecca Joseph and Shlok Natarajan and Etash Kumar Guha and Shang Zhu and Ben Athiwaratkun and John Hennessy and Azalia Mirhoseini and Christopher Ré},
+      year={2025},
+      eprint={2511.07885},
+      archivePrefix={arXiv},
+      primaryClass={cs.DC},
+      url={https://arxiv.org/abs/2511.07885},
+}
 ```

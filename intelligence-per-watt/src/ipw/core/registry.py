@@ -3,6 +3,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Any, Callable, Dict, Generic, Type, TypeVar
 
 if TYPE_CHECKING:
+    from ..agents.base import BaseAgent
     from ..analysis.base import AnalysisProvider
     from ..clients.base import InferenceClient
     from ..datasets.base import DatasetProvider
@@ -94,3 +95,7 @@ class VisualizationRegistry(RegistryBase[Type["VisualizationProvider"]]):
 
 class EvaluationRegistry(RegistryBase[Type["EvaluationHandler"]]):
     """Registry for evaluation handlers."""
+
+
+class AgentRegistry(RegistryBase[Type["BaseAgent"]]):
+    """Registry for agent harnesses."""

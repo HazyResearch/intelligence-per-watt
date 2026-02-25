@@ -17,6 +17,9 @@ use crate::energy::GpuInfo;
 #[cfg(not(target_os = "macos"))]
 use sysinfo::System;
 
+const MICROWATTS_PER_WATT: f64 = 1_000_000.0;
+const BYTES_PER_MIB: f64 = 1024.0 * 1024.0;
+
 /// NVIDIA telemetry collector using NVML
 #[cfg(not(target_os = "macos"))]
 pub struct NvidiaCollector {
@@ -26,6 +29,10 @@ pub struct NvidiaCollector {
     last_timestamp: Arc<Mutex<Option<std::time::Instant>>>,
     accumulated_energy_j_per_gpu: Arc<Mutex<Vec<f64>>>,
     gpu_info: Arc<Mutex<GpuInfo>>,
+    #[cfg(target_os = "linux")]
+    rapl_reader: Mutex<Option<super::linux_rapl::RaplReader>>,
+    /// Cached sysinfo System object for memory queries (avoids expensive new_all() each cycle)
+    sysinfo: Mutex<System>,
 }
 
 #[cfg(not(target_os = "macos"))]
@@ -146,6 +153,22 @@ impl NvidiaCollector {
             );
         }
 
+        // Initialize RAPL reader for CPU energy on Linux
+        #[cfg(target_os = "linux")]
+        let rapl_reader = {
+            let reader = super::linux_rapl::RaplReader::new();
+            if reader.is_some() {
+                debug!("RAPL reader initialized for CPU energy monitoring");
+            } else {
+                debug!("RAPL not available; CPU energy will not be collected");
+            }
+            Mutex::new(reader)
+        };
+
+        // Initialize sysinfo once (new_all is expensive, avoid calling per-cycle)
+        let sysinfo = System::new_all();
+        debug!("sysinfo System initialized for memory monitoring");
+
         let collector = Self {
             nvml_devices: Arc::new(Mutex::new(devices)),
             energy_baselines: Arc::new(Mutex::new(energy_baselines)),
@@ -153,6 +176,9 @@ impl NvidiaCollector {
             last_timestamp: Arc::new(Mutex::new(None)),
             accumulated_energy_j_per_gpu: Arc::new(Mutex::new(accumulated_energy_j_per_gpu)),
             gpu_info: Arc::new(Mutex::new(gpu_info)),
+            #[cfg(target_os = "linux")]
+            rapl_reader,
+            sysinfo: Mutex::new(sysinfo),
         };
 
         Ok(collector)
@@ -264,7 +290,15 @@ impl TelemetryCollector for NvidiaCollector {
             energy_joules: -1.0,
             temperature_celsius: -1.0,
             gpu_memory_usage_mb: -1.0,
+            gpu_memory_total_mb: -1.0,
             cpu_memory_usage_mb: -1.0,
+            cpu_power_watts: -1.0,
+            cpu_energy_joules: -1.0,
+            ane_power_watts: -1.0,
+            ane_energy_joules: -1.0,
+            gpu_compute_utilization_pct: -1.0,
+            gpu_memory_bandwidth_utilization_pct: -1.0,
+            gpu_tensor_core_utilization_pct: -1.0,
             platform: "nvidia".to_string(),
             timestamp_nanos: std::time::SystemTime::now()
                 .duration_since(std::time::UNIX_EPOCH)
@@ -298,6 +332,14 @@ impl TelemetryCollector for NvidiaCollector {
             let mut temp_count: usize = 0;
             let mut mem_sum_mb: f64 = 0.0;
             let mut any_mem_ok = false;
+            let mut mem_total_sum_mb: f64 = 0.0;
+            let mut any_mem_total_ok = false;
+            let mut compute_util_sum: f64 = 0.0;
+            let mut compute_util_count: usize = 0;
+            let mut memory_util_sum: f64 = 0.0;
+            let mut memory_util_count: usize = 0;
+            let mut tensor_util_sum: f64 = 0.0;
+            let mut tensor_util_count: usize = 0;
 
             let mut last_energy_readings = self.last_energy_readings.lock().unwrap();
             let mut energy_baselines = self.energy_baselines.lock().unwrap();
@@ -410,11 +452,25 @@ impl TelemetryCollector for NvidiaCollector {
 
                 // Memory (used)
                 if let Ok(mem_info) = device.memory_info() {
-                    let used_mb = mem_info.used as f64 / (1024.0 * 1024.0);
+                    let used_mb = mem_info.used as f64 / BYTES_PER_MIB;
+                    let total_mb = mem_info.total as f64 / BYTES_PER_MIB;
                     mem_sum_mb += used_mb;
                     any_mem_ok = true;
+                    mem_total_sum_mb += total_mb;
+                    any_mem_total_ok = true;
                     trace!("GPU {} memory used: {:.2} MB", i, used_mb);
                 }
+
+                // Utilization (SM + memory controller)
+                if let Ok(util) = device.utilization_rates() {
+                    compute_util_sum += util.gpu as f64;
+                    compute_util_count += 1;
+                    memory_util_sum += util.memory as f64;
+                    memory_util_count += 1;
+                }
+
+                // Tensor core utilization is not exposed via nvml-wrapper on all platforms.
+                // Keep a placeholder for future NVML field-based support.
             }
 
             if any_power_ok {
@@ -428,6 +484,22 @@ impl TelemetryCollector for NvidiaCollector {
             }
             if any_mem_ok {
                 sample.gpu_memory_usage_mb = mem_sum_mb;
+            }
+            if any_mem_total_ok {
+                sample.gpu_memory_total_mb = mem_total_sum_mb;
+            }
+            if compute_util_count > 0 {
+                sample.gpu_compute_utilization_pct =
+                    compute_util_sum / (compute_util_count as f64);
+            }
+            if memory_util_count > 0 {
+                // NVML reports memory controller utilization; use as bandwidth utilization proxy.
+                sample.gpu_memory_bandwidth_utilization_pct =
+                    memory_util_sum / (memory_util_count as f64);
+            }
+            if tensor_util_count > 0 {
+                sample.gpu_tensor_core_utilization_pct =
+                    tensor_util_sum / (tensor_util_count as f64);
             }
 
             trace!(
@@ -444,10 +516,28 @@ impl TelemetryCollector for NvidiaCollector {
             );
         }
 
-        // Fill cpu_memory_usage_mb using sysinfo (total used system memory in MB)
-        if let Ok(mut sys) = std::panic::catch_unwind(|| System::new_all()) {
+        // Fill CPU energy using RAPL on Linux
+        #[cfg(target_os = "linux")]
+        {
+            if let Ok(mut rapl_guard) = self.rapl_reader.lock() {
+                if let Some(ref mut rapl) = *rapl_guard {
+                    if let Some((cpu_power, cpu_energy)) = rapl.read() {
+                        sample.cpu_power_watts = cpu_power;
+                        sample.cpu_energy_joules = cpu_energy;
+                        trace!(
+                            "RAPL CPU: power={:.3} W, energy={:.6} J",
+                            cpu_power,
+                            cpu_energy
+                        );
+                    }
+                }
+            }
+        }
+
+        // Fill cpu_memory_usage_mb using cached sysinfo (avoids expensive new_all per cycle)
+        if let Ok(mut sys) = self.sysinfo.lock() {
             sys.refresh_memory();
-            let used_mb = (sys.used_memory() as f64) / (1024.0 * 1024.0);
+            let used_mb = (sys.used_memory() as f64) / BYTES_PER_MIB;
             sample.cpu_memory_usage_mb = used_mb;
         }
         Ok(sample)

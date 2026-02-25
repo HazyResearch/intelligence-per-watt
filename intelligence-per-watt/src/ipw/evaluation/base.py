@@ -31,9 +31,10 @@ class EvaluationHandler(ABC):
         Evaluate a single model answer.
 
         Returns:
-            (is_correct, metadata)
-            - is_correct: True/False if a decision could be made, or None
-              if the example is not scorable.
-            - metadata: method-specific payload (e.g., extracted answers,
-              judge explanation, or reasons for being unscorable).
+            A tuple of (is_correct, metadata):
+
+            - is_correct: True/False if a decision could be made,
+                or None if the example is not scorable.
+            - metadata: method-specific payload (e.g., extracted
+                answers, judge explanation, or reasons for being unscorable).
         """

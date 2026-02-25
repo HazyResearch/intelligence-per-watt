@@ -21,6 +21,9 @@ class Response:
     content: str
     usage: ChatUsage
     time_to_first_token_ms: float
+    first_token_time: Optional[float] = None
+    request_start_time: float = 0.0
+    request_end_time: float = 0.0
 
 
 @dataclass(slots=True)
@@ -45,7 +48,10 @@ class ProfilerConfig:
     client_params: Mapping[str, Any] = field(default_factory=dict)
     model: str = ""
     output_dir: Path | None = None
+    max_concurrency: int = 1
     max_queries: int | None = None
+    phased_profiling: bool = False
+    run_hardware_benchmarks: bool = True
     additional_parameters: Mapping[str, Any] = field(default_factory=dict)
 
 
@@ -84,14 +90,39 @@ class TelemetryReading:
     energy_joules: Optional[float] = None
     temperature_celsius: Optional[float] = None
     gpu_memory_usage_mb: Optional[float] = None
+    gpu_memory_total_mb: Optional[float] = None
     cpu_memory_usage_mb: Optional[float] = None
+    cpu_power_watts: Optional[float] = None
+    cpu_energy_joules: Optional[float] = None
+    ane_power_watts: Optional[float] = None
+    ane_energy_joules: Optional[float] = None
+    gpu_compute_utilization_pct: Optional[float] = None
+    gpu_memory_bandwidth_utilization_pct: Optional[float] = None
+    gpu_tensor_core_utilization_pct: Optional[float] = None
     platform: Optional[str] = None
     timestamp_nanos: Optional[int] = None
     system_info: Optional[SystemInfo] = None
     gpu_info: Optional[GpuInfo] = None
 
 
+@dataclass(slots=True)
+class AgentRunResult:
+    """Result from an agent run, capturing cost and tool-use telemetry."""
+
+    content: str
+    tool_calls_attempted: int = 0
+    tool_calls_succeeded: int = 0
+    tool_names_used: list[str] = field(default_factory=list)
+    num_turns: int = 0
+    input_tokens: int = 0
+    output_tokens: int = 0
+    cost_usd: float = 0.0
+    trace: "QueryTrace | None" = None
+    metadata: dict[str, Any] = field(default_factory=dict)
+
+
 __all__ = [
+    "AgentRunResult",
     "ChatUsage",
     "Response",
     "DatasetRecord",
