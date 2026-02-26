@@ -79,6 +79,7 @@ class QueryTrace:
     query_cpu_energy_joules: Optional[float] = None
     query_gpu_power_avg_watts: Optional[float] = None
     query_cpu_power_avg_watts: Optional[float] = None
+    is_resolved: Optional[bool] = None
 
     @property
     def num_turns(self) -> int:
@@ -132,6 +133,7 @@ class QueryTrace:
             "query_cpu_energy_joules": self.query_cpu_energy_joules,
             "query_gpu_power_avg_watts": self.query_gpu_power_avg_watts,
             "query_cpu_power_avg_watts": self.query_cpu_power_avg_watts,
+            "is_resolved": self.is_resolved,
         }
 
     @classmethod
@@ -148,6 +150,7 @@ class QueryTrace:
             query_cpu_energy_joules=d.get("query_cpu_energy_joules"),
             query_gpu_power_avg_watts=d.get("query_gpu_power_avg_watts"),
             query_cpu_power_avg_watts=d.get("query_cpu_power_avg_watts"),
+            is_resolved=d.get("is_resolved"),
         )
 
     def save_jsonl(self, path: Path) -> None:
@@ -192,6 +195,7 @@ class QueryTrace:
                 "total_cpu_energy_joules": trace.total_cpu_energy_joules,
                 "total_cost_usd": trace.total_cost_usd,
                 "completed": trace.completed,
+                "is_resolved": trace.is_resolved,
                 "trace_json": json.dumps(trace.to_dict()),
             })
         return Dataset.from_list(rows)

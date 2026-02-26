@@ -9,7 +9,7 @@ from typing import Any, Dict
 MODEL_PRESETS: Dict[str, Dict[str, Any]] = {
     "glm-4.7-flash": {
         "model_id": "zai-org/GLM-4.7-FP8",
-        "vllm_args": {"tensor_parallel_size": 1},
+        "vllm_args": {"tensor_parallel_size": 8},
     },
     "gpt-oss-120b": {
         "model_id": "openai/gpt-oss-120b",
@@ -43,6 +43,40 @@ MODEL_PRESETS: Dict[str, Dict[str, Any]] = {
             "reasoning_parser": "qwen3",
             "tool_call_parser": "qwen3_coder",
             "language_model_only": True,
+        },
+    },
+    "qwen35-397b-a17b-fp8": {
+        "model_id": "Qwen/Qwen3.5-397B-A17B-FP8",
+        "vllm_args": {
+            "tensor_parallel_size": 8,
+            "reasoning_parser": "qwen3",
+            "tool_call_parser": "qwen3_coder",
+            "language_model_only": True,
+        },
+    },
+    "qwen35-122b-a10b-fp8": {
+        "model_id": "Qwen/Qwen3.5-122B-A10B-FP8",
+        "vllm_args": {
+            "tensor_parallel_size": 4,
+            "reasoning_parser": "qwen3",
+            "tool_call_parser": "qwen3_coder",
+            "language_model_only": True,
+        },
+    },
+    "qwen3-235b-a22b-fp8": {
+        "model_id": "Qwen/Qwen3-235B-A22B-Instruct-2507-FP8",
+        "vllm_args": {
+            "tensor_parallel_size": 8,
+            "reasoning_parser": "qwen3",
+            "tool_call_parser": "qwen3_coder",
+        },
+    },
+    "qwen3-30b-a3b-fp8": {
+        "model_id": "Qwen/Qwen3-30B-A3B-Instruct-2507-FP8",
+        "vllm_args": {
+            "tensor_parallel_size": 1,
+            "reasoning_parser": "qwen3",
+            "tool_call_parser": "qwen3_coder",
         },
     },
 }

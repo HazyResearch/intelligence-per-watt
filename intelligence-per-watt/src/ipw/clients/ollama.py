@@ -39,12 +39,14 @@ class OllamaClient(InferenceClient):
         content: list[str] = []
         prompt_tokens = completion_tokens = 0
         ttft_ms: float | None = None
+        token_times: list[float] = []
 
         for chunk in stream:
             text = getattr(chunk, "response", None)
             if text:
+                token_times.append(time.perf_counter())
                 if ttft_ms is None:
-                    ttft_ms = (time.perf_counter() - start) * 1000
+                    ttft_ms = (token_times[0] - start) * 1000
                 content.append(text)
             if getattr(chunk, "done", False):
                 prompt_tokens = int(chunk.prompt_eval_count or prompt_tokens)
@@ -58,6 +60,7 @@ class OllamaClient(InferenceClient):
                 total_tokens=prompt_tokens + completion_tokens,
             ),
             time_to_first_token_ms=ttft_ms or 0.0,
+            token_timestamps=token_times or None,
         )
 
     def list_models(self) -> list[str]:

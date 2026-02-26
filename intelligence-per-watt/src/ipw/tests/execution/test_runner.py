@@ -14,7 +14,7 @@ from ipw.core.types import (
     Response,
     TelemetryReading,
 )
-from ipw.execution.runner import ProfilerRunner, _slugify_model, _stat_summary
+from ipw.execution.runner import ProfilerRunner, _lookup_gpu_peak_tflops, _percentile, _slugify_model, _stat_summary
 from ipw.execution.telemetry_session import TelemetrySample
 
 
@@ -153,6 +153,7 @@ class TestProfilerRunner:
             client_id="test-client",
             dataset_id="test-dataset",
             output_dir=tmp_path,
+            warmup_queries=0,
         )
         runner = ProfilerRunner(config)
         runner.run()
@@ -523,3 +524,494 @@ class TestProfilerRunner:
 
         path = runner._get_output_path()
         assert path == tmp_path / "profile_RTX3090_llama_3_2_1b_test"
+
+    def test_build_record_computes_per_token_energy(self) -> None:
+        config = ProfilerConfig(
+            model="test-model",
+            client_id="test",
+            dataset_id="test",
+        )
+        runner = ProfilerRunner(config)
+
+        record = DatasetRecord(problem="test", answer="answer", subject="math")
+        response = Response(
+            content="response",
+            usage=ChatUsage(prompt_tokens=10, completion_tokens=5, total_tokens=15),
+            time_to_first_token_ms=100.0,
+        )
+        samples = [
+            TelemetrySample(
+                timestamp=1.0,
+                reading=TelemetryReading(energy_joules=100.0, power_watts=50.0),
+            ),
+            TelemetrySample(
+                timestamp=2.0,
+                reading=TelemetryReading(energy_joules=150.0, power_watts=50.0),
+            ),
+        ]
+
+        result = runner._build_record(0, record, response, samples, 0.0, 2.0)
+        assert result is not None
+        metrics = result.model_metrics["test-model"]
+        # 50J / 5 output tokens = 10 J/token
+        assert metrics.energy_metrics.energy_per_output_token_joules == 10.0
+        # 50J / 15 total tokens = 3.333... J/token
+        assert metrics.energy_metrics.energy_per_total_token_joules == pytest.approx(50.0 / 15)
+
+    def test_build_record_per_token_energy_none_when_no_energy(self) -> None:
+        config = ProfilerConfig(
+            model="test-model",
+            client_id="test",
+            dataset_id="test",
+        )
+        runner = ProfilerRunner(config)
+
+        record = DatasetRecord(problem="test", answer="answer", subject="math")
+        response = Response(
+            content="response",
+            usage=ChatUsage(prompt_tokens=10, completion_tokens=5, total_tokens=15),
+            time_to_first_token_ms=100.0,
+        )
+
+        result = runner._build_record(0, record, response, [], 0.0, 1.0)
+        assert result is not None
+        metrics = result.model_metrics["test-model"]
+        assert metrics.energy_metrics.energy_per_output_token_joules is None
+        assert metrics.energy_metrics.energy_per_total_token_joules is None
+
+    def test_build_record_computes_itl_percentiles(self) -> None:
+        config = ProfilerConfig(
+            model="test-model",
+            client_id="test",
+            dataset_id="test",
+        )
+        runner = ProfilerRunner(config)
+
+        # Simulate 11 tokens with 10ms inter-token latency (in seconds)
+        timestamps = [1.0 + i * 0.010 for i in range(11)]
+        record = DatasetRecord(problem="test", answer="answer", subject="math")
+        response = Response(
+            content="hello world test",
+            usage=ChatUsage(prompt_tokens=5, completion_tokens=11, total_tokens=16),
+            time_to_first_token_ms=50.0,
+            token_timestamps=timestamps,
+        )
+
+        result = runner._build_record(0, record, response, [], 0.0, 1.0)
+        assert result is not None
+        metrics = result.model_metrics["test-model"]
+        # All inter-token latencies are 10ms
+        assert metrics.latency_metrics.median_itl_ms == pytest.approx(10.0, abs=0.1)
+        assert metrics.latency_metrics.p90_itl_ms == pytest.approx(10.0, abs=0.1)
+        assert metrics.latency_metrics.p95_itl_ms == pytest.approx(10.0, abs=0.1)
+        assert metrics.latency_metrics.p99_itl_ms == pytest.approx(10.0, abs=0.1)
+        assert metrics.latency_metrics.itl_std_ms == pytest.approx(0.0, abs=0.1)
+
+    def test_build_record_itl_none_with_single_token(self) -> None:
+        config = ProfilerConfig(
+            model="test-model",
+            client_id="test",
+            dataset_id="test",
+        )
+        runner = ProfilerRunner(config)
+
+        record = DatasetRecord(problem="test", answer="answer", subject="math")
+        response = Response(
+            content="hi",
+            usage=ChatUsage(prompt_tokens=5, completion_tokens=1, total_tokens=6),
+            time_to_first_token_ms=50.0,
+            token_timestamps=[1.0],
+        )
+
+        result = runner._build_record(0, record, response, [], 0.0, 1.0)
+        assert result is not None
+        metrics = result.model_metrics["test-model"]
+        assert metrics.latency_metrics.median_itl_ms is None
+        assert metrics.latency_metrics.p90_itl_ms is None
+
+    def test_build_record_itl_none_with_no_timestamps(self) -> None:
+        config = ProfilerConfig(
+            model="test-model",
+            client_id="test",
+            dataset_id="test",
+        )
+        runner = ProfilerRunner(config)
+
+        record = DatasetRecord(problem="test", answer="answer", subject="math")
+        response = Response(
+            content="response",
+            usage=ChatUsage(prompt_tokens=5, completion_tokens=5, total_tokens=10),
+            time_to_first_token_ms=50.0,
+        )
+
+        result = runner._build_record(0, record, response, [], 0.0, 1.0)
+        assert result is not None
+        metrics = result.model_metrics["test-model"]
+        assert metrics.latency_metrics.median_itl_ms is None
+
+    def test_build_record_computes_throughput_per_watt(self) -> None:
+        config = ProfilerConfig(
+            model="test-model",
+            client_id="test",
+            dataset_id="test",
+        )
+        runner = ProfilerRunner(config)
+
+        record = DatasetRecord(problem="test", answer="answer", subject="math")
+        response = Response(
+            content="response",
+            usage=ChatUsage(prompt_tokens=10, completion_tokens=100, total_tokens=110),
+            time_to_first_token_ms=100.0,
+        )
+        # 100W average power, 100 tokens in 2 seconds = 50 tok/s
+        # throughput_per_watt = 50 / 100 = 0.5
+        samples = [
+            TelemetrySample(
+                timestamp=1.0,
+                reading=TelemetryReading(energy_joules=100.0, power_watts=100.0),
+            ),
+            TelemetrySample(
+                timestamp=3.0,
+                reading=TelemetryReading(energy_joules=300.0, power_watts=100.0),
+            ),
+        ]
+
+        result = runner._build_record(0, record, response, samples, 0.0, 2.0)
+        assert result is not None
+        metrics = result.model_metrics["test-model"]
+        assert metrics.efficiency.throughput_per_watt == pytest.approx(0.5)
+
+    def test_build_record_efficiency_none_without_power(self) -> None:
+        config = ProfilerConfig(
+            model="test-model",
+            client_id="test",
+            dataset_id="test",
+        )
+        runner = ProfilerRunner(config)
+
+        record = DatasetRecord(problem="test", answer="answer", subject="math")
+        response = Response(
+            content="response",
+            usage=ChatUsage(prompt_tokens=10, completion_tokens=10, total_tokens=20),
+            time_to_first_token_ms=100.0,
+        )
+
+        result = runner._build_record(0, record, response, [], 0.0, 1.0)
+        assert result is not None
+        metrics = result.model_metrics["test-model"]
+        assert metrics.efficiency.throughput_per_watt is None
+
+    def test_build_record_computes_flops_for_known_model(self) -> None:
+        config = ProfilerConfig(
+            model="llama3.2:1b",
+            client_id="test",
+            dataset_id="test",
+        )
+        runner = ProfilerRunner(config)
+
+        record = DatasetRecord(problem="test", answer="answer", subject="math")
+        response = Response(
+            content="response",
+            usage=ChatUsage(prompt_tokens=10, completion_tokens=5, total_tokens=15),
+            time_to_first_token_ms=100.0,
+        )
+
+        result = runner._build_record(0, record, response, [], 0.0, 1.0)
+        assert result is not None
+        metrics = result.model_metrics["llama3.2:1b"]
+        assert metrics.compute_metrics.total_flops is not None
+        assert metrics.compute_metrics.total_flops > 0
+        assert metrics.compute_metrics.flops_per_token is not None
+        assert metrics.compute_metrics.flops_per_request is not None
+
+    def test_build_record_flops_zero_for_unknown_model(self) -> None:
+        config = ProfilerConfig(
+            model="unknown-model-xyz",
+            client_id="test",
+            dataset_id="test",
+        )
+        runner = ProfilerRunner(config)
+
+        record = DatasetRecord(problem="test", answer="answer", subject="math")
+        response = Response(
+            content="response",
+            usage=ChatUsage(prompt_tokens=10, completion_tokens=5, total_tokens=15),
+            time_to_first_token_ms=100.0,
+        )
+
+        result = runner._build_record(0, record, response, [], 0.0, 1.0)
+        assert result is not None
+        metrics = result.model_metrics["unknown-model-xyz"]
+        # Unknown model → 0 flops → ComputeMetrics stays empty
+        assert metrics.compute_metrics.total_flops is None
+
+    def test_build_record_computes_phase_metrics(self) -> None:
+        config = ProfilerConfig(
+            model="test-model",
+            client_id="test",
+            dataset_id="test",
+        )
+        runner = ProfilerRunner(config)
+
+        record = DatasetRecord(problem="test", answer="answer", subject="math")
+        # TTFT of 500ms, request_start_time = 1.0 → ttft_epoch = 1.5
+        response = Response(
+            content="response",
+            usage=ChatUsage(prompt_tokens=10, completion_tokens=5, total_tokens=15),
+            time_to_first_token_ms=500.0,
+            request_start_time=1.0,
+        )
+        samples = [
+            TelemetrySample(
+                timestamp=1.0,
+                reading=TelemetryReading(energy_joules=100.0, power_watts=200.0),
+            ),
+            TelemetrySample(
+                timestamp=1.3,
+                reading=TelemetryReading(energy_joules=120.0, power_watts=200.0),
+            ),
+            TelemetrySample(
+                timestamp=1.6,
+                reading=TelemetryReading(energy_joules=150.0, power_watts=100.0),
+            ),
+            TelemetrySample(
+                timestamp=2.0,
+                reading=TelemetryReading(energy_joules=180.0, power_watts=100.0),
+            ),
+        ]
+
+        result = runner._build_record(0, record, response, samples, 1.0, 2.0)
+        assert result is not None
+        metrics = result.model_metrics["test-model"]
+        phase = metrics.phase_metrics
+        # Prefill: samples at 1.0 and 1.3 (both <= 1.5), energy delta = 120-100 = 20
+        assert phase.prefill_energy_j == 20.0
+        # Decode: samples at 1.6 and 2.0 (both > 1.5), energy delta = 180-150 = 30
+        assert phase.decode_energy_j == 30.0
+        assert phase.prefill_duration_ms == 500.0
+        assert phase.prefill_energy_per_input_token_j == pytest.approx(20.0 / 10)
+        assert phase.decode_energy_per_output_token_j == pytest.approx(30.0 / 5)
+
+    def test_build_record_phase_metrics_none_short_prefill(self) -> None:
+        """PhaseMetrics gracefully returns None when prefill is too short for samples."""
+        config = ProfilerConfig(
+            model="test-model",
+            client_id="test",
+            dataset_id="test",
+        )
+        runner = ProfilerRunner(config)
+
+        record = DatasetRecord(problem="test", answer="answer", subject="math")
+        # Very short TTFT → no prefill samples
+        response = Response(
+            content="response",
+            usage=ChatUsage(prompt_tokens=10, completion_tokens=5, total_tokens=15),
+            time_to_first_token_ms=5.0,
+            request_start_time=1.0,
+        )
+        # All samples are after TTFT epoch (1.005)
+        samples = [
+            TelemetrySample(
+                timestamp=1.05,
+                reading=TelemetryReading(energy_joules=100.0, power_watts=100.0),
+            ),
+            TelemetrySample(
+                timestamp=1.1,
+                reading=TelemetryReading(energy_joules=110.0, power_watts=100.0),
+            ),
+        ]
+
+        result = runner._build_record(0, record, response, samples, 1.0, 1.1)
+        assert result is not None
+        phase = result.model_metrics["test-model"].phase_metrics
+        # No prefill samples → prefill energy is None
+        assert phase.prefill_energy_j is None
+        # Decode should still work
+        assert phase.decode_energy_j == 10.0
+
+    def test_build_record_mfu_populated_when_gpu_known(self) -> None:
+        config = ProfilerConfig(
+            model="llama3.2:1b",
+            client_id="test",
+            dataset_id="test",
+        )
+        runner = ProfilerRunner(config)
+        from ipw.core.types import GpuInfo
+        runner._gpu_info = GpuInfo(name="NVIDIA H100")
+
+        record = DatasetRecord(problem="test", answer="answer", subject="math")
+        response = Response(
+            content="response",
+            usage=ChatUsage(prompt_tokens=100, completion_tokens=50, total_tokens=150),
+            time_to_first_token_ms=100.0,
+        )
+
+        result = runner._build_record(0, record, response, [], 0.0, 1.0)
+        assert result is not None
+        metrics = result.model_metrics["llama3.2:1b"]
+        assert metrics.hardware_utilization.derived.mfu is not None
+        assert metrics.hardware_utilization.derived.mfu > 0
+        assert metrics.hardware_utilization.derived.mfu < 1.0  # Should be well below 100%
+
+
+class TestWarmupQueries:
+    """Test warmup query exclusion."""
+
+    @patch("ipw.execution.runner.DatasetRegistry")
+    @patch("ipw.execution.runner.ClientRegistry")
+    @patch("ipw.execution.runner.EnergyMonitorCollector")
+    @patch("ipw.execution.runner.TelemetrySession")
+    @patch("ipw.execution.runner.Dataset")
+    def test_warmup_queries_excluded_from_records(
+        self,
+        mock_dataset_class: Mock,
+        mock_session: Mock,
+        mock_collector: Mock,
+        mock_client_registry: Mock,
+        mock_dataset_registry: Mock,
+        tmp_path: Path,
+    ) -> None:
+        # Setup dataset with 6 records (3 warmup + 3 measured)
+        records = [
+            DatasetRecord(problem=f"q{i}", answer=f"a{i}", subject="math")
+            for i in range(6)
+        ]
+        mock_dataset = MagicMock()
+        mock_dataset.size.return_value = 6
+        mock_dataset.__iter__.return_value = iter(records)
+        mock_dataset.dataset_id = "test"
+        mock_dataset.dataset_name = "Test"
+        mock_dataset_registry.get.return_value = Mock(return_value=mock_dataset)
+
+        mock_client = Mock()
+        mock_client.health.return_value = True
+        mock_client.stream_chat_completion.return_value = Response(
+            content="response",
+            usage=ChatUsage(prompt_tokens=10, completion_tokens=5, total_tokens=15),
+            time_to_first_token_ms=100.0,
+        )
+        mock_client_registry.get.return_value = Mock(return_value=mock_client)
+
+        mock_collector.return_value = Mock()
+        mock_telemetry = Mock()
+        mock_telemetry.window.return_value = []
+        mock_telemetry.readings.return_value = []
+        mock_session.return_value.__enter__.return_value = mock_telemetry
+
+        mock_hf_dataset = Mock()
+        mock_hf_dataset.save_to_disk = lambda path: Path(path).mkdir(parents=True, exist_ok=True)
+        mock_dataset_class.from_list.return_value = mock_hf_dataset
+
+        config = ProfilerConfig(
+            model="test-model",
+            client_id="test",
+            dataset_id="test",
+            output_dir=tmp_path,
+            warmup_queries=3,
+            max_queries=3,
+        )
+        runner = ProfilerRunner(config)
+        runner.run()
+
+        # 3 warmup + 3 measured = 6 total calls to client
+        assert mock_client.stream_chat_completion.call_count == 6
+        # But only 3 records stored
+        assert len(runner._records) == 3
+
+    @patch("ipw.execution.runner.DatasetRegistry")
+    @patch("ipw.execution.runner.ClientRegistry")
+    @patch("ipw.execution.runner.EnergyMonitorCollector")
+    @patch("ipw.execution.runner.TelemetrySession")
+    @patch("ipw.execution.runner.Dataset")
+    def test_zero_warmup_queries(
+        self,
+        mock_dataset_class: Mock,
+        mock_session: Mock,
+        mock_collector: Mock,
+        mock_client_registry: Mock,
+        mock_dataset_registry: Mock,
+        tmp_path: Path,
+    ) -> None:
+        records = [
+            DatasetRecord(problem=f"q{i}", answer=f"a{i}", subject="math")
+            for i in range(3)
+        ]
+        mock_dataset = MagicMock()
+        mock_dataset.size.return_value = 3
+        mock_dataset.__iter__.return_value = iter(records)
+        mock_dataset.dataset_id = "test"
+        mock_dataset.dataset_name = "Test"
+        mock_dataset_registry.get.return_value = Mock(return_value=mock_dataset)
+
+        mock_client = Mock()
+        mock_client.health.return_value = True
+        mock_client.stream_chat_completion.return_value = Response(
+            content="response",
+            usage=ChatUsage(prompt_tokens=10, completion_tokens=5, total_tokens=15),
+            time_to_first_token_ms=100.0,
+        )
+        mock_client_registry.get.return_value = Mock(return_value=mock_client)
+
+        mock_collector.return_value = Mock()
+        mock_telemetry = Mock()
+        mock_telemetry.window.return_value = []
+        mock_telemetry.readings.return_value = []
+        mock_session.return_value.__enter__.return_value = mock_telemetry
+
+        mock_hf_dataset = Mock()
+        mock_hf_dataset.save_to_disk = lambda path: Path(path).mkdir(parents=True, exist_ok=True)
+        mock_dataset_class.from_list.return_value = mock_hf_dataset
+
+        config = ProfilerConfig(
+            model="test-model",
+            client_id="test",
+            dataset_id="test",
+            output_dir=tmp_path,
+            warmup_queries=0,
+            max_queries=3,
+        )
+        runner = ProfilerRunner(config)
+        runner.run()
+
+        # 0 warmup → all 3 are measured
+        assert mock_client.stream_chat_completion.call_count == 3
+        assert len(runner._records) == 3
+
+
+class TestPercentile:
+    """Test _percentile helper."""
+
+    def test_median_of_sorted_list(self) -> None:
+        values = [1.0, 2.0, 3.0, 4.0, 5.0]
+        assert _percentile(values, 50) == 3.0
+
+    def test_p90_of_10_values(self) -> None:
+        values = list(range(1, 11))  # 1..10
+        result = _percentile([float(v) for v in values], 90)
+        assert result == pytest.approx(9.1)
+
+    def test_p99_interpolates_for_small_list(self) -> None:
+        values = [1.0, 2.0]
+        assert _percentile(values, 99) == pytest.approx(1.99)
+
+    def test_single_value(self) -> None:
+        assert _percentile([42.0], 50) == 42.0
+
+
+class TestGpuPeakTflopsLookup:
+    """Test GPU peak TFLOPS lookup."""
+
+    def test_finds_h100(self) -> None:
+        assert _lookup_gpu_peak_tflops("NVIDIA H100") == 989.5
+
+    def test_finds_a100(self) -> None:
+        assert _lookup_gpu_peak_tflops("NVIDIA A100-SXM4-80GB") == 312.0
+
+    def test_finds_rtx_3090(self) -> None:
+        assert _lookup_gpu_peak_tflops("NVIDIA GeForce RTX 3090") == 71.0
+
+    def test_returns_none_for_unknown(self) -> None:
+        assert _lookup_gpu_peak_tflops("Unknown GPU") is None
+
+    def test_returns_none_for_none(self) -> None:
+        assert _lookup_gpu_peak_tflops(None) is None

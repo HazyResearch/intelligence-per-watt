@@ -259,6 +259,29 @@ class TestQueryTrace:
         assert loaded[0].query_id == "q0001"
         assert loaded[1].query_id == "q0002"
 
+    def test_is_resolved_in_to_dict(self) -> None:
+        trace = QueryTrace(
+            query_id="q0",
+            workload_type="test",
+            is_resolved=True,
+        )
+        d = trace.to_dict()
+        assert d["is_resolved"] is True
+
+    def test_is_resolved_roundtrip(self) -> None:
+        for val in (True, False, None):
+            trace = QueryTrace(
+                query_id="q0",
+                workload_type="test",
+                is_resolved=val,
+            )
+            restored = QueryTrace.from_dict(trace.to_dict())
+            assert restored.is_resolved is val
+
+    def test_is_resolved_none_by_default(self) -> None:
+        trace = QueryTrace(query_id="q0", workload_type="test")
+        assert trace.is_resolved is None
+
     def test_to_hf_dataset(self) -> None:
         try:
             from datasets import Dataset

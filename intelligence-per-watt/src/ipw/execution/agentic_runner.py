@@ -343,6 +343,7 @@ class AgenticRunner:
                 response_text=str(exc),
                 total_wall_clock_s=end_time - start_time,
                 completed=False,
+                is_resolved=record.dataset_metadata.get("is_resolved"),
             )
             return trace
 
@@ -365,8 +366,20 @@ class AgenticRunner:
                 input_tokens=result.input_tokens,
                 output_tokens=result.output_tokens,
                 wall_clock_s=end_time - start_time,
-                cost_usd=result.cost_usd if result.cost_usd else None,
+                cost_usd=result.cost_usd if result.cost_usd is not None else None,
             )]
+
+        # Backfill tokens from AgentRunResult when turns have zero tokens
+        # (e.g. OpenHands fires lm_inference events without token metadata)
+        if turns and result.input_tokens > 0 and result.output_tokens > 0:
+            total_turn_in = sum(t.input_tokens for t in turns)
+            total_turn_out = sum(t.output_tokens for t in turns)
+            if total_turn_in == 0 and total_turn_out == 0:
+                turns[0].input_tokens = result.input_tokens
+                turns[0].output_tokens = result.output_tokens
+                turns[0].wall_clock_s = turns[0].wall_clock_s or (end_time - start_time)
+                if result.cost_usd is not None and turns[0].cost_usd is None:
+                    turns[0].cost_usd = result.cost_usd
 
         # Always compute query-level energy from telemetry window
         query_gpu_energy = _compute_energy_delta(readings, "energy_joules")
@@ -386,6 +399,7 @@ class AgenticRunner:
             query_cpu_energy_joules=query_cpu_energy,
             query_gpu_power_avg_watts=query_gpu_power_avg,
             query_cpu_power_avg_watts=query_cpu_power_avg,
+            is_resolved=record.dataset_metadata.get("is_resolved"),
         )
 
         # Correlate energy data with trace
@@ -643,9 +657,12 @@ class AgenticRunner:
             total_query_seconds=total_seconds,
         )
 
-        # Cost — use trace cost if available, otherwise compute from pricing
+        # Cost — use trace cost if available, otherwise compute from pricing.
+        # Note: AgentRunResult.cost_usd defaults to 0.0 (not Optional), so
+        # treat 0.0 as "not provided" and try pricing tables. The localhost
+        # fallback below ensures local models still get cost=0.0.
         cost = trace.total_cost_usd
-        if cost is None and total_input_tokens > 0:
+        if (cost is None or cost == 0.0) and total_input_tokens > 0:
             from ..cost.pricing import calculate_cost
 
             provider = self._config.get("provider", "")

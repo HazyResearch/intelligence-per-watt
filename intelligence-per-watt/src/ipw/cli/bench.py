@@ -41,6 +41,14 @@ from typing import Any, Callable, Dict, List, Optional, Sequence
 import click
 
 from ipw.cli._console import error, info, success, warning
+from ipw.cli._display import (
+    compute_trace_metrics,
+    print_banner,
+    print_config_summary,
+    print_efficiency_panel,
+    print_metrics_table,
+    print_output_path,
+)
 from ipw.cli.server_manager import (
     InferenceServerManager,
     ServerConfig,
@@ -749,27 +757,22 @@ def bench(
 
     telemetry_granularity = "per-action" if per_action else "benchmark"
 
-    info(f"Running benchmark: {dataset_id}")
-    info(f"  Agent: {agent_id}")
-    info(f"  Model: {model}")
+    print_banner()
+    config_info: dict[str, object] = {
+        "Dataset": dataset_id,
+        "Agent": agent_id,
+        "Model": model,
+        "Client": client_id,
+    }
     if not auto_server:
-        info(f"  Server URL: {base_url}")
+        config_info["Server URL"] = base_url
     if max_samples:
-        info(f"  Limit: {max_samples}")
-    if no_telemetry:
-        info("  Telemetry: disabled")
-    else:
-        info(f"  Telemetry: enabled ({telemetry_granularity})")
+        config_info["Limit"] = max_samples
+    config_info["Telemetry"] = "disabled" if no_telemetry else f"enabled ({telemetry_granularity})"
     if auto_server:
-        info(f"  Auto-server: enabled (base port: {base_port})")
-        if submodels:
-            info(f"  Submodels: {len(submodels)}")
-            for spec in submodels:
-                info(f"    - {spec}")
-    if skip_warmup:
-        info("  Warmup: skipped (cold-start included)")
-    else:
-        info("  Warmup: enabled (cold-start excluded)")
+        config_info["Auto-server"] = f"enabled (base port: {base_port})"
+    config_info["Warmup"] = "skipped" if skip_warmup else "enabled"
+    print_config_summary(config=config_info)
 
     try:
         metrics = execute_benchmark(
@@ -791,18 +794,20 @@ def bench(
             preset_vllm_args=preset_vllm_args,
         )
 
-        # Remove internal fields from display
-        display_metrics = {k: v for k, v in metrics.items() if not k.startswith("_")}
-
         success("Benchmark completed!")
-        info("\nResults:")
-        for key, value in display_metrics.items():
-            if key in ("run_metadata", "action_breakdown", "energy_analysis"):
-                continue
-            if isinstance(value, float):
-                info(f"  {key}: {value:.4f}")
-            else:
-                info(f"  {key}: {value}")
+
+        # Extract traces for rich display
+        traces = metrics.get("_traces")
+        if traces:
+            metric_rows = compute_trace_metrics(traces)
+            print_metrics_table(rows=metric_rows, title="Benchmark Metrics")
+            print_efficiency_panel(traces=traces)
+
+        # Display output path
+        out_path = metrics.get("_output_dir") or metrics.get("output_dir")
+        if out_path:
+            from pathlib import Path as _Path
+            print_output_path(path=_Path(str(out_path)))
 
     except Exception as e:
         error(f"Benchmark failed: {e}")

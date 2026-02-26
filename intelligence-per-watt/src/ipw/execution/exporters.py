@@ -87,6 +87,10 @@ def export_summary_json(
             cpu_energy_values.append(sum(cpu_vals))
     total_cpu_energy = sum(cpu_energy_values) if cpu_energy_values else None
 
+    # Aggregate resolved/unresolved
+    resolved = sum(1 for t in traces if t.is_resolved is True)
+    unresolved = sum(1 for t in traces if t.is_resolved is False)
+
     # Aggregate cost
     cost_values = [
         t.total_cost_usd for t in traces
@@ -109,6 +113,8 @@ def export_summary_json(
         "totals": {
             "queries": total_queries,
             "completed": completed,
+            "resolved": resolved,
+            "unresolved": unresolved,
             "turns": total_turns,
             "tool_calls": total_tool_calls,
             "input_tokens": total_input_tokens,

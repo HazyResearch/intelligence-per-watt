@@ -28,14 +28,38 @@ MODEL_PARAMS: dict[str, float] = {
     "mistral-7b": 7.24,
     "mixtral-8x7b": 46.7,
     "mixtral-8x22b": 141.0,
+    # Qwen 3
+    "qwen-3-0.6b": 0.6,
+    "qwen-3-1.7b": 1.7,
+    "qwen-3-4b": 4.0,
+    "qwen-3-8b": 8.0,
+    "qwen-3-14b": 14.0,
+    "qwen-3-32b": 32.0,
+    "qwen-3-30b-a3b": 30.5,
+    "qwen-3-235b": 235.0,
+    # DeepSeek
+    "deepseek-r-1": 671.0,
+    "deepseek-v-3": 671.0,
+    "deepseek-v-2.5": 236.0,
+    "deepseek-coder-v-2": 236.0,
     # Phi
     "phi-3-mini": 3.82,
     "phi-3-small": 7.39,
     "phi-3-medium": 14.0,
+    "phi-4": 14.0,
+    "phi-4-mini": 3.8,
     # Gemma
     "gemma-2-2b": 2.61,
     "gemma-2-9b": 9.24,
     "gemma-2-27b": 27.2,
+    # Gemma 3
+    "gemma-3-1b": 1.0,
+    "gemma-3-4b": 4.0,
+    "gemma-3-12b": 12.0,
+    "gemma-3-27b": 27.0,
+    # Llama 4
+    "llama-4-scout": 17.0,
+    "llama-4-maverick": 17.0,
 }
 
 

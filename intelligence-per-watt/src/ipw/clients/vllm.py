@@ -207,6 +207,7 @@ class VLLMClient(InferenceClient):
         completion_tokens = 0
         ttft_ms: float | None = None
         content_parts: list[str] = []
+        token_times: list[float] = []
 
         try:
             async for chunk in self._engine.generate(
@@ -224,9 +225,10 @@ class VLLMClient(InferenceClient):
                 for completion in outputs:
                     delta_text = getattr(completion, "text", "") or ""
                     if delta_text:
+                        token_times.append(time.perf_counter())
                         content_parts.append(delta_text)
                         if ttft_ms is None:
-                            ttft_ms = (time.perf_counter() - start_time) * 1000.0
+                            ttft_ms = (token_times[0] - start_time) * 1000.0
 
                     delta_token_ids = getattr(completion, "delta_token_ids", None)
                     if delta_token_ids is None:
@@ -267,5 +269,8 @@ class VLLMClient(InferenceClient):
         )
         content = "".join(content_parts)
         return Response(
-            content=content, usage=usage, time_to_first_token_ms=ttft_ms or 0.0
+            content=content,
+            usage=usage,
+            time_to_first_token_ms=ttft_ms or 0.0,
+            token_timestamps=token_times or None,
         )

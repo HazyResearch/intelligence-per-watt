@@ -619,6 +619,79 @@ class TestAgenticRunner:
         metrics = record.model_metrics["glm-4-flash"]
         assert metrics.cost.total_cost_usd == 0.0
 
+    def test_tokens_backfilled_from_result_when_turns_have_zero_tokens(self) -> None:
+        """When event-based turns exist but have 0 tokens, backfill from AgentRunResult."""
+        from ipw.telemetry.events import EventType
+
+        recorder = EventRecorder()
+        agent = MagicMock()
+
+        def run_with_zero_token_events(prompt: str, **kwargs) -> AgentRunResult:
+            # Simulate OpenHands: fires lm_inference events without token metadata
+            recorder.record(EventType.LM_INFERENCE_START)
+            recorder.record(EventType.LM_INFERENCE_END)  # no prompt_tokens/completion_tokens
+            return AgentRunResult(
+                content="answer",
+                input_tokens=1200,
+                output_tokens=400,
+                cost_usd=0.0,
+            )
+
+        agent.run.side_effect = run_with_zero_token_events
+
+        runner = self._make_runner(agent=agent)
+        runner._event_recorder = recorder
+
+        traces = asyncio.run(runner.run())
+        trace = traces[0]
+
+        assert trace.num_turns == 1
+        assert trace.total_input_tokens == 1200
+        assert trace.total_output_tokens == 400
+        assert trace.turns[0].cost_usd == 0.0
+
+    def test_is_resolved_flows_into_query_trace(self) -> None:
+        """is_resolved from dataset_metadata appears in the QueryTrace."""
+        agent = MagicMock()
+        agent.run.return_value = AgentRunResult(content="done")
+
+        dataset = MagicMock()
+        records = [
+            DatasetRecord(
+                problem="Q1", answer="A1", subject="s",
+                dataset_metadata={"dataset_name": "test", "is_resolved": True},
+            )
+        ]
+        dataset.__iter__ = MagicMock(return_value=iter(records))
+        dataset.size.return_value = 1
+        dataset.create_task_env.return_value = None
+
+        runner = AgenticRunner(
+            agent=agent,
+            dataset=dataset,
+            config={"model": "test-model"},
+        )
+        traces = asyncio.run(runner.run())
+
+        assert traces[0].is_resolved is True
+
+    def test_zero_cost_preserved_for_local_models(self) -> None:
+        """cost_usd=0.0 from AgentRunResult is preserved (not treated as falsy)."""
+        agent = MagicMock()
+        agent.run.return_value = AgentRunResult(
+            content="result",
+            input_tokens=500,
+            output_tokens=200,
+            cost_usd=0.0,
+        )
+
+        runner = self._make_runner(agent=agent)
+        traces = asyncio.run(runner.run())
+
+        trace = traces[0]
+        assert trace.num_turns == 1
+        assert trace.turns[0].cost_usd == 0.0
+
     def test_local_model_cost_127(self) -> None:
         """Cost = 0.0 when client_base_url is 127.0.0.1."""
         agent = MagicMock()
