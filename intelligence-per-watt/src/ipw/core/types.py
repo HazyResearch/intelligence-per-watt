@@ -24,6 +24,7 @@ class Response:
     first_token_time: Optional[float] = None
     request_start_time: float = 0.0
     request_end_time: float = 0.0
+    token_timestamps: Optional[list[float]] = None
 
 
 @dataclass(slots=True)
@@ -53,6 +54,7 @@ class ProfilerConfig:
     phased_profiling: bool = False
     run_hardware_benchmarks: bool = True
     additional_parameters: Mapping[str, Any] = field(default_factory=dict)
+    warmup_queries: int = 3
 
 
 @dataclass(slots=True)

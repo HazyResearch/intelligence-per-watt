@@ -19,20 +19,80 @@ from datasets import Dataset
 from tqdm.auto import tqdm
 
 from ..clients.base import InferenceClient
+from ..compute.flops import estimate_flops
 from ..core.registry import ClientRegistry, DatasetRegistry
 from ..core.types import (DatasetRecord, GpuInfo, ProfilerConfig, Response,
                           SystemInfo, TelemetryReading)
 from ..telemetry import EnergyMonitorCollector
 from .hardware import derive_hardware_label
 from .telemetry_session import TelemetrySample, TelemetrySession
-from .types import (ComputeMetrics, EnergyMetrics, LatencyMetrics,
-                    MemoryMetrics, MetricStats, ModelMetrics,
+from .types import (ComputeMetrics, DerivedEfficiencyMetrics, EnergyMetrics,
+                    LatencyMetrics, MemoryMetrics, MetricStats, ModelMetrics,
                     HardwareUtilization, HardwareUtilizationDerived,
                     HardwareUtilizationGpu, PhaseMetrics,
                     PowerComponentMetrics, PowerMetrics, ProfilingRecord,
                     TokenMetrics)
 
 LOGGER = logging.getLogger(__name__)
+
+# Theoretical peak BF16 TFLOPS for common GPUs (used for MFU calculation).
+GPU_PEAK_TFLOPS_BF16: dict[str, float] = {
+    # NVIDIA Hopper
+    "H100": 989.5,
+    "H100 SXM": 989.5,
+    "H100 PCIe": 756.0,
+    "H200": 989.5,
+    # NVIDIA Blackwell
+    "B200": 2250.0,
+    "B100": 1750.0,
+    "GB200": 2250.0,
+    # NVIDIA Ada Lovelace
+    "RTX 4090": 165.2,
+    "RTX 4080": 97.5,
+    "RTX 4070 Ti": 73.4,
+    "RTX 4070": 58.6,
+    "L40S": 183.0,
+    "L40": 181.0,
+    "L4": 30.3,
+    # NVIDIA Ampere
+    "A100": 312.0,
+    "A100 SXM": 312.0,
+    "A100 PCIe": 312.0,
+    "A6000": 77.4,
+    "A10": 62.5,
+    "RTX 3090": 71.0,
+    "RTX 3080": 47.2,
+    # NVIDIA Volta
+    "V100": 28.3,
+    "V100 SXM2": 28.3,
+    # AMD
+    "MI300X": 1307.4,
+    "MI250X": 383.0,
+    "MI210": 181.0,
+}
+
+
+def _percentile(values: list[float], pct: float) -> float:
+    """Compute a percentile value from a sorted-on-the-fly list."""
+    sorted_vals = sorted(values)
+    n = len(sorted_vals)
+    k = (pct / 100.0) * (n - 1)
+    f = int(k)
+    c = f + 1
+    if c >= n:
+        return sorted_vals[-1]
+    return sorted_vals[f] + (k - f) * (sorted_vals[c] - sorted_vals[f])
+
+
+def _lookup_gpu_peak_tflops(gpu_name: str | None) -> float | None:
+    """Look up theoretical peak BF16 TFLOPS for a GPU by name."""
+    if not gpu_name:
+        return None
+    name_upper = gpu_name.upper().strip()
+    for key, val in GPU_PEAK_TFLOPS_BF16.items():
+        if key.upper() in name_upper:
+            return val
+    return None
 
 
 class ProfilerRunner:
@@ -76,6 +136,11 @@ class ProfilerRunner:
         self._last_energy_total: Optional[float] = None
         self._overwrite_confirmed: bool = False
 
+    @property
+    def records(self) -> list[ProfilingRecord]:
+        """Read-only access to collected profiling records."""
+        return list(self._records)
+
     def run(self) -> None:
         dataset = self._resolve_dataset(
             self._config.dataset_id, self._config.dataset_params
@@ -108,7 +173,9 @@ class ProfilerRunner:
         client,
         telemetry: TelemetrySession,
     ) -> None:
+        warmup = self._config.warmup_queries
         total_queries = self._config.max_queries or dataset.size()
+        total_with_warmup = total_queries + warmup
         iterator = enumerate(dataset)
         # Prime hardware metadata early so the output directory label is accurate.
         self._prime_hardware_metadata(telemetry)
@@ -116,11 +183,16 @@ class ProfilerRunner:
         self._ensure_output_prepared(dataset)
         with tqdm(total=total_queries, desc="Profiling", unit="query") as progress:
             for index, record in iterator:
-                if index >= total_queries:
+                if index >= total_with_warmup:
                     break
                 start = time.time()
                 response = self._invoke_client(client, record)
                 end = time.time()
+
+                if index < warmup:
+                    progress.set_postfix_str(f"warmup {index + 1}/{warmup}")
+                    continue  # Discard warmup queries
+
                 samples = list(telemetry.window(start, end))
                 built = self._build_record(index, record, response, samples, start, end)
                 if built is not None:
@@ -182,6 +254,7 @@ class ProfilerRunner:
         completion_tokens = (
             usage.completion_tokens if usage.completion_tokens is not None else 0
         )
+        total_tokens = prompt_tokens + completion_tokens
 
         per_token_ms = None
         throughput_tokens = None
@@ -189,6 +262,18 @@ class ProfilerRunner:
             per_token_ms = (total_seconds * 1000.0) / completion_tokens
             throughput_tokens = completion_tokens / total_seconds
 
+        # --- Tier 1.1: Per-token energy normalization ---
+        if energy_metrics.per_query_joules is not None:
+            if completion_tokens > 0:
+                energy_metrics.energy_per_output_token_joules = (
+                    energy_metrics.per_query_joules / completion_tokens
+                )
+            if total_tokens > 0:
+                energy_metrics.energy_per_total_token_joules = (
+                    energy_metrics.per_query_joules / total_tokens
+                )
+
+        # --- Tier 3.2: ITL percentiles from token timestamps ---
         latency_metrics = LatencyMetrics(
             per_token_ms=per_token_ms,
             throughput_tokens_per_sec=throughput_tokens,
@@ -198,6 +283,49 @@ class ProfilerRunner:
                 else None
             ),
             total_query_seconds=total_seconds,
+        )
+        if response.token_timestamps and len(response.token_timestamps) > 1:
+            itls = [
+                (response.token_timestamps[i] - response.token_timestamps[i - 1]) * 1000
+                for i in range(1, len(response.token_timestamps))
+            ]
+            latency_metrics.median_itl_ms = statistics.median(itls)
+            latency_metrics.p90_itl_ms = _percentile(itls, 90)
+            latency_metrics.p95_itl_ms = _percentile(itls, 95)
+            latency_metrics.p99_itl_ms = _percentile(itls, 99)
+            latency_metrics.itl_std_ms = statistics.stdev(itls) if len(itls) > 1 else 0.0
+
+        # --- Tier 1.3: FLOPs estimation ---
+        total_flops, flops_per_token = estimate_flops(
+            self._config.model, prompt_tokens, completion_tokens
+        )
+        compute_metrics = ComputeMetrics()
+        if total_flops > 0:
+            compute_metrics.total_flops = int(total_flops)
+            compute_metrics.flops_per_token = flops_per_token
+            compute_metrics.flops_per_request = total_flops
+
+        # --- Tier 1.2: Throughput per watt + FLOPs efficiency ---
+        efficiency = DerivedEfficiencyMetrics()
+        if throughput_tokens is not None and power_stats.avg and power_stats.avg > 0:
+            efficiency.throughput_per_watt = throughput_tokens / power_stats.avg
+        if total_flops > 0 and energy_metrics.per_query_joules and energy_metrics.per_query_joules > 0:
+            efficiency.flops_per_joule = total_flops / energy_metrics.per_query_joules
+        if total_flops > 0 and power_stats.avg and power_stats.avg > 0 and total_seconds > 0:
+            actual_flops_per_sec = total_flops / total_seconds
+            efficiency.flops_per_watt = actual_flops_per_sec / power_stats.avg
+
+        # --- Tier 2.2: MFU ---
+        gpu_name = self._gpu_info.name if self._gpu_info else None
+        peak_tflops = _lookup_gpu_peak_tflops(gpu_name)
+        mfu = None
+        if total_flops > 0 and total_seconds > 0 and peak_tflops is not None:
+            actual_tflops = (total_flops / total_seconds) / 1e12
+            mfu = actual_tflops / peak_tflops
+
+        # --- Tier 2.1: Phase separation at TTFT ---
+        phase_metrics = self._compute_phase_metrics(
+            response, samples, telemetry_readings, prompt_tokens, completion_tokens
         )
 
         model_name = self._config.model
@@ -210,11 +338,11 @@ class ProfilerRunner:
                 memory_used_gb=memory_used_gb,
                 memory_total_gb=memory_total_gb,
             ),
-            derived=HardwareUtilizationDerived(),
+            derived=HardwareUtilizationDerived(mfu=mfu),
         )
 
         model_metrics = ModelMetrics(
-            compute_metrics=ComputeMetrics(),
+            compute_metrics=compute_metrics,
             energy_metrics=energy_metrics,
             latency_metrics=latency_metrics,
             memory_metrics=MemoryMetrics(
@@ -245,9 +373,11 @@ class ProfilerRunner:
             token_metrics=TokenMetrics(
                 input=prompt_tokens,
                 output=completion_tokens,
-                total=prompt_tokens + completion_tokens,
+                total=total_tokens,
             ),
+            phase_metrics=phase_metrics,
             hardware_utilization=hardware_utilization,
+            efficiency=efficiency,
             gpu_info=self._gpu_info,
             system_info=self._system_info,
             lm_response=response.content,
@@ -263,6 +393,81 @@ class ProfilerRunner:
         )
 
         return record_payload
+
+    def _compute_phase_metrics(
+        self,
+        response: Response,
+        samples: Sequence[TelemetrySample],
+        telemetry_readings: Sequence[TelemetryReading],
+        prompt_tokens: int,
+        completion_tokens: int,
+    ) -> PhaseMetrics:
+        """Split telemetry at TTFT boundary to populate prefill/decode phase metrics."""
+        if (
+            response.time_to_first_token_ms is None
+            or response.time_to_first_token_ms <= 0
+            or not samples
+        ):
+            return PhaseMetrics()
+
+        # Compute the epoch timestamp of the first token
+        # request_start_time is epoch-based (time.time()), but if unavailable
+        # we can estimate from the first sample's timestamp
+        if response.request_start_time and response.request_start_time > 0:
+            ttft_epoch = response.request_start_time + (response.time_to_first_token_ms / 1000.0)
+        elif samples:
+            # Fallback: use the first sample timestamp as a reference point
+            first_sample_ts = samples[0].timestamp
+            ttft_epoch = first_sample_ts + (response.time_to_first_token_ms / 1000.0)
+        else:
+            return PhaseMetrics()
+
+        prefill_readings = [s.reading for s in samples if s.timestamp <= ttft_epoch]
+        decode_readings = [s.reading for s in samples if s.timestamp > ttft_epoch]
+
+        # Need at least 2 readings in a phase to compute an energy delta
+        prefill_energy = self._compute_phase_energy(prefill_readings)
+        decode_energy = self._compute_phase_energy(decode_readings)
+
+        # Duration
+        prefill_duration_ms = response.time_to_first_token_ms
+        decode_duration_ms = None
+        if samples:
+            last_ts = samples[-1].timestamp
+            decode_duration_ms = max((last_ts - ttft_epoch) * 1000.0, 0.0) if last_ts > ttft_epoch else None
+
+        # Power averages
+        prefill_power = _stat_summary([r.power_watts for r in prefill_readings])
+        decode_power = _stat_summary([r.power_watts for r in decode_readings])
+
+        # Per-token energy
+        prefill_energy_per_input = None
+        if prefill_energy is not None and prompt_tokens > 0:
+            prefill_energy_per_input = prefill_energy / prompt_tokens
+
+        decode_energy_per_output = None
+        if decode_energy is not None and completion_tokens > 0:
+            decode_energy_per_output = decode_energy / completion_tokens
+
+        return PhaseMetrics(
+            prefill_energy_j=prefill_energy,
+            decode_energy_j=decode_energy,
+            prefill_duration_ms=prefill_duration_ms,
+            decode_duration_ms=decode_duration_ms,
+            prefill_power_avg_w=prefill_power.avg,
+            decode_power_avg_w=decode_power.avg,
+            prefill_energy_per_input_token_j=prefill_energy_per_input,
+            decode_energy_per_output_token_j=decode_energy_per_output,
+        )
+
+    def _compute_phase_energy(
+        self, readings: Sequence[TelemetryReading]
+    ) -> Optional[float]:
+        """Compute GPU energy delta for a phase from its readings."""
+        gpu_values = [
+            r.energy_joules for r in readings if r.energy_joules is not None
+        ]
+        return self._compute_energy_delta(gpu_values) if len(gpu_values) >= 2 else None
 
     def _compute_energy_metrics(
         self, readings: Sequence[TelemetryReading]

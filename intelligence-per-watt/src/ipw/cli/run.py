@@ -10,6 +10,14 @@ from pathlib import Path
 import click
 
 from ._console import error, info, success, warning
+from ._display import (
+    compute_trace_metrics,
+    print_banner,
+    print_config_summary,
+    print_efficiency_panel,
+    print_metrics_table,
+    print_output_path,
+)
 
 
 def _create_model_for_agent(agent_id: str, model: str, base_url: str, api_key: str):
@@ -238,13 +246,18 @@ def run_cmd(
         "eval_model": eval_model,
     }
 
-    info(f"Agent: {agent_id}")
-    info(f"Model: {model}")
-    info(f"Dataset: {dataset_id}")
+    print_banner()
+    run_display_config: dict[str, object] = {
+        "Agent": agent_id,
+        "Model": model,
+        "Dataset": dataset_id,
+        "Base URL": client_base_url,
+        "Max Queries": max_queries or "(all)",
+    }
     if concurrency > 1:
-        info(f"Concurrency: {concurrency}")
-    info(f"Output: {run_dir}")
-    info("")
+        run_display_config["Concurrency"] = concurrency
+    run_display_config["Output"] = str(run_dir)
+    print_config_summary(config=run_display_config)
 
     # Build an agent factory for concurrent execution so each thread gets
     # its own agent instance with independent state.
@@ -317,31 +330,14 @@ def run_cmd(
     if manifest_path:
         info(f"Exported artifacts manifest: {manifest_path}")
 
-    # Print summary
-    info("")
+    # Rich summary display
     total_completed = sum(1 for t in traces if t.completed)
-    total_turns = sum(t.num_turns for t in traces)
-    total_tokens = sum(t.total_input_tokens + t.total_output_tokens for t in traces)
-    total_wall = sum(t.total_wall_clock_s for t in traces)
-
     success(f"Run complete: {total_completed}/{len(traces)} queries completed")
-    info(f"  Turns: {total_turns}")
-    info(f"  Tokens: {total_tokens}")
-    info(f"  Wall clock: {total_wall:.1f}s")
 
-    gpu_energy = sum(
-        (t.total_gpu_energy_joules for t in traces if t.total_gpu_energy_joules is not None),
-        0.0,
-    )
-    if gpu_energy > 0:
-        info(f"  GPU energy: {gpu_energy:.2f} J")
-
-    cost = sum(
-        (t.total_cost_usd for t in traces if t.total_cost_usd is not None),
-        0.0,
-    )
-    if cost > 0:
-        info(f"  Cost: ${cost:.4f}")
+    metric_rows = compute_trace_metrics(traces)
+    print_metrics_table(rows=metric_rows, title="Run Metrics")
+    print_efficiency_panel(traces=traces)
+    print_output_path(path=run_dir)
 
 
 __all__ = ["run_cmd"]

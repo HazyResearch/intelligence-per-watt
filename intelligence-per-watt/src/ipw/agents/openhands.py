@@ -6,6 +6,7 @@ import json
 import logging
 import os
 import re
+import subprocess
 from typing import TYPE_CHECKING, Any, Dict, List, MutableMapping, Optional, Sequence
 
 from ipw.agents.base import BaseAgent
@@ -17,6 +18,38 @@ if TYPE_CHECKING:
     from ipw.telemetry.events import EventRecorder
 
 logger = logging.getLogger(__name__)
+
+_docker_host_ip: str | None = None
+
+
+def _get_docker_host_ip() -> str:
+    """Return an IP address the host is reachable at from inside Docker containers.
+
+    On Linux, ``host.docker.internal`` does not resolve by default (it requires
+    ``--add-host`` at container creation time).  We therefore resolve the Docker
+    bridge gateway IP via ``docker network inspect bridge`` and cache it for the
+    lifetime of the process.  Falls back to ``172.17.0.1`` (the default bridge
+    gateway) if detection fails.
+    """
+    global _docker_host_ip
+    if _docker_host_ip is not None:
+        return _docker_host_ip
+
+    try:
+        out = subprocess.check_output(
+            ["docker", "network", "inspect", "bridge",
+             "--format", "{{range .IPAM.Config}}{{.Gateway}}{{end}}"],
+            text=True, timeout=5,
+        ).strip()
+        if out:
+            _docker_host_ip = out
+            logger.debug("Detected Docker bridge gateway IP: %s", out)
+            return _docker_host_ip
+    except Exception:
+        logger.debug("Could not detect Docker bridge gateway, using 172.17.0.1")
+
+    _docker_host_ip = "172.17.0.1"
+    return _docker_host_ip
 
 
 def _register_mcp_tools(mcp_tools: Dict[str, "BaseMCPServer"]) -> list:
@@ -189,23 +222,90 @@ def _read_openhands_trajectory(session: Any) -> dict[str, Any]:
         "num_turns": 0,
     }
     try:
-        find = session.container.exec_run(
-            ["find", "/agent-logs", "-name", "*.json", "-type", "f"]
-        )
-        if find.exit_code != 0 or not find.output.strip():
-            return result
-        files = find.output.decode().strip().split("\n")
-        # Take the last (most recent) trajectory file
-        cat = session.container.exec_run(["cat", files[-1]])
+        # OpenHands saves trajectory to SAVE_TRAJECTORY_PATH.  If the path is
+        # a directory, it writes <session_id>.json inside; otherwise it writes
+        # directly to the path as a file.  Check both cases.
+        traj_path = "/agent-logs"
+
+        # First check if /agent-logs is a regular file (OpenHands wrote directly)
+        test = session.container.exec_run(["test", "-f", traj_path])
+        if test.exit_code == 0:
+            logger.info("Trajectory saved as file at %s", traj_path)
+            cat = session.container.exec_run(["cat", traj_path])
+        else:
+            # Directory case: search for .json files inside
+            find = session.container.exec_run(
+                ["find", traj_path, "-name", "*.json", "-type", "f"]
+            )
+            if find.exit_code != 0 or not find.output.strip():
+                logger.warning("No trajectory files found in %s (exit=%d, output=%r)",
+                               traj_path, find.exit_code,
+                               find.output[:200] if find.output else b"")
+                return result
+            files = find.output.decode().strip().split("\n")
+            logger.info("Found %d trajectory file(s) in %s: %s",
+                        len(files), traj_path, files[-1])
+            cat = session.container.exec_run(["cat", files[-1]])
         if cat.exit_code != 0:
+            logger.warning("Failed to cat trajectory file %s", files[-1])
             return result
         trajectory = json.loads(cat.output.decode())
-        if "metrics" in trajectory:
-            m = trajectory["metrics"]
-            result["input_tokens"] = int(m.get("accumulated_input_tokens", 0))
-            result["output_tokens"] = int(m.get("accumulated_output_tokens", 0))
-            result["cost"] = float(m.get("accumulated_cost", 0.0))
-            result["num_turns"] = int(m.get("num_turns", 0))
+
+        # OpenHands trajectory can be:
+        #   - a dict {"metrics": {...}, ...} (older format)
+        #   - a list of event dicts (headless mode, v1.4+)
+        #     where the last event has "llm_metrics" with token/cost data
+        metrics: dict[str, Any] | None = None
+        if isinstance(trajectory, dict) and "metrics" in trajectory:
+            metrics = trajectory["metrics"]
+        elif isinstance(trajectory, list):
+            # v1.4+ format: last event has "llm_metrics" dict
+            for event in reversed(trajectory):
+                if isinstance(event, dict):
+                    if "llm_metrics" in event:
+                        metrics = event["llm_metrics"]
+                        break
+                    if "metrics" in event:
+                        metrics = event["metrics"]
+                        break
+                    extras = event.get("extras", {})
+                    if isinstance(extras, dict) and "metrics" in extras:
+                        metrics = extras["metrics"]
+                        break
+
+        if metrics is not None:
+            logger.info("Raw llm_metrics keys: %s", list(metrics.keys())[:20])
+            # v1.4+ format uses _accumulated_cost, _accumulated_token_usage, etc.
+            # Older format uses accumulated_input_tokens, accumulated_output_tokens
+            input_tok = (
+                metrics.get("accumulated_input_tokens")
+                or metrics.get("prompt_tokens")
+                or 0
+            )
+            output_tok = (
+                metrics.get("accumulated_output_tokens")
+                or metrics.get("completion_tokens")
+                or 0
+            )
+            cost = metrics.get("accumulated_cost") or metrics.get("_accumulated_cost") or 0.0
+            turns = metrics.get("num_turns") or 0
+
+            # v1.4+ stores token counts in _accumulated_token_usage sub-dict
+            token_usage = metrics.get("_accumulated_token_usage", {})
+            if isinstance(token_usage, dict):
+                input_tok = input_tok or token_usage.get("prompt_tokens", 0)
+                output_tok = output_tok or token_usage.get("completion_tokens", 0)
+
+            result["input_tokens"] = int(input_tok)
+            result["output_tokens"] = int(output_tok)
+            result["cost"] = float(cost)
+            result["num_turns"] = int(turns)
+            logger.info("Extracted from trajectory: in=%d out=%d cost=%.4f turns=%d",
+                        result["input_tokens"], result["output_tokens"],
+                        result["cost"], result["num_turns"])
+        else:
+            desc = f"list[{len(trajectory)}]" if isinstance(trajectory, list) else str(type(trajectory))
+            logger.warning("No 'metrics' found in trajectory (%s)", desc)
     except Exception:
         logger.warning("Failed to read OH trajectory", exc_info=True)
     return result
@@ -433,23 +533,33 @@ class OpenHands(BaseAgent):
         task = self._task_metadata["task"]
         task_id = self._task_metadata.get("task_id", "unknown")
 
-        # TB's OpenHandsAgent needs an LLM model string and optional env vars.
-        # Translate localhost URLs to host.docker.internal for container access.
-        model_str = str(self.model)
-        env_vars: dict[str, str] = {}
+        # TB's OpenHandsAgent reads LLM_MODEL, LLM_BASE_URL, LLM_API_KEY from
+        # os.environ (via its _env property) and writes them into a setup-env.sh
+        # sourced inside the Docker container.  We need to:
+        #   1. Extract the plain model-id string (self.model is an LLM object)
+        #   2. Translate localhost URLs → Docker bridge gateway IP
+        #   3. Set os.environ so TB's _env picks up the translated values
 
-        llm_base_url = os.environ.get("LLM_BASE_URL", "")
+        # --- model name ---
+        # self.model is openhands.sdk.LLM; .model gives the litellm model string
+        model_str = getattr(self.model, "model", None) or str(self.model)
+
+        # --- base URL ---
+        # Prefer the URL from the LLM object; fall back to env vars
+        llm_base_url = getattr(self.model, "base_url", None) or ""
         if not llm_base_url:
-            # Fall back to the client base URL if set
+            llm_base_url = os.environ.get("LLM_BASE_URL", "")
+        if not llm_base_url:
             llm_base_url = os.environ.get("IPW_CLIENT_BASE_URL", "")
         if llm_base_url:
-            llm_base_url = llm_base_url.replace("localhost", "host.docker.internal")
-            llm_base_url = llm_base_url.replace("127.0.0.1", "host.docker.internal")
-            env_vars["LLM_BASE_URL"] = llm_base_url
+            # Translate localhost/127.0.0.1 to the Docker bridge gateway IP so
+            # containers can reach the host-side vLLM server.
+            docker_ip = _get_docker_host_ip()
+            llm_base_url = llm_base_url.replace("localhost", docker_ip)
+            llm_base_url = llm_base_url.replace("127.0.0.1", docker_ip)
+            os.environ["LLM_BASE_URL"] = llm_base_url
 
-        # Fix model name for litellm provider routing: models served via an
-        # OpenAI-compatible endpoint need an "openai/" prefix so litellm
-        # routes to the correct provider inside the Docker container.
+        # Ensure the model string has a litellm provider prefix
         _KNOWN_PREFIXES = (
             "openai/", "anthropic/", "gemini/", "google/",
             "azure/", "bedrock/", "vertex_ai/", "ollama/",
@@ -457,12 +567,22 @@ class OpenHands(BaseAgent):
         if llm_base_url and not model_str.startswith(_KNOWN_PREFIXES):
             model_str = f"openai/{model_str}"
 
-        # Forward LLM_API_KEY so litellm inside Docker can authenticate.
-        llm_api_key = os.environ.get("LLM_API_KEY", "")
+        # --- API key ---
+        llm_api_key = getattr(self.model, "api_key", None)
+        # api_key may be a SecretStr; extract the raw value
+        if llm_api_key is not None and hasattr(llm_api_key, "get_secret_value"):
+            llm_api_key = llm_api_key.get_secret_value()
         if not llm_api_key:
-            llm_api_key = os.environ.get("OPENAI_API_KEY", "")
+            llm_api_key = os.environ.get("LLM_API_KEY", "") or os.environ.get("OPENAI_API_KEY", "")
         if llm_api_key:
-            env_vars["LLM_API_KEY"] = llm_api_key
+            os.environ["LLM_API_KEY"] = llm_api_key
+
+        logger.info(
+            "TB env setup: LLM_BASE_URL=%s, LLM_MODEL=%s, LLM_API_KEY=%s",
+            os.environ.get("LLM_BASE_URL", "<unset>"),
+            model_str,
+            "***" if llm_api_key else "<unset>",
+        )
 
         terminal_output = ""
         extracted_input_tokens = 0

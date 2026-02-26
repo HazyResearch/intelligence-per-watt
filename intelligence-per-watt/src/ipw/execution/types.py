@@ -33,6 +33,9 @@ class EnergyMetrics:
     # ANE energy (macOS only)
     ane_per_query_joules: Optional[float] = None
     ane_total_joules: Optional[float] = None
+    # Per-token energy normalization
+    energy_per_output_token_joules: Optional[float] = None
+    energy_per_total_token_joules: Optional[float] = None
 
 
 @dataclass(slots=True)
@@ -41,6 +44,12 @@ class LatencyMetrics:
     throughput_tokens_per_sec: Optional[float] = None
     time_to_first_token_seconds: Optional[float] = None
     total_query_seconds: Optional[float] = None
+    # Inter-token latency distribution
+    median_itl_ms: Optional[float] = None
+    p90_itl_ms: Optional[float] = None
+    p95_itl_ms: Optional[float] = None
+    p99_itl_ms: Optional[float] = None
+    itl_std_ms: Optional[float] = None
 
 
 @dataclass(slots=True)
@@ -105,6 +114,13 @@ class PhaseMetrics:
 
 
 @dataclass(slots=True)
+class DerivedEfficiencyMetrics:
+    throughput_per_watt: Optional[float] = None
+    flops_per_joule: Optional[float] = None
+    flops_per_watt: Optional[float] = None
+
+
+@dataclass(slots=True)
 class CostMetrics:
     input_cost_usd: Optional[float] = None
     output_cost_usd: Optional[float] = None
@@ -123,6 +139,7 @@ class ModelMetrics:
     token_metrics: TokenMetrics = field(default_factory=TokenMetrics)
     phase_metrics: PhaseMetrics = field(default_factory=PhaseMetrics)
     hardware_utilization: HardwareUtilization = field(default_factory=HardwareUtilization)
+    efficiency: DerivedEfficiencyMetrics = field(default_factory=DerivedEfficiencyMetrics)
     cost: CostMetrics = field(default_factory=CostMetrics)
     gpu_info: Optional[GpuInfo] = None
     system_info: Optional[SystemInfo] = None
@@ -144,6 +161,7 @@ __all__ = [
     "MetricStats",
     "ComputeMetrics",
     "CostMetrics",
+    "DerivedEfficiencyMetrics",
     "EnergyMetrics",
     "LatencyMetrics",
     "MemoryMetrics",

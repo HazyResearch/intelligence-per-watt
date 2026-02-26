@@ -186,6 +186,11 @@ class TestReadOpenhandsTrajectory:
         }
 
         session = MagicMock()
+
+        # test -f /agent-logs → exit 1 (directory case)
+        test_result = MagicMock()
+        test_result.exit_code = 1
+
         find_result = MagicMock()
         find_result.exit_code = 0
         find_result.output = b"/agent-logs/traj_001.json\n"
@@ -194,7 +199,7 @@ class TestReadOpenhandsTrajectory:
         cat_result.exit_code = 0
         cat_result.output = json.dumps(trajectory).encode()
 
-        session.container.exec_run.side_effect = [find_result, cat_result]
+        session.container.exec_run.side_effect = [test_result, find_result, cat_result]
 
         stats = _read_openhands_trajectory(session)
         assert stats["input_tokens"] == 1200
@@ -202,15 +207,51 @@ class TestReadOpenhandsTrajectory:
         assert stats["cost"] == 0.05
         assert stats["num_turns"] == 7
 
+    def test_reads_metrics_from_trajectory_file(self, _mock_openhands: dict) -> None:
+        """When /agent-logs is a file (not directory), read it directly."""
+        from ipw.agents.openhands import _read_openhands_trajectory
+
+        trajectory = {
+            "metrics": {
+                "accumulated_input_tokens": 900,
+                "accumulated_output_tokens": 400,
+                "accumulated_cost": 0.0,
+                "num_turns": 5,
+            }
+        }
+
+        session = MagicMock()
+
+        # test -f /agent-logs → exit 0 (it IS a file)
+        test_result = MagicMock()
+        test_result.exit_code = 0
+
+        cat_result = MagicMock()
+        cat_result.exit_code = 0
+        cat_result.output = json.dumps(trajectory).encode()
+
+        session.container.exec_run.side_effect = [test_result, cat_result]
+
+        stats = _read_openhands_trajectory(session)
+        assert stats["input_tokens"] == 900
+        assert stats["output_tokens"] == 400
+        assert stats["cost"] == 0.0
+        assert stats["num_turns"] == 5
+
     def test_returns_zeros_when_no_files(self, _mock_openhands: dict) -> None:
         from ipw.agents.openhands import _read_openhands_trajectory
 
         session = MagicMock()
+
+        # test -f → exit 1 (not a file), find → exit 1 (no files)
+        test_result = MagicMock()
+        test_result.exit_code = 1
+
         find_result = MagicMock()
         find_result.exit_code = 1
         find_result.output = b""
 
-        session.container.exec_run.return_value = find_result
+        session.container.exec_run.side_effect = [test_result, find_result]
 
         stats = _read_openhands_trajectory(session)
         assert stats["input_tokens"] == 0
@@ -222,6 +263,11 @@ class TestReadOpenhandsTrajectory:
         from ipw.agents.openhands import _read_openhands_trajectory
 
         session = MagicMock()
+
+        # test -f → exit 1 (directory case)
+        test_result = MagicMock()
+        test_result.exit_code = 1
+
         find_result = MagicMock()
         find_result.exit_code = 0
         find_result.output = b"/agent-logs/traj.json\n"
@@ -230,7 +276,7 @@ class TestReadOpenhandsTrajectory:
         cat_result.exit_code = 1
         cat_result.output = b""
 
-        session.container.exec_run.side_effect = [find_result, cat_result]
+        session.container.exec_run.side_effect = [test_result, find_result, cat_result]
 
         stats = _read_openhands_trajectory(session)
         assert stats["input_tokens"] == 0
@@ -260,6 +306,11 @@ class TestReadOpenhandsTrajectory:
         }
 
         session = MagicMock()
+
+        # First call: test -f /agent-logs → exit 1 (is a directory)
+        test_result = MagicMock()
+        test_result.exit_code = 1
+
         find_result = MagicMock()
         find_result.exit_code = 0
         find_result.output = b"/agent-logs/traj_001.json\n/agent-logs/traj_002.json\n"
@@ -268,7 +319,7 @@ class TestReadOpenhandsTrajectory:
         cat_result.exit_code = 0
         cat_result.output = json.dumps(trajectory).encode()
 
-        session.container.exec_run.side_effect = [find_result, cat_result]
+        session.container.exec_run.side_effect = [test_result, find_result, cat_result]
 
         stats = _read_openhands_trajectory(session)
         assert stats["input_tokens"] == 500

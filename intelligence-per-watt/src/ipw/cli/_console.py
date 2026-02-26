@@ -11,7 +11,7 @@ from rich.console import Console
 if TYPE_CHECKING:
     from ..analysis.base import AnalysisResult
 
-console = Console(highlight=False, markup=False)
+console = Console(highlight=False)
 
 
 def success(message: str) -> None:
