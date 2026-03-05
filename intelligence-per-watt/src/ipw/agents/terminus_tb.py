@@ -52,7 +52,10 @@ class TerminusTB(BaseAgent):
             agent_kwargs["api_base"] = api_base
         agent_kwargs.update(kwargs)
 
-        self._terminus = Terminus2(model_name=model, **agent_kwargs)
+        # LiteLLM requires an ``openai/`` prefix for OpenAI-compatible endpoints.
+        # Always prepend so LiteLLM strips it back to the original HF model ID.
+        litellm_model = f"openai/{model}"
+        self._terminus = Terminus2(model_name=litellm_model, **agent_kwargs)
         self._model_name = model
         self._task_metadata: Optional[MutableMapping[str, Any]] = None
 

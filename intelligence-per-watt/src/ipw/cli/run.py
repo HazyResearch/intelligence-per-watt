@@ -105,6 +105,12 @@ def _create_model_for_agent(agent_id: str, model: str, base_url: str, api_key: s
     help="Number of tasks to run in parallel",
 )
 @click.option(
+    "--query-timeout",
+    type=float,
+    default=None,
+    help="Wall-clock timeout in seconds per query (default: no limit)",
+)
+@click.option(
     "--eval-client",
     default="openai",
     show_default=True,
@@ -130,6 +136,7 @@ def run_cmd(
     agent_kwargs: str | None,
     dataset_kwargs: str | None,
     concurrency: int,
+    query_timeout: float | None,
     eval_client: str,
     eval_model: str,
 ) -> None:
@@ -216,6 +223,11 @@ def run_cmd(
     # Create event recorder and agent
     event_recorder = EventRecorder()
     resolved_model = _create_model_for_agent(agent_id, model, client_base_url, api_key)
+
+    # Terminus-based agents need api_base so LiteLLM can reach the local server
+    if agent_id in ("terminus", "terminus-tb") and "api_base" not in extra_kwargs:
+        extra_kwargs["api_base"] = f"{client_base_url}/v1"
+
     try:
         agent_instance = agent_cls(
             model=resolved_model,
@@ -240,6 +252,7 @@ def run_cmd(
         "client_base_url": client_base_url,
         "max_queries": max_queries,
         "concurrency": concurrency,
+        "query_timeout": query_timeout,
         "export_format": export_format,
         "estimate_flops": estimate_flops,
         "eval_client": eval_client,
@@ -256,6 +269,8 @@ def run_cmd(
     }
     if concurrency > 1:
         run_display_config["Concurrency"] = concurrency
+    if query_timeout:
+        run_display_config["Query Timeout"] = f"{query_timeout:.0f}s"
     run_display_config["Output"] = str(run_dir)
     print_config_summary(config=run_display_config)
 
@@ -281,6 +296,7 @@ def run_cmd(
             run_dir=run_dir,
             concurrency=concurrency,
             agent_factory=_make_agent if concurrency > 1 else None,
+            query_timeout=query_timeout,
         )
 
         try:
