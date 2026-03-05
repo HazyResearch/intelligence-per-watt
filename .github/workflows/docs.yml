@@ -39,10 +39,11 @@ jobs:
         uses: astral-sh/setup-uv@v4
 
       - name: Install dependencies
+        working-directory: intelligence-per-watt
         run: uv sync --extra docs
 
       - name: Build documentation
-        run: uv run mkdocs build
+        run: uv run --project intelligence-per-watt mkdocs build
 
       - name: Upload artifact
         if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
