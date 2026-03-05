@@ -125,11 +125,11 @@ class TerminalBenchTaskEnv:
         Returns:
             ``(is_resolved, test_results)`` tuple.
         """
+        from terminal_bench.parsers.base_parser import UnitTestStatus
+        from terminal_bench.parsers.parser_factory import ParserFactory
         from terminal_bench.terminal.docker_compose_manager import (
             DockerComposeManager,
         )
-        from terminal_bench.parsers.base_parser import UnitTestStatus
-        from terminal_bench.parsers.parser_factory import ParserFactory
 
         task = self._metadata["task"]
         task_paths = self._metadata["task_paths"]

@@ -284,7 +284,7 @@ class TestQueryTrace:
 
     def test_to_hf_dataset(self) -> None:
         try:
-            from datasets import Dataset
+            from datasets import Dataset  # noqa: F401
         except ImportError:
             pytest.skip("datasets package not available")
 

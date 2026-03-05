@@ -65,6 +65,8 @@ timeout = 600
 [tool.ruff]
 target-version = "py313"
 src = ["src", "src/ipw/tests"]
+line-length = 120
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "W"]
+ignore = ["E501"]

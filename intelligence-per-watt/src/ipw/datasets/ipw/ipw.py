@@ -4,15 +4,13 @@ import json
 import os
 from importlib import resources
 from pathlib import Path
-from typing import (Any, Dict, Iterable, Iterator, MutableMapping, Optional,
-                    Tuple)
+from typing import Any, Dict, Iterable, Iterator, MutableMapping, Optional, Tuple
 
 import ipw.evaluation  # noqa: F401  # register evaluation handlers
 from datasets import load_from_disk
 
 from ...clients.base import InferenceClient
-from ...core.registry import (ClientRegistry, DatasetRegistry,
-                              EvaluationRegistry)
+from ...core.registry import ClientRegistry, DatasetRegistry, EvaluationRegistry
 from ...core.types import DatasetRecord
 from ..base import DatasetProvider
 
@@ -123,10 +121,10 @@ class IPWDataset(DatasetProvider):
 
         meta = json.loads(raw_meta)
         config = meta.get("config") or {}
-        
+
         # Use a mapping from dataset_name to evaluation_method (handler key)
         dataset_name = config.get("dataset_name")
-        
+
         # Define the mapping
         VERIFICATION_MAPPING = {
             "allenai/WildChat": "wildchat",

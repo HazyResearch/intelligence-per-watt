@@ -100,7 +100,7 @@ class TestReactIntegration:
 
         recorder = EventRecorder()
         model = MagicMock()
-        agent = React(model=model, tools=[my_tool], event_recorder=recorder)
+        _agent = React(model=model, tools=[my_tool], event_recorder=recorder)  # noqa: F841
 
         # Manually invoke the instrumented tool to verify events
         if captured_tools:

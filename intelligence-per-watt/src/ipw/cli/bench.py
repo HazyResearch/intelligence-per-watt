@@ -51,7 +51,6 @@ from ipw.cli._display import (
 )
 from ipw.cli.server_manager import (
     InferenceServerManager,
-    ServerConfig,
     build_server_configs,
 )
 
@@ -333,7 +332,7 @@ def execute_benchmark(
     import ipw.datasets
     ipw.datasets.ensure_registered()
 
-    from ipw.agents import react as _react, openhands as _openhands, terminus as _terminus  # noqa: F401
+    from ipw.agents import react as _react  # noqa: F401
     from ipw.core.registry import AgentRegistry, DatasetRegistry
     from ipw.execution.agentic_runner import AgenticRunner
     from ipw.execution.exporters import export_jsonl, export_summary_json
@@ -504,8 +503,8 @@ def _execute_with_telemetry(
         }
 
     try:
-        from ipw.telemetry import EnergyMonitorCollector
         from ipw.execution.telemetry_session import TelemetrySession
+        from ipw.telemetry import EnergyMonitorCollector
 
         collector = EnergyMonitorCollector()
         with TelemetrySession(

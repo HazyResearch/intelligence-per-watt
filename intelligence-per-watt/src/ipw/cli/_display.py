@@ -310,13 +310,13 @@ def print_efficiency_panel(
         ipj = acc / total_energy
         lines.append(f"[bold green]IPJ[/bold green]  (Intelligence Per Joule):  [bold]{ipj:.4f}[/bold]")
     elif total_energy > 0:
-        lines.append(f"[dim]IPJ  (Intelligence Per Joule):  N/A (no accuracy data)[/dim]")
+        lines.append("[dim]IPJ  (Intelligence Per Joule):  N/A (no accuracy data)[/dim]")
 
     if acc is not None and avg_power > 0:
         ipw = acc / avg_power
         lines.append(f"[bold green]IPW[/bold green]  (Intelligence Per Watt):   [bold]{ipw:.4f}[/bold]")
     elif avg_power > 0:
-        lines.append(f"[dim]IPW  (Intelligence Per Watt):   N/A (no accuracy data)[/dim]")
+        lines.append("[dim]IPW  (Intelligence Per Watt):   N/A (no accuracy data)[/dim]")
 
     if not lines:
         return

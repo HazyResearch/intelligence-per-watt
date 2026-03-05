@@ -11,10 +11,8 @@ import re
 import statistics
 import threading
 import time
-from concurrent.futures import ThreadPoolExecutor
-from dataclasses import asdict
 from pathlib import Path
-from typing import Any, Callable, Optional, Sequence
+from typing import Any, Callable, Optional
 
 from tqdm.auto import tqdm
 
@@ -31,7 +29,6 @@ from ..execution.types import (
     MemoryMetrics,
     MetricStats,
     ModelMetrics,
-    PowerComponentMetrics,
     PowerMetrics,
     ProfilingRecord,
     TokenMetrics,
@@ -351,7 +348,7 @@ class AgenticRunner:
 
         # Capture telemetry window around the agent call
         start_time = time.time()
-        telemetry_samples_before = (
+        _telemetry_samples_before = (  # noqa: F841
             list(self._telemetry.readings()) if self._telemetry else []
         )
 

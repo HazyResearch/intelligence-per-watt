@@ -31,11 +31,8 @@ def _create_model_for_agent(agent_id: str, model: str, base_url: str, api_key: s
 
         # LiteLLM requires provider prefix: ollama/ for Ollama, openai/ for OpenAI-compatible
         is_ollama = "11434" in base_url or "ollama" in base_url.lower()
-        if "/" in model and not model.startswith(("openai/", "ollama/")):
-            litellm_model = model
-        else:
-            prefix = "ollama" if is_ollama else "openai"
-            litellm_model = f"{prefix}/{model}"
+        prefix = "ollama" if is_ollama else "openai"
+        litellm_model = model if model.startswith(f"{prefix}/") else f"{prefix}/{model}"
         # Ollama native API doesn't use /v1; OpenAI-compatible servers do
         llm_base_url = base_url if is_ollama else f"{base_url}/v1"
         return LLM(model=litellm_model, api_key=api_key, base_url=llm_base_url)
@@ -161,7 +158,7 @@ def run_cmd(
     ipw.datasets.ensure_registered()
 
     # Ensure agent modules are imported for registry population
-    from ipw.agents import react as _react, openhands as _openhands, terminus as _terminus, terminus_tb as _terminus_tb  # noqa: F401
+    from ipw.agents import react as _react  # noqa: F401
     from ipw.core.registry import AgentRegistry, DatasetRegistry
     from ipw.execution.agentic_runner import AgenticRunner
     from ipw.execution.exporters import export_artifacts_manifest, export_hf_dataset, export_jsonl, export_summary_json
@@ -280,7 +277,7 @@ def run_cmd(
     _agent_cls_ref = agent_cls
     _extra_kwargs_ref = dict(extra_kwargs)
 
-    def _make_agent() -> "BaseAgent":
+    def _make_agent() -> "BaseAgent":  # noqa: F821
         rec = EventRecorder()
         return _agent_cls_ref(model=_model_ref, event_recorder=rec, **_extra_kwargs_ref)
 

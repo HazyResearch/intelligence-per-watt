@@ -4,8 +4,8 @@ from abc import ABC, abstractmethod
 from contextlib import AbstractContextManager
 from typing import Dict, Iterable, Iterator, Optional, Tuple
 
-from ..core.types import DatasetRecord
 from ..clients.base import InferenceClient
+from ..core.types import DatasetRecord
 
 
 class DatasetProvider(ABC):

@@ -5,6 +5,7 @@ from typing import NoReturn
 from unittest.mock import MagicMock, patch
 
 import pytest
+
 from ipw.core.types import DatasetRecord
 from ipw.datasets.ipw import IPWDataset
 
@@ -41,7 +42,7 @@ class TestIPWDatasetScoring:
         with patch("ipw.core.registry.ClientRegistry.create") as mock_client_create:
             mock_client = MagicMock()
             mock_client_create.return_value = mock_client
-            
+
             # We also need to mock EvaluationRegistry to avoid real handler lookup/instantiation
             with patch("ipw.core.registry.EvaluationRegistry.create") as mock_eval_create:
                 yield mock_eval_create, mock_client
@@ -53,7 +54,7 @@ class TestIPWDatasetScoring:
         mock_handler.evaluate.return_value = (True, {"reason": "mocked"})
 
         ipw_dataset = IPWDataset()
-        
+
         # Create a mock record matching 'allenai/WildChat'
         record = DatasetRecord(
             problem="test problem",
@@ -76,7 +77,7 @@ class TestIPWDatasetScoring:
         # args[0] should be 'wildchat'
         args, kwargs = mock_eval_create.call_args
         assert args[0] == "wildchat"
-        
+
         mock_handler.evaluate.assert_called_once_with(
             problem=record.problem,
             reference=record.answer,
@@ -93,7 +94,7 @@ class TestIPWDatasetScoring:
         mock_handler.evaluate.return_value = (False, {"reason": "mocked_false"})
 
         ipw_dataset = IPWDataset()
-        
+
         # Create a mock record matching 'facebook/natural_reasoning'
         record = DatasetRecord(
             problem="reasoning problem",
@@ -114,10 +115,10 @@ class TestIPWDatasetScoring:
 
         args, kwargs = mock_eval_create.call_args
         assert args[0] == "natural_reasoning"
-        
+
         assert is_correct is False
         assert meta == {"reason": "mocked_false"}
-    
+
     def test_score_raises_error_for_unmapped_dataset(self, mock_registries) -> None:
         ipw_dataset = IPWDataset()
 
@@ -142,9 +143,9 @@ class TestIPWDatasetScoring:
     def test_score_raises_error_if_no_method_found(self, mock_registries) -> None:
         # The logic raises BEFORE calling EvaluationRegistry.create, so mocking it doesn't matter for the exception
         # but we need the fixture to avoid unrelated errors if any
-        
+
         ipw_dataset = IPWDataset()
-        
+
         # Create a mock record with an unmapped dataset_name and no verification_method
         record = DatasetRecord(
             problem="error problem",

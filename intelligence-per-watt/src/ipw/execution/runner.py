@@ -2,36 +2,47 @@
 
 from __future__ import annotations
 
-import logging
-from importlib import metadata as importlib_metadata
 import json
+import logging
 import math
 import platform
 import shutil
 import statistics
 import time
 from dataclasses import asdict
+from importlib import metadata as importlib_metadata
 from pathlib import Path
 from typing import Any, Iterable, Mapping, MutableMapping, Optional, Sequence
 
 import click
-from datasets import Dataset
 from tqdm.auto import tqdm
+
+from datasets import Dataset
 
 from ..clients.base import InferenceClient
 from ..compute.flops import estimate_flops
 from ..core.registry import ClientRegistry, DatasetRegistry
-from ..core.types import (DatasetRecord, GpuInfo, ProfilerConfig, Response,
-                          SystemInfo, TelemetryReading)
+from ..core.types import DatasetRecord, GpuInfo, ProfilerConfig, Response, SystemInfo, TelemetryReading
 from ..telemetry import EnergyMonitorCollector
 from .hardware import derive_hardware_label
 from .telemetry_session import TelemetrySample, TelemetrySession
-from .types import (ComputeMetrics, DerivedEfficiencyMetrics, EnergyMetrics,
-                    LatencyMetrics, MemoryMetrics, MetricStats, ModelMetrics,
-                    HardwareUtilization, HardwareUtilizationDerived,
-                    HardwareUtilizationGpu, PhaseMetrics,
-                    PowerComponentMetrics, PowerMetrics, ProfilingRecord,
-                    TokenMetrics)
+from .types import (
+    ComputeMetrics,
+    DerivedEfficiencyMetrics,
+    EnergyMetrics,
+    HardwareUtilization,
+    HardwareUtilizationDerived,
+    HardwareUtilizationGpu,
+    LatencyMetrics,
+    MemoryMetrics,
+    MetricStats,
+    ModelMetrics,
+    PhaseMetrics,
+    PowerComponentMetrics,
+    PowerMetrics,
+    ProfilingRecord,
+    TokenMetrics,
+)
 
 LOGGER = logging.getLogger(__name__)
 

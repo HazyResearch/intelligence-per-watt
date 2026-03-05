@@ -8,7 +8,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from ipw.cost.pricing import OPENAI_PRICING, calculate_cost
+from ipw.cost.pricing import calculate_cost
 
 
 @pytest.fixture(autouse=True)

@@ -43,7 +43,7 @@ class TestTerminusIntegrationMocked:
         }):
             from ipw.agents.terminus import Terminus
 
-            agent = Terminus(model="gpt-4o")
+            Terminus(model="gpt-4o")
             MockTerminus2.assert_called_once_with(model_name="gpt-4o")
 
     def test_lm_events_recorded(self) -> None:

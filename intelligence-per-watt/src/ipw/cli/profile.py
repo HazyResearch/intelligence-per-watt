@@ -6,6 +6,7 @@ from pathlib import Path
 from typing import Dict
 
 import click
+
 from ipw.core.types import ProfilerConfig
 
 from ._console import _print_result, info, success, warning
@@ -105,7 +106,7 @@ def profile(
 
     ipw.datasets.ensure_registered()
     ipw.analysis.ensure_registered()
-    
+
     from ipw.analysis.base import AnalysisContext
     from ipw.core.registry import AnalysisRegistry, DatasetRegistry
     from ipw.execution import ProfilerRunner  # Deferred import for heavy dependencies

@@ -5,8 +5,6 @@ from __future__ import annotations
 import threading
 import time
 
-import pytest
-
 from ipw.telemetry.events import AgentEvent, EventRecorder, EventType
 
 

@@ -8,8 +8,10 @@ from .base import VisualizationContext, VisualizationProvider, VisualizationResu
 
 def ensure_registered() -> None:
     """Import built-in visualization providers to populate the registry."""
-    from . import output_kde  # noqa: F401  (registers on import)
-    from . import regression  # noqa: F401  (registers on import)
+    from . import (
+        output_kde,  # noqa: F401  (registers on import)
+        regression,  # noqa: F401  (registers on import)
+    )
 
 
 __all__ = [

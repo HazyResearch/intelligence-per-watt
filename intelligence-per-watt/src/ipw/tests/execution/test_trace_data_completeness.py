@@ -11,14 +11,11 @@ import json
 from pathlib import Path
 from unittest.mock import MagicMock
 
-import pytest
-
 from ipw.core.types import AgentRunResult, DatasetRecord
 from ipw.execution.agentic_runner import AgenticRunner
 from ipw.execution.exporters import export_hf_dataset, export_jsonl
 from ipw.execution.trace import QueryTrace, TurnTrace
 from ipw.telemetry.events import EventRecorder, EventType
-
 
 # All fields that must be present on TurnTrace
 REQUIRED_TURN_FIELDS = [

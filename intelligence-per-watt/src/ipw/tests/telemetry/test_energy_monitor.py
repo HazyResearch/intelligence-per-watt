@@ -5,6 +5,7 @@ import time
 from collections.abc import Iterator
 
 import pytest
+
 from ipw.telemetry import EnergyMonitorCollector, ensure_monitor, wait_for_ready
 
 

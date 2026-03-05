@@ -117,7 +117,7 @@ class _EfficiencyAccumulator:
 class AccuracyAnalysis(AnalysisProvider):
     """
     Analysis that performs evaluation (if needed) and aggregates accuracy statistics.
-    
+
     If records are missing evaluation data, this analysis will:
     1. Instantiate the original dataset provider.
     2. Call dataset.score() for each unevaluated record.
@@ -144,7 +144,7 @@ class AccuracyAnalysis(AnalysisProvider):
         counters = _AccuracyCounters()
         efficiency = _EfficiencyAccumulator()
         records: list[Dict[str, Any]] = []
-        
+
         # Iterate directly over the HF dataset rows
         # We assume structure: row["model_metrics"][active_model]["evaluation"]
         for row in dataset:
@@ -160,7 +160,7 @@ class AccuracyAnalysis(AnalysisProvider):
             energy_joules = energy_metrics.get("per_query_joules")
             latency_seconds = latency_metrics.get("total_query_seconds")
             power_watts = _extract_power_value(power_metrics)
-            
+
             records.append(
                 {
                     "problem": row.get("problem"),
@@ -169,11 +169,11 @@ class AccuracyAnalysis(AnalysisProvider):
                     "evaluation": dict(evaluation) if evaluation else {},
                 }
             )
-            
+
             if not evaluation:
                 counters.unevaluated += 1
                 continue
-            
+
             if metadata.get("evaluation_failed"):
                 counters.failed += 1
                 continue
@@ -376,14 +376,14 @@ class AccuracyAnalysis(AnalysisProvider):
             summary = json.loads(summary_path.read_text())
             dataset_id = summary.get("dataset") or summary.get("profiler_config", {}).get("dataset_id")
             dataset_params = summary.get("profiler_config", {}).get("dataset_params", {})
-            
+
             if not dataset_id:
                 LOGGER.warning("Dataset ID not found in summary.")
                 return dataset
 
             provider_cls = DatasetRegistry.get(dataset_id)
             provider = provider_cls(**dataset_params)
-            
+
             if not hasattr(provider, "score") or not callable(provider.score):
                 LOGGER.warning(f"Dataset provider '{dataset_id}' does not support scoring.")
                 return dataset
@@ -414,7 +414,7 @@ class AccuracyAnalysis(AnalysisProvider):
             evaluation = _to_mapping(metrics.get("evaluation"))
             is_correct = evaluation.get("is_correct")
             metadata = _parse_metadata(evaluation.get("metadata")) if evaluation else {}
-            
+
             if not evaluation or is_correct is None:
                 if metadata.get("evaluation_failed") and not _can_retry_evaluation(
                     metadata, self.MAX_EVALUATION_ATTEMPTS
@@ -446,7 +446,7 @@ class AccuracyAnalysis(AnalysisProvider):
         # 3. Execute scoring
         results = {}
         max_workers = 10  # Conservative limit
-        
+
         with ThreadPoolExecutor(max_workers=max_workers) as executor:
             futures = {
                 executor.submit(
@@ -454,7 +454,7 @@ class AccuracyAnalysis(AnalysisProvider):
                 ): idx
                 for idx, record, response in tasks
             }
-            
+
             with tqdm(total=len(tasks), desc="Scoring", unit="record") as pbar:
                 for future in as_completed(futures):
                     idx = futures[future]
@@ -465,11 +465,11 @@ class AccuracyAnalysis(AnalysisProvider):
         # 4. Update dataset
         # We can't modify the HF dataset in place easily if it's memory mapped.
         # We use map() to create a new one.
-        
+
         def update_row(row, idx):
             if idx in results:
                 is_correct, meta = results[idx]
-                
+
                 # Ensure structure exists
                 if "model_metrics" not in row:
                     row["model_metrics"] = {}
@@ -489,7 +489,7 @@ class AccuracyAnalysis(AnalysisProvider):
                     + 1
                 )
                 meta_payload["evaluation_attempts"] = attempts
-                
+
                 # Update evaluation field
                 # We store it as a dict, consistent with schema
                 row["model_metrics"][model_name]["evaluation"] = {
@@ -505,7 +505,7 @@ class AccuracyAnalysis(AnalysisProvider):
             return row
 
         updated_dataset = dataset.map(update_row, with_indices=True)
-        
+
         # 5. Persist updated dataset
         temp_path = context.results_dir.with_name(
             context.results_dir.name + "_temp_evaluated_dataset"

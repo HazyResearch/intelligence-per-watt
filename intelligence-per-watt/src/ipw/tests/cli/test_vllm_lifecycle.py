@@ -5,8 +5,6 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-import pytest
-
 from ipw.cli.vllm_lifecycle import (
     ModelMismatchError,
     PortConflictError,
@@ -14,7 +12,6 @@ from ipw.cli.vllm_lifecycle import (
     VLLMServerInfo,
     VLLMServerRegistry,
     _is_process_alive,
-    cleanup_orphaned_servers,
 )
 
 

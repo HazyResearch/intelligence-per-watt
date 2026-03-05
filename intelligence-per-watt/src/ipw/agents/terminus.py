@@ -46,7 +46,7 @@ class Terminus(BaseAgent):
 
         # Lazy imports: docker and terminal-bench are optional
         try:
-            import docker as _docker_mod
+            import docker as _docker_mod  # noqa: F401
         except ImportError:
             raise ImportError(
                 "docker package is required for Terminus agent. "

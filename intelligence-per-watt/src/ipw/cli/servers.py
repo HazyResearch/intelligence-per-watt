@@ -29,7 +29,6 @@ import click
 
 from ipw.cli._console import error, info, success, warning
 
-
 # Server health check timeouts
 DEFAULT_WAIT_TIMEOUT = 60  # seconds
 POLL_INTERVAL = 1.0  # seconds

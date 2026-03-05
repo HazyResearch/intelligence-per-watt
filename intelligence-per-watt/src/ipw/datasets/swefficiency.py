@@ -1,10 +1,7 @@
 from __future__ import annotations
 
 import json
-import os
 from typing import Any, Dict, Iterable, List, MutableMapping, Optional, Sequence, Tuple
-
-from ..clients.base import InferenceClient
 
 from datasets import load_dataset
 

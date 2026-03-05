@@ -13,6 +13,7 @@ import time
 from collections.abc import Iterator
 
 import pytest
+
 from ipw.telemetry import EnergyMonitorCollector, ensure_monitor
 
 pytestmark = [
@@ -98,7 +99,9 @@ def test_amd_telemetry_collection() -> None:
     assert len(readings) >= 1
     r = readings[0]
     assert r.power_watts is not None
-def test_amd_telemetry_collection(monitor_target: str) -> None:
+
+
+def test_amd_telemetry_collection_with_fixture(monitor_target: str) -> None:
     """Collect AMD GPU telemetry readings from a real AMD GPU."""
     collector = EnergyMonitorCollector(target=monitor_target)
     assert collector.is_available()

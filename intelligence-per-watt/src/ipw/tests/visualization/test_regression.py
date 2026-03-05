@@ -7,6 +7,7 @@ from pathlib import Path
 from unittest.mock import Mock, patch
 
 import pytest
+
 from datasets import Dataset
 from ipw.visualization.base import VisualizationContext
 from ipw.visualization.regression import (

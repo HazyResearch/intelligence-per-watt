@@ -5,6 +5,7 @@ from __future__ import annotations
 from typing import Any, Sequence
 
 import pytest
+
 from ipw.clients.base import InferenceClient
 from ipw.core.types import ChatUsage, Response
 

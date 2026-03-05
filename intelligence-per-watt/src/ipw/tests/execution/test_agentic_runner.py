@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import asyncio
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 
 import pytest
 
@@ -14,7 +14,7 @@ from ipw.execution.agentic_runner import (
     _compute_power_avg,
 )
 from ipw.execution.telemetry_session import TelemetrySample
-from ipw.execution.trace import QueryTrace, TurnTrace
+from ipw.execution.trace import QueryTrace
 from ipw.telemetry.events import EventRecorder
 
 

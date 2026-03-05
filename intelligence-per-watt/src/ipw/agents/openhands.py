@@ -343,7 +343,13 @@ class OpenHands(BaseAgent):
 
         # Lazy imports: openhands-sdk is optional
         try:
-            from openhands.sdk import Agent, Event, LLMConvertibleEvent, LLMSummarizingCondenser, LocalConversation
+            from openhands.sdk import (  # noqa: F401
+                Agent,
+                Event,
+                LLMConvertibleEvent,
+                LLMSummarizingCondenser,
+                LocalConversation,
+            )
             from openhands.sdk.event.llm_convertible.action import ActionEvent
             from openhands.sdk.event.llm_convertible.observation import ObservationEvent
         except ImportError:
@@ -529,7 +535,7 @@ class OpenHands(BaseAgent):
 
         assert self._task_metadata is not None
         session = self._task_metadata["session"]
-        terminal = self._task_metadata["terminal"]
+        _terminal = self._task_metadata["terminal"]  # noqa: F841
         task = self._task_metadata["task"]
         task_id = self._task_metadata.get("task_id", "unknown")
 

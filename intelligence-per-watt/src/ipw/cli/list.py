@@ -3,8 +3,8 @@
 from __future__ import annotations
 
 import click
-from ipw.core.registry import (AnalysisRegistry, ClientRegistry,
-                               DatasetRegistry, VisualizationRegistry)
+
+from ipw.core.registry import AnalysisRegistry, ClientRegistry, DatasetRegistry, VisualizationRegistry
 
 from ._console import error, info
 

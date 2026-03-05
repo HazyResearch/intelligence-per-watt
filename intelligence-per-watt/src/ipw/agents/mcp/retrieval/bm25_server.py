@@ -10,7 +10,7 @@ Suitable for:
 from __future__ import annotations
 
 import re
-from typing import Any, Dict, List, Optional
+from typing import Any, List, Optional
 
 from ipw.agents.mcp.base import MCPToolResult
 from ipw.agents.mcp.retrieval.base import BaseRetrievalServer, Document, RetrievalResult
