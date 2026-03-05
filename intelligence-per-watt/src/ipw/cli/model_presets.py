@@ -13,7 +13,7 @@ MODEL_PRESETS: Dict[str, Dict[str, Any]] = {
     },
     "gpt-oss-120b": {
         "model_id": "openai/gpt-oss-120b",
-        "vllm_args": {"tensor_parallel_size": 4},
+        "vllm_args": {"tensor_parallel_size": 8},
     },
     "qwen3-30b-a3b": {
         "model_id": "Qwen/Qwen3-30B-A3B",
@@ -21,7 +21,7 @@ MODEL_PRESETS: Dict[str, Dict[str, Any]] = {
     },
     "minimax-m2.5": {
         "model_id": "MiniMaxAI/MiniMax-M2.5",
-        "vllm_args": {"tensor_parallel_size": 2},
+        "vllm_args": {"tensor_parallel_size": 4, "trust_remote_code": True, "max_model_len": 32768, "enforce_eager": True},
     },
     "kimi-k2.5": {
         "model_id": "moonshotai/Kimi-K2.5",
@@ -49,6 +49,7 @@ MODEL_PRESETS: Dict[str, Dict[str, Any]] = {
         "model_id": "Qwen/Qwen3.5-397B-A17B-FP8",
         "vllm_args": {
             "tensor_parallel_size": 8,
+            "trust_remote_code": True,
             "reasoning_parser": "qwen3",
             "tool_call_parser": "qwen3_coder",
             "language_model_only": True,
@@ -78,6 +79,10 @@ MODEL_PRESETS: Dict[str, Dict[str, Any]] = {
             "reasoning_parser": "qwen3",
             "tool_call_parser": "qwen3_coder",
         },
+    },
+    "glm-5-fp8": {
+        "model_id": "zai-org/GLM-5-FP8",
+        "vllm_args": {"tensor_parallel_size": 8, "trust_remote_code": True},
     },
 }
 

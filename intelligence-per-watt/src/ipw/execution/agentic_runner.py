@@ -132,6 +132,7 @@ class AgenticRunner:
         run_dir: Optional[Path] = None,
         concurrency: int = 1,
         agent_factory: Optional[Callable[[], BaseAgent]] = None,
+        query_timeout: Optional[float] = None,
     ) -> None:
         self._agent = agent
         self._dataset = dataset
@@ -143,6 +144,7 @@ class AgenticRunner:
         self._records: list[ProfilingRecord] = []
         self._concurrency = max(1, concurrency)
         self._agent_factory = agent_factory
+        self._query_timeout = query_timeout
         self._results_lock = threading.Lock()
 
     async def run(self, max_queries: Optional[int] = None) -> list[QueryTrace]:
@@ -176,9 +178,32 @@ class AgenticRunner:
         """Original sequential execution path."""
         with tqdm(total=len(work_items), desc="Agent run", unit="query") as progress:
             for index, record in work_items:
-                trace = await self._run_single_query(
-                    index, record, model, self._agent, self._event_recorder
-                )
+                query_id = f"q{index:04d}"
+                start_time = time.time()
+                try:
+                    fut = self._run_single_query(
+                        index, record, model, self._agent, self._event_recorder
+                    )
+                    if self._query_timeout:
+                        trace = await asyncio.wait_for(fut, timeout=self._query_timeout)
+                    else:
+                        trace = await fut
+                except asyncio.TimeoutError:
+                    elapsed = time.time() - start_time
+                    LOGGER.warning(
+                        "Query %s timed out after %.0fs (limit=%ss)",
+                        query_id, elapsed, self._query_timeout,
+                    )
+                    workload_type = record.dataset_metadata.get("workload_type", "agentic")
+                    trace = QueryTrace(
+                        query_id=query_id,
+                        workload_type=str(workload_type),
+                        query_text=record.problem,
+                        response_text=f"Query timed out after {elapsed:.0f}s",
+                        total_wall_clock_s=elapsed,
+                        completed=False,
+                        is_resolved=record.dataset_metadata.get("is_resolved"),
+                    )
                 self._traces.append(trace)
 
                 profiling_record = self._build_profiling_record(
@@ -234,16 +259,40 @@ class AgenticRunner:
                     agent = copy.deepcopy(self._agent)
                 recorder = EventRecorder()
 
-                # Run the blocking work in a thread
-                trace = await loop.run_in_executor(
-                    None,
-                    self._run_single_query_sync,
-                    index,
-                    record,
-                    model,
-                    agent,
-                    recorder,
-                )
+                query_id = f"q{index:04d}"
+                start_time = time.time()
+
+                try:
+                    # Run the blocking work in a thread, with optional timeout
+                    fut = loop.run_in_executor(
+                        None,
+                        self._run_single_query_sync,
+                        index,
+                        record,
+                        model,
+                        agent,
+                        recorder,
+                    )
+                    if self._query_timeout:
+                        trace = await asyncio.wait_for(fut, timeout=self._query_timeout)
+                    else:
+                        trace = await fut
+                except asyncio.TimeoutError:
+                    elapsed = time.time() - start_time
+                    LOGGER.warning(
+                        "Query %s timed out after %.0fs (limit=%ss)",
+                        query_id, elapsed, self._query_timeout,
+                    )
+                    workload_type = record.dataset_metadata.get("workload_type", "agentic")
+                    trace = QueryTrace(
+                        query_id=query_id,
+                        workload_type=str(workload_type),
+                        query_text=record.problem,
+                        response_text=f"Query timed out after {elapsed:.0f}s",
+                        total_wall_clock_s=elapsed,
+                        completed=False,
+                        is_resolved=record.dataset_metadata.get("is_resolved"),
+                    )
 
                 profiling_record = self._build_profiling_record(
                     record, trace, model
