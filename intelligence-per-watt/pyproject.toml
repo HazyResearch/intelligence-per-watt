@@ -35,6 +35,7 @@ openhands = ["openhands-sdk"]
 agents = ["agno", "terminal-bench", "docker", "openhands-sdk"]
 tavily = ["tavily-python"]
 flops = ["calflops"]
+dev = ["ruff>=0.4", "pytest>=8"]
 docs = ["mkdocs-material", "mkdocstrings[python]", "mkdocs-gen-files", "mkdocs-literate-nav"]
 all = [
     "ollama",
@@ -60,3 +61,10 @@ markers = [
     "submodel: marks tests that use multiple models/submodels",
 ]
 timeout = 600
+
+[tool.ruff]
+target-version = "py313"
+src = ["src", "src/ipw/tests"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "W"]
