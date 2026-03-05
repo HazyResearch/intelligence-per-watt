@@ -44,7 +44,7 @@ class NaturalReasoningHandler(EvaluationHandler):
 
         EVALUATION STEPS:
         1. Identify the core answer in the reference response
-        2. Identify the core answer in the model's response  
+        2. Identify the core answer in the model's response
         3. Compare: Do they reach the same conclusion?
         4. If numerical: Are the values equivalent?
         5. If factual: Do the key facts match?

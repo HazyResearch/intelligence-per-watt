@@ -9,23 +9,22 @@ This module provides unified interfaces for:
 All servers automatically capture telemetry (energy, power, cost, latency).
 """
 
-from ipw.agents.mcp.base import BaseMCPServer, MCPToolResult
-from ipw.agents.mcp.openai_server import OpenAIMCPServer
-from ipw.agents.mcp.anthropic_server import AnthropicMCPServer
-from ipw.agents.mcp.openrouter_server import OpenRouterMCPServer
-from ipw.agents.mcp.vllm_server import VLLMMCPServer
-from ipw.agents.mcp.tool_server import (
-    CalculatorServer,
-    WebSearchServer,
-    CodeInterpreterServer,
-    ThinkServer,
-    FileReadServer,
-    FileWriteServer,
-)
-from ipw.agents.mcp.tool_registry import ToolRegistry, ToolSpec, ToolCategory, ADPDomainServer, get_registry
-
 # Retrieval module - import lazily to avoid mandatory dependencies
 from ipw.agents.mcp import retrieval
+from ipw.agents.mcp.anthropic_server import AnthropicMCPServer
+from ipw.agents.mcp.base import BaseMCPServer, MCPToolResult
+from ipw.agents.mcp.openai_server import OpenAIMCPServer
+from ipw.agents.mcp.openrouter_server import OpenRouterMCPServer
+from ipw.agents.mcp.tool_registry import ADPDomainServer, ToolCategory, ToolRegistry, ToolSpec, get_registry
+from ipw.agents.mcp.tool_server import (
+    CalculatorServer,
+    CodeInterpreterServer,
+    FileReadServer,
+    FileWriteServer,
+    ThinkServer,
+    WebSearchServer,
+)
+from ipw.agents.mcp.vllm_server import VLLMMCPServer
 
 
 def __getattr__(name):

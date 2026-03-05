@@ -5,8 +5,6 @@ All prices are per 1M tokens in USD unless otherwise noted.
 
 from __future__ import annotations
 
-from typing import Optional
-
 # ---------------------------------------------------------------------------
 # OpenAI pricing (per 1M tokens)
 # Source: https://openai.com/api/pricing/

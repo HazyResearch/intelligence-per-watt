@@ -10,12 +10,12 @@ from __future__ import annotations
 import time
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional, TYPE_CHECKING
+from typing import Any, Dict, List, Optional
 
 # Try to import telemetry components (optional)
 try:
+    from ipw.execution.telemetry_session import TelemetrySample, TelemetrySession
     from ipw.telemetry import EnergyMonitorCollector
-    from ipw.execution.telemetry_session import TelemetrySession, TelemetrySample
     HAS_TELEMETRY = True
 except ImportError:
     # Telemetry not available - create stub types

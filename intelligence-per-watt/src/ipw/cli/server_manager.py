@@ -7,7 +7,6 @@ ensuring that startup/warmup costs are excluded from energy profiling.
 from __future__ import annotations
 
 import os
-import signal
 import socket
 import subprocess
 import time

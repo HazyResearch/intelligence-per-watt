@@ -34,13 +34,13 @@ class BaseMCQHandler(EvaluationHandler):
             )
 
         last_letter = chr(ord('A') + len(valid_letters) - 1) if valid_letters else 'D'
-        
+
         system_prompt = (
             f"You are an answer extraction assistant. Extract the final multiple choice answer "
             f"from the response. Return ONLY a single letter (A-{last_letter}). "
             f"If no valid answer letter is found, return 'NONE'."
         )
-        
+
         user_prompt = f"Problem: {problem}\nResponse: {model_answer}\n\nExtract the final answer letter:"
 
         try:
@@ -50,20 +50,20 @@ class BaseMCQHandler(EvaluationHandler):
                 temperature=0.0,
                 max_output_tokens=5,
             )
-            
+
             extracted = raw_response.strip().upper()
-            
+
             # Try to extract letter from response (handles "The answer is: A" etc.)
             answer_match = re.search(r'(?:THE ANSWER IS:?\s*)?([A-Z])', extracted, re.IGNORECASE)
             if answer_match:
                 extracted = answer_match.group(1).upper()
-            
+
             # Validate it's in the valid set
             if extracted in valid_letters:
                 return extracted
-            
+
             return None
-            
+
         except Exception as exc:
             LOGGER.error(f"Error in LLM-based answer extraction: {exc}")
             return None

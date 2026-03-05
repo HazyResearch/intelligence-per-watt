@@ -1,14 +1,13 @@
 from __future__ import annotations
 
 import os
-import re
 import shutil
-import string
 from pathlib import Path
 from typing import Dict, Iterable, List, MutableMapping, Optional, Sequence, Tuple
 
-from datasets import load_dataset
 from huggingface_hub import snapshot_download
+
+from datasets import load_dataset
 
 from ..clients.base import InferenceClient
 from ..core.registry import ClientRegistry, DatasetRegistry, EvaluationRegistry

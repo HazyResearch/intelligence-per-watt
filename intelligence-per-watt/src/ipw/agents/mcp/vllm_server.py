@@ -211,8 +211,8 @@ class VLLMMCPServer(BaseMCPServer):
             )
         except httpx.ReadTimeout:
             return MCPToolResult(
-                content=f"Error: vLLM request timed out after 240s. "
-                        f"The model may be overloaded or the response is too long.",
+                content="Error: vLLM request timed out after 240s. "
+                        "The model may be overloaded or the response is too long.",
                 usage={},
                 cost_usd=0.0,
                 metadata={"error": "timeout"},

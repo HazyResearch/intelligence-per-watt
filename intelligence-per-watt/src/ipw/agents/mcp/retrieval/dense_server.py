@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import re
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, List, Optional, Union
 
 from ipw.agents.mcp.base import MCPToolResult
 from ipw.agents.mcp.retrieval.base import BaseRetrievalServer, Document, RetrievalResult
@@ -177,8 +177,9 @@ class DenseRetrievalServer(BaseRetrievalServer):
         return highlights
 
     def save_index(self, path: Union[str, Path]) -> None:
-        import faiss
         import json
+
+        import faiss
 
         path = Path(path)
         path.mkdir(parents=True, exist_ok=True)
@@ -202,8 +203,9 @@ class DenseRetrievalServer(BaseRetrievalServer):
             json.dump(meta, f)
 
     def load_index(self, path: Union[str, Path]) -> None:
-        import faiss
         import json
+
+        import faiss
 
         path = Path(path)
 

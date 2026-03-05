@@ -10,7 +10,7 @@ from abc import abstractmethod
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional
 
-from ipw.agents.mcp.base import BaseMCPServer, MCPToolResult
+from ipw.agents.mcp.base import BaseMCPServer
 
 
 @dataclass

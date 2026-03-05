@@ -4,7 +4,6 @@ import logging
 import re
 from typing import Dict, Optional, Tuple
 
-from ..core.registry import EvaluationRegistry
 from .base import EvaluationHandler
 
 LOGGER = logging.getLogger(__name__)

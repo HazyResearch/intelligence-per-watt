@@ -14,6 +14,7 @@ import time
 from collections.abc import Iterator
 
 import pytest
+
 from ipw.telemetry import EnergyMonitorCollector, ensure_monitor
 
 pytestmark = [

@@ -14,9 +14,9 @@ Example:
 """
 
 from ipw.agents.mcp.retrieval.base import BaseRetrievalServer, Document, RetrievalResult
-from ipw.agents.mcp.retrieval.grep_server import GrepRetrievalServer
 from ipw.agents.mcp.retrieval.bm25_server import BM25RetrievalServer
 from ipw.agents.mcp.retrieval.dense_server import DenseRetrievalServer
+from ipw.agents.mcp.retrieval.grep_server import GrepRetrievalServer
 from ipw.agents.mcp.retrieval.hybrid_server import HybridRetrievalServer
 from ipw.agents.mcp.retrieval.index_manager import IndexManager
 

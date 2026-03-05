@@ -2,7 +2,10 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Mapping, MutableMapping, Optional
+from typing import TYPE_CHECKING, Any, Mapping, MutableMapping, Optional
+
+if TYPE_CHECKING:
+    from ipw.core.trace import QueryTrace
 
 
 @dataclass(slots=True)

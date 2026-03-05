@@ -25,7 +25,7 @@ MODEL_PRESETS: Dict[str, Dict[str, Any]] = {
     },
     "kimi-k2.5": {
         "model_id": "moonshotai/Kimi-K2.5",
-        "vllm_args": {"tensor_parallel_size": 4},
+        "vllm_args": {"tensor_parallel_size": 8, "trust_remote_code": True, "max_model_len": 8192, "enforce_eager": True},
     },
     "qwen35-35b-a3b": {
         "model_id": "Qwen/Qwen3.5-35B-A3B",
@@ -83,6 +83,14 @@ MODEL_PRESETS: Dict[str, Dict[str, Any]] = {
     "glm-5-fp8": {
         "model_id": "zai-org/GLM-5-FP8",
         "vllm_args": {"tensor_parallel_size": 8, "trust_remote_code": True},
+    },
+    "glm-5-nvfp4": {
+        "model_id": "lukealonso/GLM-5-NVFP4",
+        "vllm_args": {"tensor_parallel_size": 8, "trust_remote_code": True, "max_model_len": 8192, "enforce_eager": True},
+    },
+    "kimi-k2.5-nvfp4": {
+        "model_id": "nvidia/Kimi-K2.5-NVFP4",
+        "vllm_args": {"tensor_parallel_size": 8, "trust_remote_code": True, "max_model_len": 8192, "enforce_eager": True, "gpu_memory_utilization": 0.95},
     },
 }
 

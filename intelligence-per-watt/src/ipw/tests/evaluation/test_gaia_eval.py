@@ -4,8 +4,6 @@ from __future__ import annotations
 
 from unittest.mock import MagicMock
 
-import pytest
-
 from ipw.evaluation.gaia import GAIAHandler, _exact_match, _normalize_str
 
 

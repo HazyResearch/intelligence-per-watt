@@ -5,8 +5,8 @@ import os
 from typing import Any, Dict, Optional, Sequence
 
 import requests
-from requests import exceptions as req_exc
 from dotenv import load_dotenv
+from requests import exceptions as req_exc
 
 from ..core.registry import ClientRegistry
 from ..core.types import ChatUsage, Response

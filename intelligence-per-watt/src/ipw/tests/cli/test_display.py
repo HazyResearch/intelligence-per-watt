@@ -2,13 +2,9 @@
 
 from __future__ import annotations
 
-import math
-from unittest.mock import MagicMock
-
 import pytest
 
 from ipw.cli._display import (
-    MetricRow,
     _fmt,
     compute_aggregate_stats,
     compute_profile_metrics,
@@ -80,12 +76,12 @@ class TestComputeProfileMetrics:
             DerivedEfficiencyMetrics,
             EnergyMetrics,
             LatencyMetrics,
+            MetricStats,
             ModelMetrics,
             PowerComponentMetrics,
             PowerMetrics,
             ProfilingRecord,
             TokenMetrics,
-            MetricStats,
         )
 
         mm = ModelMetrics(
