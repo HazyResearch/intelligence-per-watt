@@ -9,6 +9,7 @@ from ipw.cli._display import (
     compute_aggregate_stats,
     compute_profile_metrics,
     compute_trace_metrics,
+    print_efficiency_panel,
 )
 
 
@@ -133,11 +134,27 @@ class TestComputeProfileMetrics:
 
 
 class TestComputeTraceMetrics:
-    def _make_trace(self, wall_s: float, gpu_energy: float | None, completed: bool):
+    def _make_trace(
+        self,
+        wall_s: float,
+        gpu_energy: float | None,
+        completed: bool,
+        gpu_power: float | None = None,
+        cpu_power: float | None = None,
+        cost: float | None = None,
+    ):
         """Create a mock QueryTrace."""
         from ipw.execution.trace import QueryTrace, TurnTrace
 
-        turns = [TurnTrace(turn_index=0, input_tokens=100, output_tokens=50, wall_clock_s=wall_s)]
+        turns = [TurnTrace(
+            turn_index=0,
+            input_tokens=100,
+            output_tokens=50,
+            wall_clock_s=wall_s,
+            gpu_power_avg_watts=gpu_power,
+            cpu_power_avg_watts=cpu_power,
+            cost_usd=cost,
+        )]
         return QueryTrace(
             query_id="q1",
             workload_type="test",
@@ -149,13 +166,19 @@ class TestComputeTraceMetrics:
 
     def test_returns_rows(self):
         traces = [
-            self._make_trace(1.0, 5.0, True),
-            self._make_trace(2.0, 10.0, False),
+            self._make_trace(1.0, 5.0, True, gpu_power=200.0),
+            self._make_trace(2.0, 10.0, False, gpu_power=300.0),
         ]
         rows = compute_trace_metrics(traces)
         labels = [r.label for r in rows]
         assert "Wall Clock" in labels
         assert "GPU Energy" in labels
+        assert "GPU Power" in labels
+        assert "CPU Power" in labels
+        assert "Total Tokens" in labels
+        assert "Throughput" in labels
+        assert "Energy/Token" in labels
+        assert "Cost" in labels
         assert "Completed" in labels
 
     def test_completed_count(self):
@@ -180,6 +203,124 @@ class TestComputeTraceMetrics:
         rows = compute_trace_metrics(traces)
         wc_row = next(r for r in rows if r.label == "Wall Clock")
         assert wc_row.avg == pytest.approx(3.0)
+
+    def test_gpu_power_row(self):
+        traces = [
+            self._make_trace(1.0, 5.0, True, gpu_power=200.0),
+            self._make_trace(2.0, 10.0, True, gpu_power=300.0),
+        ]
+        rows = compute_trace_metrics(traces)
+        power_row = next(r for r in rows if r.label == "GPU Power")
+        assert power_row.avg == pytest.approx(250.0)
+        assert power_row.unit == "W"
+
+    def test_throughput_row(self):
+        traces = [
+            self._make_trace(1.0, None, True),
+            self._make_trace(2.0, None, True),
+        ]
+        rows = compute_trace_metrics(traces)
+        tp_row = next(r for r in rows if r.label == "Throughput")
+        # Trace 1: 50 output / 1.0 s = 50, Trace 2: 50 output / 2.0 s = 25
+        assert tp_row.avg == pytest.approx(37.5)
+        assert tp_row.unit == "tok/s"
+
+    def test_cost_row(self):
+        traces = [
+            self._make_trace(1.0, None, True, cost=0.01),
+            self._make_trace(2.0, None, True, cost=0.03),
+        ]
+        rows = compute_trace_metrics(traces)
+        cost_row = next(r for r in rows if r.label == "Cost")
+        assert cost_row.avg == pytest.approx(0.02)
+        assert cost_row.unit == "$"
+
+
+class TestPrintEfficiencyPanel:
+    """Test print_efficiency_panel context lines and IPJ/IPW output."""
+
+    def _make_trace(self, wall_s: float, gpu_energy: float | None, completed: bool, is_resolved: bool | None = None):
+        from ipw.execution.trace import QueryTrace, TurnTrace
+
+        turns = [TurnTrace(turn_index=0, input_tokens=100, output_tokens=50, wall_clock_s=wall_s)]
+        return QueryTrace(
+            query_id="q1",
+            workload_type="test",
+            turns=turns,
+            total_wall_clock_s=wall_s,
+            completed=completed,
+            query_gpu_energy_joules=gpu_energy,
+            is_resolved=is_resolved,
+        )
+
+    def test_panel_shows_accuracy_context(self):
+        """Accuracy, Total Energy, and Avg Power appear in panel output."""
+        from io import StringIO
+
+        from rich.console import Console
+
+        buf = StringIO()
+        con = Console(file=buf, highlight=False, width=120)
+
+        traces = [
+            self._make_trace(2.0, 10.0, True),
+            self._make_trace(3.0, 15.0, True),
+        ]
+        print_efficiency_panel(con, traces=traces, accuracy=0.8)
+        output = buf.getvalue()
+        assert "80.0%" in output
+        assert "25.00" in output  # total energy 10+15=25
+        assert "IPJ" in output
+        assert "IPW" in output
+
+    def test_panel_with_accuracy_none_falls_back_to_completed(self):
+        """When accuracy is None, the panel falls back to completion rate."""
+        from io import StringIO
+
+        from rich.console import Console
+
+        buf = StringIO()
+        con = Console(file=buf, highlight=False, width=120)
+
+        traces = [
+            self._make_trace(1.0, 5.0, True),
+            self._make_trace(2.0, 10.0, False),
+        ]
+        print_efficiency_panel(con, traces=traces)
+        output = buf.getvalue()
+        # acc = 1/2 = 50%
+        assert "50.0%" in output
+
+    def test_panel_precision_six_decimals(self):
+        """IPJ/IPW values use 6 decimal places."""
+        from io import StringIO
+
+        from rich.console import Console
+
+        buf = StringIO()
+        con = Console(file=buf, highlight=False, width=120)
+
+        traces = [self._make_trace(10.0, 1000.0, True)]
+        print_efficiency_panel(con, traces=traces, accuracy=0.5)
+        output = buf.getvalue()
+        # IPJ = 0.5/1000 = 0.000500 — should have 6 decimal places
+        assert "0.000500" in output
+
+    def test_panel_no_ipj_ipw_when_no_energy(self):
+        """IPJ/IPW are absent when there is no energy data, but accuracy still shows."""
+        from io import StringIO
+
+        from rich.console import Console
+
+        buf = StringIO()
+        con = Console(file=buf, highlight=False, width=120)
+
+        traces = [self._make_trace(1.0, None, True)]
+        print_efficiency_panel(con, traces=traces, accuracy=0.5)
+        output = buf.getvalue()
+        assert "50.0%" in output  # accuracy context line still appears
+        assert "IPJ" not in output
+        assert "IPW" not in output
 
 
 class TestFLOPsModels:

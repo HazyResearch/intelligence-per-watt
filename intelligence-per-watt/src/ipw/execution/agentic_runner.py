@@ -24,11 +24,13 @@ from ..execution.trace import QueryTrace, TurnTrace
 from ..execution.types import (
     ComputeMetrics,
     CostMetrics,
+    DerivedEfficiencyMetrics,
     EnergyMetrics,
     LatencyMetrics,
     MemoryMetrics,
     MetricStats,
     ModelMetrics,
+    PowerComponentMetrics,
     PowerMetrics,
     ProfilingRecord,
     TokenMetrics,
@@ -199,9 +201,17 @@ class AgenticRunner:
                         response_text=f"Query timed out after {elapsed:.0f}s",
                         total_wall_clock_s=elapsed,
                         completed=False,
+                        timed_out=True,
                         is_resolved=record.dataset_metadata.get("is_resolved"),
                     )
                 self._traces.append(trace)
+
+                # Log per-task latency
+                status = "TIMEOUT" if trace.timed_out else ("OK" if trace.completed else "FAIL")
+                LOGGER.info(
+                    "Task %s: %s in %.1fs",
+                    query_id, status, trace.total_wall_clock_s,
+                )
 
                 profiling_record = self._build_profiling_record(
                     record, trace, model
@@ -288,8 +298,16 @@ class AgenticRunner:
                         response_text=f"Query timed out after {elapsed:.0f}s",
                         total_wall_clock_s=elapsed,
                         completed=False,
+                        timed_out=True,
                         is_resolved=record.dataset_metadata.get("is_resolved"),
                     )
+
+                # Log per-task latency
+                status = "TIMEOUT" if trace.timed_out else ("OK" if trace.completed else "FAIL")
+                LOGGER.info(
+                    "Task %s: %s in %.1fs",
+                    query_id, status, trace.total_wall_clock_s,
+                )
 
                 profiling_record = self._build_profiling_record(
                     record, trace, model
@@ -379,6 +397,12 @@ class AgenticRunner:
 
                 if task_env is not None:
                     task_env.run_tests()
+                elif hasattr(self._dataset, "score") and record.answer:
+                    try:
+                        is_correct, _ = self._dataset.score(record, result.content)
+                        record.dataset_metadata["is_resolved"] = is_correct
+                    except Exception as score_exc:
+                        LOGGER.warning("Scoring failed for %s: %s", query_id, score_exc)
         except Exception as exc:
             LOGGER.warning("Agent failed on query %s: %s", query_id, exc)
             end_time = time.time()
@@ -651,6 +675,7 @@ class AgenticRunner:
             "query_id": trace.query_id,
             "instance_id": str(instance_id),
             "completed": trace.completed,
+            "timed_out": trace.timed_out,
             "wall_clock_s": trace.total_wall_clock_s,
             "num_turns": trace.num_turns,
         }
@@ -683,11 +708,23 @@ class AgenticRunner:
         gpu_energy = trace.total_gpu_energy_joules
         cpu_energy = trace.total_cpu_energy_joules
 
+        # Per-token energy normalization
+        energy_per_output_token = None
+        energy_per_total_token = None
+        total_tokens = total_input_tokens + total_output_tokens
+        if gpu_energy is not None and gpu_energy > 0:
+            if total_output_tokens > 0:
+                energy_per_output_token = gpu_energy / total_output_tokens
+            if total_tokens > 0:
+                energy_per_total_token = gpu_energy / total_tokens
+
         energy_metrics = EnergyMetrics(
             per_query_joules=gpu_energy,
             total_joules=gpu_energy,
             cpu_per_query_joules=cpu_energy,
             cpu_total_joules=cpu_energy,
+            energy_per_output_token_joules=energy_per_output_token,
+            energy_per_total_token_joules=energy_per_total_token,
         )
 
         # Latency
@@ -723,17 +760,36 @@ class AgenticRunner:
 
         cost_metrics = CostMetrics(total_cost_usd=cost)
 
+        # Power metrics from trace
+        power_metrics = PowerMetrics(
+            gpu=PowerComponentMetrics(
+                per_query_watts=MetricStats(avg=trace.avg_gpu_power_watts),
+            ),
+            cpu=PowerComponentMetrics(
+                per_query_watts=MetricStats(avg=trace.avg_cpu_power_watts),
+            ),
+        )
+
+        # Derived efficiency
+        throughput_per_watt = None
+        avg_gpu_power = trace.avg_gpu_power_watts
+        if throughput is not None and avg_gpu_power is not None and avg_gpu_power > 0:
+            throughput_per_watt = throughput / avg_gpu_power
+
         model_metrics = ModelMetrics(
             compute_metrics=ComputeMetrics(),
             energy_metrics=energy_metrics,
             latency_metrics=latency_metrics,
             memory_metrics=MemoryMetrics(),
-            power_metrics=PowerMetrics(),
+            power_metrics=power_metrics,
             temperature_metrics=MetricStats(),
             token_metrics=TokenMetrics(
                 input=total_input_tokens,
                 output=total_output_tokens,
                 total=total_input_tokens + total_output_tokens,
+            ),
+            efficiency=DerivedEfficiencyMetrics(
+                throughput_per_watt=throughput_per_watt,
             ),
             cost=cost_metrics,
             lm_response=trace.response_text,

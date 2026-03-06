@@ -164,10 +164,66 @@ class TestExportSummaryJson:
         assert averages["turns_per_query"] == 1.5
         assert averages["wall_clock_per_query_s"] == pytest.approx(1.75)
 
+    def test_statistics_section_exists(self, tmp_path: Path) -> None:
+        traces = _make_traces()
+        config = {"agent": "react"}
+        path = tmp_path / "summary.json"
+        export_summary_json(traces, config, path)
+
+        summary = json.loads(path.read_text())
+        assert "statistics" in summary
+        stats = summary["statistics"]
+        # Check expected metric keys
+        for key in [
+            "wall_clock_s", "gpu_energy_joules", "cpu_energy_joules",
+            "gpu_power_watts", "cpu_power_watts",
+            "input_tokens", "output_tokens", "total_tokens",
+            "throughput_tokens_per_sec", "energy_per_token_joules",
+            "cost_usd", "turns", "tool_calls",
+        ]:
+            assert key in stats, f"Missing statistics key: {key}"
+            assert "avg" in stats[key]
+            assert "median" in stats[key]
+            assert "min" in stats[key]
+            assert "max" in stats[key]
+            assert "std" in stats[key]
+
+    def test_statistics_wall_clock_values(self, tmp_path: Path) -> None:
+        traces = _make_traces()
+        config = {}
+        path = tmp_path / "summary.json"
+        export_summary_json(traces, config, path)
+
+        summary = json.loads(path.read_text())
+        wc = summary["statistics"]["wall_clock_s"]
+        assert wc["avg"] == pytest.approx(1.75)
+        assert wc["min"] == pytest.approx(0.5)
+        assert wc["max"] == pytest.approx(3.0)
+
+    def test_total_tokens_in_totals(self, tmp_path: Path) -> None:
+        traces = _make_traces()
+        config = {}
+        path = tmp_path / "summary.json"
+        export_summary_json(traces, config, path)
+
+        summary = json.loads(path.read_text())
+        assert summary["totals"]["total_tokens"] == 285  # 200 input + 85 output
+
+    def test_empty_traces_has_statistics(self, tmp_path: Path) -> None:
+        """Statistics section is present even with empty traces, with all-None values."""
+        path = tmp_path / "summary.json"
+        export_summary_json([], {}, path)
+
+        summary = json.loads(path.read_text())
+        assert "statistics" in summary
+        for key in summary["statistics"]:
+            assert summary["statistics"][key]["avg"] is None
+
     def test_empty_traces(self, tmp_path: Path) -> None:
         path = tmp_path / "summary.json"
         export_summary_json([], {}, path)
 
         summary = json.loads(path.read_text())
         assert summary["totals"]["queries"] == 0
+        assert summary["totals"]["total_tokens"] == 0
         assert summary["averages"]["turns_per_query"] == 0

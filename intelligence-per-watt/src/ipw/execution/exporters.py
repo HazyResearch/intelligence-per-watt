@@ -3,11 +3,26 @@
 from __future__ import annotations
 
 import json
+import statistics
 import time
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any, Optional, Sequence
 
 from ..execution.trace import QueryTrace
+
+
+def _agg_stats(values: Sequence[Optional[float]]) -> dict[str, Optional[float]]:
+    """Return {avg, median, min, max, std} filtering None values."""
+    clean = [v for v in values if v is not None]
+    if not clean:
+        return {"avg": None, "median": None, "min": None, "max": None, "std": None}
+    return {
+        "avg": statistics.mean(clean),
+        "median": statistics.median(clean),
+        "min": min(clean),
+        "max": max(clean),
+        "std": statistics.stdev(clean) if len(clean) > 1 else 0.0,
+    }
 
 
 def export_jsonl(traces: list[QueryTrace], path: Path) -> Path:
@@ -107,6 +122,23 @@ def export_summary_json(
         else None
     )
 
+    # Per-metric statistics
+    stats = {
+        "wall_clock_s": _agg_stats([t.total_wall_clock_s for t in traces]),
+        "gpu_energy_joules": _agg_stats([t.total_gpu_energy_joules for t in traces]),
+        "cpu_energy_joules": _agg_stats([t.total_cpu_energy_joules for t in traces]),
+        "gpu_power_watts": _agg_stats([t.avg_gpu_power_watts for t in traces]),
+        "cpu_power_watts": _agg_stats([t.avg_cpu_power_watts for t in traces]),
+        "input_tokens": _agg_stats([float(t.total_input_tokens) for t in traces]),
+        "output_tokens": _agg_stats([float(t.total_output_tokens) for t in traces]),
+        "total_tokens": _agg_stats([float(t.total_tokens) for t in traces]),
+        "throughput_tokens_per_sec": _agg_stats([t.throughput_tokens_per_sec for t in traces]),
+        "energy_per_token_joules": _agg_stats([t.energy_per_token_joules for t in traces]),
+        "cost_usd": _agg_stats([t.total_cost_usd for t in traces]),
+        "turns": _agg_stats([float(t.num_turns) for t in traces]),
+        "tool_calls": _agg_stats([float(t.total_tool_calls) for t in traces]),
+    }
+
     summary = {
         "generated_at": time.time(),
         "config": config,
@@ -119,6 +151,7 @@ def export_summary_json(
             "tool_calls": total_tool_calls,
             "input_tokens": total_input_tokens,
             "output_tokens": total_output_tokens,
+            "total_tokens": total_input_tokens + total_output_tokens,
             "wall_clock_s": total_wall_clock_s,
             "gpu_energy_joules": total_gpu_energy,
             "cpu_energy_joules": total_cpu_energy,
@@ -129,6 +162,7 @@ def export_summary_json(
             "wall_clock_per_query_s": avg_wall_clock,
             "gpu_energy_per_query_joules": avg_gpu_energy,
         },
+        "statistics": stats,
     }
 
     path.parent.mkdir(parents=True, exist_ok=True)

@@ -33,8 +33,14 @@ MODEL_PARAMS: dict[str, float] = {
     "qwen-3-8b": 8.0,
     "qwen-3-14b": 14.0,
     "qwen-3-32b": 32.0,
-    "qwen-3-30b-a3b": 30.5,
+    "qwen-3-30b-a-3b": 3.0,
+    "qwen-3-235b-a-22b": 22.0,
     "qwen-3-235b": 235.0,
+    # Qwen 3.5
+    "qwen-3.5-397b-a-17b": 17.0,
+    "qwen-3.5-122b-a-10b": 10.0,
+    "qwen-3.5-35b-a-3b": 3.0,
+    "qwen-3.5-27b": 27.0,
     # DeepSeek
     "deepseek-r-1": 671.0,
     "deepseek-v-3": 671.0,
@@ -82,8 +88,10 @@ def normalize_model_name(model: str) -> str:
     # but not after 'x' to preserve patterns like '8x7b'
     name = re.sub(r"([a-wyz])(\d)", r"\1-\2", name)
     # Remove extra qualifiers
-    for q in ["-fp16", "-fp32", "-bf16", "-awq", "-gptq", "-gguf", "-q4", "-q8"]:
+    for q in ["-fp16", "-fp32", "-fp-8", "-bf16", "-awq", "-gptq", "-gguf", "-q4", "-q8"]:
         name = name.replace(q, "")
+    # Collapse any double-hyphens left after qualifier removal
+    name = re.sub(r"-{2,}", "-", name)
     return name.strip("-")
 
 

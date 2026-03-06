@@ -274,27 +274,40 @@ def _read_openhands_trajectory(session: Any) -> dict[str, Any]:
                         break
 
         if metrics is not None:
-            logger.info("Raw llm_metrics keys: %s", list(metrics.keys())[:20])
-            # v1.4+ format uses _accumulated_cost, _accumulated_token_usage, etc.
-            # Older format uses accumulated_input_tokens, accumulated_output_tokens
+            # OpenHands llm_metrics dict structure (v1.4+):
+            #   accumulated_cost: float
+            #   accumulated_token_usage: {prompt_tokens, completion_tokens, ...}
+            #   token_usages: [{prompt_tokens, completion_tokens, ...}, ...]
+            #   costs: [...]
+            # Older format uses: accumulated_input_tokens, accumulated_output_tokens
+
+            # Token counts from accumulated_token_usage (v1.4+)
+            token_usage = metrics.get("accumulated_token_usage", {})
+            if not isinstance(token_usage, dict):
+                token_usage = {}
             input_tok = (
-                metrics.get("accumulated_input_tokens")
-                or metrics.get("prompt_tokens")
+                token_usage.get("prompt_tokens")
+                or metrics.get("accumulated_input_tokens")
                 or 0
             )
             output_tok = (
-                metrics.get("accumulated_output_tokens")
-                or metrics.get("completion_tokens")
+                token_usage.get("completion_tokens")
+                or metrics.get("accumulated_output_tokens")
                 or 0
             )
-            cost = metrics.get("accumulated_cost") or metrics.get("_accumulated_cost") or 0.0
-            turns = metrics.get("num_turns") or 0
 
-            # v1.4+ stores token counts in _accumulated_token_usage sub-dict
-            token_usage = metrics.get("_accumulated_token_usage", {})
-            if isinstance(token_usage, dict):
-                input_tok = input_tok or token_usage.get("prompt_tokens", 0)
-                output_tok = output_tok or token_usage.get("completion_tokens", 0)
+            # If accumulated_token_usage was empty, sum from token_usages list
+            if input_tok == 0 and output_tok == 0:
+                for tu in metrics.get("token_usages", []):
+                    if isinstance(tu, dict):
+                        input_tok += tu.get("prompt_tokens", 0)
+                        output_tok += tu.get("completion_tokens", 0)
+
+            cost = metrics.get("accumulated_cost", 0.0) or 0.0
+            # num_turns = number of token_usages entries (each is one LLM call)
+            turns = metrics.get("num_turns", 0)
+            if not turns:
+                turns = len(metrics.get("token_usages", []))
 
             result["input_tokens"] = int(input_tok)
             result["output_tokens"] = int(output_tok)
@@ -479,6 +492,19 @@ class OpenHands(BaseAgent):
         # in the finally block, so we need a new one each time).
         self.conversation = self._create_conversation()
 
+        # Snapshot LLM token metrics before this run to compute per-query delta
+        _pre_input = 0
+        _pre_output = 0
+        _pre_cost = 0.0
+        try:
+            _m = self.model.metrics
+            if _m.accumulated_token_usage is not None:
+                _pre_input = _m.accumulated_token_usage.prompt_tokens or 0
+                _pre_output = _m.accumulated_token_usage.completion_tokens or 0
+            _pre_cost = _m.accumulated_cost or 0.0
+        except Exception:
+            pass
+
         self._record_event("lm_inference_start", model=str(self.model))
         try:
             self.conversation.send_message(input)
@@ -504,12 +530,29 @@ class OpenHands(BaseAgent):
 
             result = self._extract_text(result)
             self.current_result = ""
+
+            # Extract per-query token usage as delta from pre-run snapshot
+            input_tokens = 0
+            output_tokens = 0
+            cost_usd = 0.0
+            try:
+                metrics = self.model.metrics
+                if metrics.accumulated_token_usage is not None:
+                    input_tokens = (metrics.accumulated_token_usage.prompt_tokens or 0) - _pre_input
+                    output_tokens = (metrics.accumulated_token_usage.completion_tokens or 0) - _pre_output
+                cost_usd = (metrics.accumulated_cost or 0.0) - _pre_cost
+            except Exception:
+                pass
+
             return AgentRunResult(
                 content=result,
                 tool_calls_attempted=len(self._tool_names_used),
                 tool_calls_succeeded=len(self._tool_names_used),
                 tool_names_used=list(self._tool_names_used),
                 num_turns=self._num_turns,
+                input_tokens=input_tokens,
+                output_tokens=output_tokens,
+                cost_usd=cost_usd,
             )
         finally:
             self._record_event("lm_inference_end", model=str(self.model))
@@ -583,7 +626,7 @@ class OpenHands(BaseAgent):
         if llm_api_key:
             os.environ["LLM_API_KEY"] = llm_api_key
 
-        logger.info(
+        logger.debug(
             "TB env setup: LLM_BASE_URL=%s, LLM_MODEL=%s, LLM_API_KEY=%s",
             os.environ.get("LLM_BASE_URL", "<unset>"),
             model_str,
