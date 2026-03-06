@@ -30,6 +30,7 @@ from ..execution.types import (
     MemoryMetrics,
     MetricStats,
     ModelMetrics,
+    PowerComponentMetrics,
     PowerMetrics,
     ProfilingRecord,
     TokenMetrics,

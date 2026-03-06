@@ -256,6 +256,7 @@ class TestPrintEfficiencyPanel:
     def test_panel_shows_accuracy_context(self):
         """Accuracy, Total Energy, and Avg Power appear in panel output."""
         from io import StringIO
+
         from rich.console import Console
 
         buf = StringIO()
@@ -275,6 +276,7 @@ class TestPrintEfficiencyPanel:
     def test_panel_with_accuracy_none_falls_back_to_completed(self):
         """When accuracy is None, the panel falls back to completion rate."""
         from io import StringIO
+
         from rich.console import Console
 
         buf = StringIO()
@@ -292,6 +294,7 @@ class TestPrintEfficiencyPanel:
     def test_panel_precision_six_decimals(self):
         """IPJ/IPW values use 6 decimal places."""
         from io import StringIO
+
         from rich.console import Console
 
         buf = StringIO()
@@ -306,6 +309,7 @@ class TestPrintEfficiencyPanel:
     def test_panel_no_ipj_ipw_when_no_energy(self):
         """IPJ/IPW are absent when there is no energy data, but accuracy still shows."""
         from io import StringIO
+
         from rich.console import Console
 
         buf = StringIO()
