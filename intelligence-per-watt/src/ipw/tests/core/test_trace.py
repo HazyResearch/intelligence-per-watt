@@ -282,6 +282,119 @@ class TestQueryTrace:
         trace = QueryTrace(query_id="q0", workload_type="test")
         assert trace.is_resolved is None
 
+    def test_timed_out_default_false(self) -> None:
+        trace = QueryTrace(query_id="q0", workload_type="test")
+        assert trace.timed_out is False
+
+    def test_timed_out_in_to_dict(self) -> None:
+        trace = QueryTrace(query_id="q0", workload_type="test", timed_out=True)
+        d = trace.to_dict()
+        assert d["timed_out"] is True
+
+    def test_timed_out_roundtrip(self) -> None:
+        for val in (True, False):
+            trace = QueryTrace(query_id="q0", workload_type="test", timed_out=val)
+            restored = QueryTrace.from_dict(trace.to_dict())
+            assert restored.timed_out is val
+
+    # --- New computed property tests ---
+
+    def test_total_tokens(self) -> None:
+        trace = self._make_trace()
+        assert trace.total_tokens == 260  # 180 + 80
+
+    def test_avg_gpu_power_watts_from_turns(self) -> None:
+        trace = QueryTrace(
+            query_id="q0",
+            workload_type="test",
+            turns=[
+                TurnTrace(turn_index=0, gpu_power_avg_watts=200.0),
+                TurnTrace(turn_index=1, gpu_power_avg_watts=300.0),
+            ],
+        )
+        assert trace.avg_gpu_power_watts == pytest.approx(250.0)
+
+    def test_avg_gpu_power_watts_fallback_to_query(self) -> None:
+        trace = QueryTrace(
+            query_id="q0",
+            workload_type="test",
+            turns=[TurnTrace(turn_index=0)],
+            query_gpu_power_avg_watts=180.0,
+        )
+        assert trace.avg_gpu_power_watts == pytest.approx(180.0)
+
+    def test_avg_gpu_power_watts_none(self) -> None:
+        trace = QueryTrace(
+            query_id="q0",
+            workload_type="test",
+            turns=[TurnTrace(turn_index=0)],
+        )
+        assert trace.avg_gpu_power_watts is None
+
+    def test_avg_cpu_power_watts_from_turns(self) -> None:
+        trace = QueryTrace(
+            query_id="q0",
+            workload_type="test",
+            turns=[
+                TurnTrace(turn_index=0, cpu_power_avg_watts=50.0),
+                TurnTrace(turn_index=1, cpu_power_avg_watts=70.0),
+            ],
+        )
+        assert trace.avg_cpu_power_watts == pytest.approx(60.0)
+
+    def test_avg_cpu_power_watts_fallback_to_query(self) -> None:
+        trace = QueryTrace(
+            query_id="q0",
+            workload_type="test",
+            turns=[TurnTrace(turn_index=0)],
+            query_cpu_power_avg_watts=90.0,
+        )
+        assert trace.avg_cpu_power_watts == pytest.approx(90.0)
+
+    def test_throughput_tokens_per_sec(self) -> None:
+        trace = self._make_trace()
+        # 80 output tokens / 3.0 seconds
+        assert trace.throughput_tokens_per_sec == pytest.approx(80.0 / 3.0)
+
+    def test_throughput_tokens_per_sec_none_zero_tokens(self) -> None:
+        trace = QueryTrace(
+            query_id="q0",
+            workload_type="test",
+            turns=[TurnTrace(turn_index=0)],
+            total_wall_clock_s=5.0,
+        )
+        assert trace.throughput_tokens_per_sec is None
+
+    def test_throughput_tokens_per_sec_none_zero_time(self) -> None:
+        trace = QueryTrace(
+            query_id="q0",
+            workload_type="test",
+            turns=[TurnTrace(turn_index=0, output_tokens=50)],
+            total_wall_clock_s=0.0,
+        )
+        assert trace.throughput_tokens_per_sec is None
+
+    def test_energy_per_token_joules(self) -> None:
+        trace = self._make_trace()
+        # total gpu energy = 13.0 J, output tokens = 80
+        assert trace.energy_per_token_joules == pytest.approx(13.0 / 80.0)
+
+    def test_energy_per_token_joules_none_no_energy(self) -> None:
+        trace = QueryTrace(
+            query_id="q0",
+            workload_type="test",
+            turns=[TurnTrace(turn_index=0, output_tokens=50)],
+        )
+        assert trace.energy_per_token_joules is None
+
+    def test_energy_per_token_joules_none_zero_tokens(self) -> None:
+        trace = QueryTrace(
+            query_id="q0",
+            workload_type="test",
+            turns=[TurnTrace(turn_index=0, gpu_energy_joules=10.0)],
+        )
+        assert trace.energy_per_token_joules is None
+
     def test_to_hf_dataset(self) -> None:
         try:
             from datasets import Dataset  # noqa: F401
@@ -298,6 +411,9 @@ class TestQueryTrace:
         assert row["total_input_tokens"] == 180
         assert row["total_output_tokens"] == 80
         assert row["total_tool_calls"] == 3
+        assert row["total_tokens"] == 260
+        assert row["throughput_tokens_per_sec"] == pytest.approx(80.0 / 3.0)
+        assert row["energy_per_token_joules"] == pytest.approx(13.0 / 80.0)
         assert row["completed"] is True
         # trace_json should be valid JSON
         parsed = json.loads(row["trace_json"])

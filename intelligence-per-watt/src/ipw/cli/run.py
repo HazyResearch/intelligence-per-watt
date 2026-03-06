@@ -20,6 +20,19 @@ from ._display import (
 )
 
 
+def _add_litellm_prefix(model: str, base_url: str) -> str:
+    """Add LiteLLM provider prefix if not already present."""
+    _LITELLM_PREFIXES = (
+        "openai/", "ollama/", "anthropic/", "gemini/", "google/",
+        "azure/", "bedrock/", "vertex_ai/",
+    )
+    if model.startswith(_LITELLM_PREFIXES):
+        return model
+    is_ollama = "11434" in base_url or "ollama" in base_url.lower()
+    prefix = "ollama" if is_ollama else "openai"
+    return f"{prefix}/{model}"
+
+
 def _create_model_for_agent(agent_id: str, model: str, base_url: str, api_key: str):
     """Create the framework-specific model object for the given agent type."""
     if agent_id == "react":
@@ -29,15 +42,14 @@ def _create_model_for_agent(agent_id: str, model: str, base_url: str, api_key: s
     elif agent_id == "openhands":
         from openhands.sdk import LLM
 
-        # LiteLLM requires provider prefix: ollama/ for Ollama, openai/ for OpenAI-compatible
-        is_ollama = "11434" in base_url or "ollama" in base_url.lower()
-        prefix = "ollama" if is_ollama else "openai"
-        litellm_model = model if model.startswith(f"{prefix}/") else f"{prefix}/{model}"
+        litellm_model = _add_litellm_prefix(model, base_url)
         # Ollama native API doesn't use /v1; OpenAI-compatible servers do
+        is_ollama = "11434" in base_url or "ollama" in base_url.lower()
         llm_base_url = base_url if is_ollama else f"{base_url}/v1"
         return LLM(model=litellm_model, api_key=api_key, base_url=llm_base_url)
-    elif agent_id == "terminus":
-        return model  # Terminus takes a string
+    elif agent_id in ("terminus-tb", "terminus"):
+        # terminus_tb.py already prepends "openai/" — pass raw model_id
+        return model
     else:
         return model  # Fallback: pass string
 
@@ -153,8 +165,10 @@ def run_cmd(
     if not model:
         raise click.ClickException("Either --model or --preset is required.")
 
+    import ipw.clients
     import ipw.datasets
 
+    ipw.clients.ensure_registered()
     ipw.datasets.ensure_registered()
 
     # Ensure agent modules are imported for registry population
@@ -282,7 +296,7 @@ def run_cmd(
         return _agent_cls_ref(model=_model_ref, event_recorder=rec, **_extra_kwargs_ref)
 
     # Run the agentic benchmark with energy telemetry
-    collector = EnergyMonitorCollector()
+    collector = EnergyMonitorCollector(timeout=30.0)
     with TelemetrySession(collector) as telemetry:
         runner = AgenticRunner(
             agent=agent_instance,
@@ -345,11 +359,23 @@ def run_cmd(
 
     # Rich summary display
     total_completed = sum(1 for t in traces if t.completed)
+    timed_out = [t for t in traces if t.timed_out]
     success(f"Run complete: {total_completed}/{len(traces)} queries completed")
+
+    if timed_out:
+        warning(f"{len(timed_out)} queries timed out:")
+        for t in timed_out:
+            warning(f"  {t.query_id}: {t.total_wall_clock_s:.0f}s")
 
     metric_rows = compute_trace_metrics(traces)
     print_metrics_table(rows=metric_rows, title="Run Metrics")
-    print_efficiency_panel(traces=traces)
+
+    # Compute accuracy from is_resolved traces
+    resolved_traces = [t for t in traces if t.is_resolved is not None]
+    accuracy = None
+    if resolved_traces:
+        accuracy = sum(1 for t in resolved_traces if t.is_resolved) / len(resolved_traces)
+    print_efficiency_panel(traces=traces, accuracy=accuracy)
     print_output_path(path=run_dir)
 
 

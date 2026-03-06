@@ -119,6 +119,43 @@ class TestEstimateFlops:
         assert total == pytest.approx(expected)
 
 
+class TestQwen35Models:
+    """Test Qwen 3.5 model lookups."""
+
+    def test_qwen35_397b(self) -> None:
+        total, per_token = estimate_flops("Qwen/Qwen3.5-397B-A17B-Instruct", 100, 200)
+        assert total > 0
+        assert per_token > 0
+
+    def test_qwen35_122b(self) -> None:
+        total, per_token = estimate_flops("Qwen/Qwen3.5-122B-A10B", 100, 200)
+        assert total > 0
+
+    def test_qwen35_35b(self) -> None:
+        total, per_token = estimate_flops("qwen3.5-35b-a3b", 100, 200)
+        assert total > 0
+
+    def test_qwen35_27b(self) -> None:
+        total, per_token = estimate_flops("Qwen/Qwen3.5-27B-Instruct", 100, 200)
+        assert total > 0
+
+    def test_qwen3_moe_30b_a3b(self) -> None:
+        """Verify the fixed MoE entry matches after normalization."""
+        params = lookup_params("Qwen/Qwen3-30B-A3B")
+        assert params is not None
+        assert params == pytest.approx(3.0)
+
+    def test_qwen3_235b_a22b(self) -> None:
+        total, per_token = estimate_flops("Qwen/Qwen3-235B-A22B-Instruct", 100, 200)
+        assert total > 0
+
+    def test_fp8_normalization(self) -> None:
+        """fp8 is correctly stripped during normalization."""
+        result = normalize_model_name("qwen2.5-72b-instruct-fp8")
+        assert "fp" not in result
+        assert result == "qwen-2.5-72b"
+
+
 class TestModelParams:
     """Test MODEL_PARAMS dictionary."""
 

@@ -194,8 +194,14 @@ def compute_trace_metrics(traces: List["QueryTrace"]) -> List[MetricRow]:
         _row("Wall Clock", [t.total_wall_clock_s for t in traces], "s"),
         _row("GPU Energy", [t.total_gpu_energy_joules for t in traces], "J"),
         _row("CPU Energy", [t.total_cpu_energy_joules for t in traces], "J"),
+        _row("GPU Power", [t.avg_gpu_power_watts for t in traces], "W"),
+        _row("CPU Power", [t.avg_cpu_power_watts for t in traces], "W"),
         _row("Input Tokens", [float(t.total_input_tokens) for t in traces], ""),
         _row("Output Tokens", [float(t.total_output_tokens) for t in traces], ""),
+        _row("Total Tokens", [float(t.total_tokens) for t in traces], ""),
+        _row("Throughput", [t.throughput_tokens_per_sec for t in traces], "tok/s"),
+        _row("Energy/Token", [t.energy_per_token_joules for t in traces], "J/tok"),
+        _row("Cost", [t.total_cost_usd for t in traces], "$"),
         _row("Turns", [float(t.num_turns) for t in traces], ""),
         _row("Tool Calls", [float(t.total_tool_calls) for t in traces], ""),
         MetricRow(
@@ -208,6 +214,21 @@ def compute_trace_metrics(traces: List["QueryTrace"]) -> List[MetricRow]:
             f"{completed_count}/{total}",
         ),
     ]
+
+    timed_out_count = sum(1 for t in traces if t.timed_out)
+    if timed_out_count > 0:
+        rows.append(
+            MetricRow(
+                "Timed Out",
+                float(timed_out_count),
+                None,
+                None,
+                None,
+                None,
+                f"{timed_out_count}/{total}",
+            ),
+        )
+
     return rows
 
 
@@ -306,15 +327,25 @@ def print_efficiency_panel(
             acc = completed / total if total > 0 else 0.0
 
     lines: list[str] = []
+    # Context lines
+    if acc is not None:
+        lines.append(f"Accuracy:      [bold]{acc * 100:.1f}%[/bold]")
+    if total_energy > 0:
+        lines.append(f"Total Energy:  [bold]{total_energy:.2f}[/bold] J")
+    if avg_power > 0:
+        lines.append(f"Avg Power:     [bold]{avg_power:.2f}[/bold] W")
+    if lines:
+        lines.append("[dim]" + "\u2500" * 40 + "[/dim]")
+
     if acc is not None and total_energy > 0:
         ipj = acc / total_energy
-        lines.append(f"[bold green]IPJ[/bold green]  (Intelligence Per Joule):  [bold]{ipj:.4f}[/bold]")
+        lines.append(f"[bold green]IPJ[/bold green]  (Intelligence Per Joule):  [bold]{ipj:.6f}[/bold]")
     elif total_energy > 0:
         lines.append("[dim]IPJ  (Intelligence Per Joule):  N/A (no accuracy data)[/dim]")
 
     if acc is not None and avg_power > 0:
         ipw = acc / avg_power
-        lines.append(f"[bold green]IPW[/bold green]  (Intelligence Per Watt):   [bold]{ipw:.4f}[/bold]")
+        lines.append(f"[bold green]IPW[/bold green]  (Intelligence Per Watt):   [bold]{ipw:.6f}[/bold]")
     elif avg_power > 0:
         lines.append("[dim]IPW  (Intelligence Per Watt):   N/A (no accuracy data)[/dim]")
 

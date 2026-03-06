@@ -692,6 +692,202 @@ class TestAgenticRunner:
         assert trace.num_turns == 1
         assert trace.turns[0].cost_usd == 0.0
 
+    def test_power_metrics_populated_from_telemetry(self) -> None:
+        """Power metrics in ProfilingRecord are populated from trace data."""
+        agent = MagicMock()
+        agent.run.return_value = AgentRunResult(
+            content="result",
+            input_tokens=500,
+            output_tokens=200,
+        )
+
+        dataset = MagicMock()
+        records = [
+            DatasetRecord(
+                problem="Q1", answer="A1", subject="s",
+                dataset_metadata={"dataset_name": "test"},
+            )
+        ]
+        dataset.__iter__ = MagicMock(return_value=iter(records))
+        dataset.size.return_value = 1
+        dataset.create_task_env.return_value = None
+
+        telemetry = MagicMock()
+        telemetry.readings.return_value = []
+        telemetry.window.return_value = iter([
+            TelemetrySample(
+                timestamp=1000.0,
+                reading=TelemetryReading(
+                    energy_joules=100.0,
+                    power_watts=200.0,
+                    cpu_energy_joules=50.0,
+                    cpu_power_watts=80.0,
+                ),
+            ),
+            TelemetrySample(
+                timestamp=1001.0,
+                reading=TelemetryReading(
+                    energy_joules=110.0,
+                    power_watts=220.0,
+                    cpu_energy_joules=55.0,
+                    cpu_power_watts=90.0,
+                ),
+            ),
+        ])
+
+        runner = AgenticRunner(
+            agent=agent,
+            dataset=dataset,
+            telemetry_session=telemetry,
+            config={"model": "test-model"},
+        )
+        asyncio.run(runner.run())
+
+        record = runner.records[0]
+        metrics = record.model_metrics["test-model"]
+        # Power metrics should be populated
+        assert metrics.power_metrics.gpu.per_query_watts.avg == pytest.approx(210.0)
+        assert metrics.power_metrics.cpu.per_query_watts.avg == pytest.approx(85.0)
+
+    def test_energy_per_token_populated(self) -> None:
+        """Energy-per-token fields in EnergyMetrics are populated."""
+        agent = MagicMock()
+        agent.run.return_value = AgentRunResult(
+            content="result",
+            input_tokens=500,
+            output_tokens=200,
+        )
+
+        dataset = MagicMock()
+        records = [
+            DatasetRecord(
+                problem="Q1", answer="A1", subject="s",
+                dataset_metadata={"dataset_name": "test"},
+            )
+        ]
+        dataset.__iter__ = MagicMock(return_value=iter(records))
+        dataset.size.return_value = 1
+        dataset.create_task_env.return_value = None
+
+        telemetry = MagicMock()
+        telemetry.readings.return_value = []
+        telemetry.window.return_value = iter([
+            TelemetrySample(
+                timestamp=1000.0,
+                reading=TelemetryReading(energy_joules=100.0, power_watts=200.0),
+            ),
+            TelemetrySample(
+                timestamp=1001.0,
+                reading=TelemetryReading(energy_joules=120.0, power_watts=220.0),
+            ),
+        ])
+
+        runner = AgenticRunner(
+            agent=agent,
+            dataset=dataset,
+            telemetry_session=telemetry,
+            config={"model": "test-model"},
+        )
+        asyncio.run(runner.run())
+
+        record = runner.records[0]
+        metrics = record.model_metrics["test-model"]
+        # GPU energy = 20 J, output = 200, total = 700
+        assert metrics.energy_metrics.energy_per_output_token_joules == pytest.approx(20.0 / 200.0)
+        assert metrics.energy_metrics.energy_per_total_token_joules == pytest.approx(20.0 / 700.0)
+
+    def test_efficiency_metrics_populated(self) -> None:
+        """DerivedEfficiencyMetrics.throughput_per_watt is populated."""
+        agent = MagicMock()
+        agent.run.return_value = AgentRunResult(
+            content="result",
+            input_tokens=500,
+            output_tokens=200,
+        )
+
+        dataset = MagicMock()
+        records = [
+            DatasetRecord(
+                problem="Q1", answer="A1", subject="s",
+                dataset_metadata={"dataset_name": "test"},
+            )
+        ]
+        dataset.__iter__ = MagicMock(return_value=iter(records))
+        dataset.size.return_value = 1
+        dataset.create_task_env.return_value = None
+
+        telemetry = MagicMock()
+        telemetry.readings.return_value = []
+        telemetry.window.return_value = iter([
+            TelemetrySample(
+                timestamp=1000.0,
+                reading=TelemetryReading(power_watts=200.0),
+            ),
+            TelemetrySample(
+                timestamp=1001.0,
+                reading=TelemetryReading(power_watts=200.0),
+            ),
+        ])
+
+        runner = AgenticRunner(
+            agent=agent,
+            dataset=dataset,
+            telemetry_session=telemetry,
+            config={"model": "test-model"},
+        )
+        asyncio.run(runner.run())
+
+        record = runner.records[0]
+        metrics = record.model_metrics["test-model"]
+        assert metrics.efficiency.throughput_per_watt is not None
+        assert metrics.efficiency.throughput_per_watt > 0
+
+    def test_query_timeout_creates_timed_out_trace(self) -> None:
+        """When query_timeout fires, trace has timed_out=True and completed=False.
+
+        Uses concurrency > 1 so the blocking sleep runs in a thread pool,
+        allowing asyncio.wait_for to actually cancel it.
+        """
+        import time as _time
+
+        def make_slow_agent():
+            a = MagicMock()
+
+            def slow_run(prompt: str, **kwargs) -> AgentRunResult:
+                _time.sleep(5.0)
+                return AgentRunResult(content="too slow")
+
+            a.run.side_effect = slow_run
+            return a
+
+        agent = make_slow_agent()
+
+        dataset = MagicMock()
+        records = [
+            DatasetRecord(
+                problem="Q1", answer="A1", subject="s",
+                dataset_metadata={"dataset_name": "test"},
+            )
+        ]
+        dataset.__iter__ = MagicMock(return_value=iter(records))
+        dataset.size.return_value = 1
+        dataset.create_task_env.return_value = None
+
+        runner = AgenticRunner(
+            agent=agent,
+            dataset=dataset,
+            config={"model": "test-model"},
+            query_timeout=0.2,
+            concurrency=2,
+            agent_factory=make_slow_agent,
+        )
+        traces = asyncio.run(runner.run())
+
+        assert len(traces) == 1
+        assert traces[0].completed is False
+        assert traces[0].timed_out is True
+        assert "timed out" in traces[0].response_text.lower()
+
     def test_local_model_cost_127(self) -> None:
         """Cost = 0.0 when client_base_url is 127.0.0.1."""
         agent = MagicMock()
