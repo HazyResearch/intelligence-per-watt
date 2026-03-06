@@ -173,6 +173,14 @@ def run_cmd(
 
     # Ensure agent modules are imported for registry population
     from ipw.agents import react as _react  # noqa: F401
+    try:
+        from ipw.agents import openhands as _openhands  # noqa: F401
+    except ImportError:
+        pass
+    try:
+        from ipw.agents import terminus, terminus_tb  # noqa: F401
+    except ImportError:
+        pass
     from ipw.core.registry import AgentRegistry, DatasetRegistry
     from ipw.execution.agentic_runner import AgenticRunner
     from ipw.execution.exporters import export_artifacts_manifest, export_hf_dataset, export_jsonl, export_summary_json

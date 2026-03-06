@@ -20,10 +20,26 @@ MODEL_PRESETS: Dict[str, Dict[str, Any]] = {
             "reasoning_parser": "glm45",
         },
     },
+    "glm-5-nvfp4": {
+        "model_id": "lukealonso/GLM-5-NVFP4",
+        "vllm_args": {
+            "tensor_parallel_size": 8,
+            "trust_remote_code": True,
+            "max_model_len": 8192,
+            "enforce_eager": True,
+        },
+    },
     "gpt-oss-120b": {
         "model_id": "openai/gpt-oss-120b",
         "vllm_args": {
             "tensor_parallel_size": 8,
+            "tool_call_parser": "openai",
+        },
+    },
+    "gpt-oss-20b": {
+        "model_id": "openai/gpt-oss-20b",
+        "vllm_args": {
+            "tensor_parallel_size": 1,
             "tool_call_parser": "openai",
         },
     },
@@ -34,8 +50,10 @@ MODEL_PRESETS: Dict[str, Dict[str, Any]] = {
     "minimax-m2.5": {
         "model_id": "MiniMaxAI/MiniMax-M2.5",
         "vllm_args": {
-            "tensor_parallel_size": 8,
+            "tensor_parallel_size": 4,
             "trust_remote_code": True,
+            "max_model_len": 32768,
+            "enforce_eager": True,
             "tool_call_parser": "minimax_m2",
         },
     },
@@ -47,6 +65,17 @@ MODEL_PRESETS: Dict[str, Dict[str, Any]] = {
             "tool_call_parser": "kimi_k2",
             "max_model_len": 8192,
             "enforce_eager": True,
+        },
+    },
+    "kimi-k2.5-nvfp4": {
+        "model_id": "nvidia/Kimi-K2.5-NVFP4",
+        "vllm_args": {
+            "tensor_parallel_size": 8,
+            "trust_remote_code": True,
+            "max_model_len": 8192,
+            "enforce_eager": True,
+            "gpu_memory_utilization": 0.95,
+            "tool_call_parser": "kimi_k2",
         },
     },
     "qwen35-35b-a3b": {
@@ -101,21 +130,6 @@ MODEL_PRESETS: Dict[str, Dict[str, Any]] = {
             "reasoning_parser": "qwen3",
             "tool_call_parser": "qwen3_coder",
         },
-    },
-    "gpt-oss-20b": {
-        "model_id": "openai/gpt-oss-20b",
-        "vllm_args": {
-            "tensor_parallel_size": 1,
-            "tool_call_parser": "openai",
-        },
-    },
-    "glm-5-nvfp4": {
-        "model_id": "lukealonso/GLM-5-NVFP4",
-        "vllm_args": {"tensor_parallel_size": 8, "trust_remote_code": True, "max_model_len": 8192, "enforce_eager": True},
-    },
-    "kimi-k2.5-nvfp4": {
-        "model_id": "nvidia/Kimi-K2.5-NVFP4",
-        "vllm_args": {"tensor_parallel_size": 8, "trust_remote_code": True, "max_model_len": 8192, "enforce_eager": True, "gpu_memory_utilization": 0.95},
     },
 }
 
