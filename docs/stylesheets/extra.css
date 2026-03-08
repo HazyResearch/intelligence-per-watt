@@ -1,0 +1,241 @@
+/* ============================================================
+   IPW Documentation — Custom Theme ("Energy Green")
+   Based on design doc: docs/plans/2026-03-08-docs-redesign-design.md
+   ============================================================ */
+
+/* --- Color Tokens (Light Mode) --- */
+[data-md-color-scheme="default"] {
+  --md-primary-fg-color: #2d5016;
+  --md-primary-fg-color--light: #3d6b22;
+  --md-primary-fg-color--dark: #1e3a0e;
+  --md-accent-fg-color: #c7982a;
+  --md-accent-fg-color--transparent: rgba(199, 152, 42, 0.1);
+  --md-default-bg-color: #f7f6f2;
+  --md-default-fg-color: #2b2b2b;
+  --md-default-fg-color--light: #555;
+  --md-default-fg-color--lighter: #888;
+  --md-code-bg-color: #efeee9;
+  --md-code-fg-color: #2b2b2b;
+  --ipw-border-color: rgba(0, 0, 0, 0.06);
+  --ipw-accent-green: #2d5016;
+  --ipw-accent-amber: #c7982a;
+}
+
+/* --- Color Tokens (Dark Mode) --- */
+[data-md-color-scheme="slate"] {
+  --md-primary-fg-color: #6b9e4f;
+  --md-primary-fg-color--light: #7db35e;
+  --md-primary-fg-color--dark: #5a8a40;
+  --md-accent-fg-color: #dbb44d;
+  --md-accent-fg-color--transparent: rgba(219, 180, 77, 0.1);
+  --md-default-bg-color: #1a1b18;
+  --md-default-fg-color: #e6e5e0;
+  --md-default-fg-color--light: #bbb;
+  --md-default-fg-color--lighter: #888;
+  --md-code-bg-color: #222220;
+  --md-code-fg-color: #e6e5e0;
+  --ipw-border-color: rgba(255, 255, 255, 0.08);
+  --ipw-accent-green: #6b9e4f;
+  --ipw-accent-amber: #dbb44d;
+}
+
+/* --- Base Typography --- */
+body {
+  font-weight: 300;
+  font-size: 0.92rem;
+  line-height: 1.85;
+}
+
+b, strong {
+  font-weight: 700;
+}
+
+/* --- Content Width --- */
+.md-content__inner {
+  max-width: 48rem;
+}
+
+/* --- Header (flat, no shadow) --- */
+.md-header {
+  box-shadow: none;
+  border-bottom: 1px solid var(--ipw-border-color);
+}
+
+/* --- Navigation & Tabs --- */
+.md-tabs__link,
+.md-nav__link,
+.md-header__title {
+  font-family: "Spectral", serif;
+  font-weight: 500;
+  font-size: 0.8rem;
+  letter-spacing: 0.01em;
+}
+
+/* --- Hero H1 --- */
+.md-content h1 {
+  font-size: 2.4rem;
+  font-weight: 900;
+  letter-spacing: -0.025em;
+  line-height: 1.2;
+}
+
+.md-content h1 em {
+  font-style: italic;
+  color: var(--ipw-accent-green);
+}
+
+.md-content h1 .headerlink {
+  display: none;
+}
+
+/* --- Hero Tagline --- */
+.hero-tagline {
+  font-size: 1.05rem;
+  color: var(--md-default-fg-color--light);
+  max-width: 600px;
+  font-weight: 300;
+  margin-bottom: 1.5rem;
+}
+
+/* --- Install Command Box --- */
+.install-command {
+  display: inline-block;
+  font-family: "JetBrains Mono", monospace;
+  font-size: 0.85rem;
+  padding: 0.6rem 1.2rem;
+  border: 1px solid var(--ipw-border-color);
+  border-radius: 6px;
+  background: var(--md-code-bg-color);
+  margin-bottom: 2.5rem;
+}
+
+/* --- H2 Section Separators --- */
+.md-content h2 {
+  font-size: 1.4rem;
+  font-weight: 700;
+  margin-top: 3.5rem;
+  padding-top: 2rem;
+  border-top: 1px solid var(--ipw-border-color);
+}
+
+.md-content h2:first-of-type,
+.md-content hr + h2 {
+  border-top: none;
+  margin-top: 2rem;
+  padding-top: 0;
+}
+
+/* --- Feature Cards (grid cards) --- */
+.grid.cards > ul {
+  gap: 0.85rem;
+}
+
+.grid.cards > ul > li {
+  padding: 1.5rem 1.75rem;
+  border-radius: 6px;
+  border: 1px solid var(--ipw-border-color);
+  box-shadow: none;
+  transition: border-color 0.15s ease, background-color 0.15s ease;
+}
+
+.grid.cards > ul > li:hover {
+  border-color: var(--ipw-accent-green);
+  background-color: var(--md-accent-fg-color--transparent);
+}
+
+.grid.cards > ul > li .card-title,
+.grid.cards > ul > li h3 {
+  font-family: "Spectral", serif;
+  font-weight: 600;
+}
+
+/* --- Code Blocks --- */
+.highlight pre,
+.highlighttable {
+  border-radius: 6px;
+  border: 1px solid var(--ipw-border-color);
+}
+
+code {
+  font-size: 0.82rem;
+  line-height: 1.7;
+  border-radius: 4px;
+}
+
+/* --- Admonitions --- */
+.md-typeset .admonition,
+.md-typeset details {
+  border-radius: 6px;
+  border: 1px solid var(--ipw-border-color);
+  border-left: 4px solid var(--md-accent-fg-color);
+  box-shadow: none;
+}
+
+/* --- Tables --- */
+.md-typeset table:not([class]) {
+  border-radius: 6px;
+  overflow: hidden;
+  border: 1px solid var(--ipw-border-color);
+}
+
+.md-typeset table:not([class]) th {
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  font-size: 0.78rem;
+  font-weight: 600;
+}
+
+/* --- Buttons --- */
+.md-typeset .md-button {
+  font-family: "Spectral", serif;
+  font-weight: 500;
+  border-radius: 6px;
+  transition: background-color 0.2s ease, border-color 0.2s ease;
+}
+
+.md-typeset .md-button--primary {
+  background-color: var(--md-primary-fg-color);
+  border-color: var(--md-primary-fg-color);
+  color: #fff;
+}
+
+.md-typeset .md-button--primary:hover {
+  background-color: var(--ipw-accent-green);
+  border-color: var(--ipw-accent-green);
+}
+
+/* --- Pill Badges --- */
+.pill {
+  display: inline-block;
+  border-radius: 100px;
+  padding: 0.15rem 0.65rem;
+  font-size: 0.7rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  background-color: var(--md-accent-fg-color--transparent);
+  color: var(--ipw-accent-green);
+}
+
+/* --- Links --- */
+.md-content a {
+  transition: color 0.15s ease;
+}
+
+/* --- Footer --- */
+.md-footer {
+  border-top: 1px solid var(--ipw-border-color);
+}
+
+/* --- Responsive --- */
+@media (max-width: 768px) {
+  .md-content h1 {
+    font-size: 1.7rem;
+  }
+  .hero-tagline {
+    font-size: 0.95rem;
+  }
+  .install-command {
+    font-size: 0.78rem;
+  }
+}
