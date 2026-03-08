@@ -9,7 +9,7 @@ ipw --help
 uv run scripts/test_energy_monitor.py
 ```
 
-If the energy monitor reports readings, your platform's collector is working. If it fails, see [Platform Support](../telemetry/platform-support.md).
+If the energy monitor reports readings, your platform's collector is working. If it fails, see [Platform Support](../benchmarking/platform-support.md).
 
 ## Single-Turn Profiling
 
@@ -78,6 +78,6 @@ ipw run --agent openhands --dataset swebench ...      # Software engineering
 ## Next Steps
 
 - [Profiling Guide](../user-guide/profiling.md) -- all `ipw profile` options
-- [Datasets Overview](../datasets/overview.md) -- benchmark details
+- [Datasets Overview](../user-guide/datasets.md) -- benchmark details
 - [Cost Tracking](../cost/pricing.md) -- cloud API cost estimation
-- [Platform Support](../telemetry/platform-support.md) -- hardware setup
+- [Platform Support](../benchmarking/platform-support.md) -- hardware setup
