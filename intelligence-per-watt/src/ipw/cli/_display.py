@@ -204,6 +204,7 @@ def compute_trace_metrics(traces: List["QueryTrace"]) -> List[MetricRow]:
         _row("Cost", [t.total_cost_usd for t in traces], "$"),
         _row("Turns", [float(t.num_turns) for t in traces], ""),
         _row("Tool Calls", [float(t.total_tool_calls) for t in traces], ""),
+        _row("MBU", [t.query_mbu_avg_pct for t in traces], "%"),
         MetricRow(
             "Completed",
             float(completed_count),
@@ -296,6 +297,9 @@ def print_efficiency_panel(
     total_energy: float = 0.0
     avg_power: float = 0.0
     acc: Optional[float] = accuracy
+    resolved: int = 0
+    scored: int = 0
+    total: int = 0
 
     if records and model:
         energies = []
@@ -321,15 +325,23 @@ def print_efficiency_panel(
         # Derive power from energy / time as a proxy
         total_time = sum(t.total_wall_clock_s for t in traces if t.total_wall_clock_s > 0)
         avg_power = total_energy / total_time if total_time > 0 else 0.0
+        # Compute resolved/scored counts for display
+        resolved = sum(1 for t in traces if t.is_resolved is True)
+        total = len(traces)
+        scored = sum(1 for t in traces if t.is_resolved is not None)
         if acc is None:
-            completed = sum(1 for t in traces if t.completed)
-            total = len(traces)
-            acc = completed / total if total > 0 else 0.0
+            if scored > 0:
+                acc = resolved / scored
+            else:
+                completed = sum(1 for t in traces if t.completed)
+                acc = completed / total if total > 0 else 0.0
 
     lines: list[str] = []
     # Context lines
     if acc is not None:
         lines.append(f"Accuracy:      [bold]{acc * 100:.1f}%[/bold]")
+    if traces and scored > 0:
+        lines.append(f"Resolved:      [bold]{resolved}/{total}[/bold]")
     if total_energy > 0:
         lines.append(f"Total Energy:  [bold]{total_energy:.2f}[/bold] J")
     if avg_power > 0:
