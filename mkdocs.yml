@@ -91,7 +91,7 @@ nav:
       - Agents: user-guide/agents.md
       - Datasets: user-guide/datasets.md
       - Analysis & Visualization: user-guide/analysis.md
-  - Telemetry:
+  - Benchmarking:
       - Telemetry Overview: benchmarking/overview.md
       - Platform Support: benchmarking/platform-support.md
   - Extending:
