@@ -52,9 +52,13 @@ class TerminusTB(BaseAgent):
             agent_kwargs["api_base"] = api_base
         agent_kwargs.update(kwargs)
 
-        # LiteLLM requires an ``openai/`` prefix for OpenAI-compatible endpoints.
-        # Always prepend so LiteLLM strips it back to the original HF model ID.
-        litellm_model = f"openai/{model}"
+        # LiteLLM requires a provider prefix.  Only prepend ``openai/`` when the
+        # model doesn't already carry a known litellm prefix.
+        _LITELLM_PREFIXES = (
+            "openai/", "anthropic/", "gemini/", "google/",
+            "azure/", "bedrock/", "vertex_ai/", "ollama/",
+        )
+        litellm_model = model if model.startswith(_LITELLM_PREFIXES) else f"openai/{model}"
         self._terminus = Terminus2(model_name=litellm_model, **agent_kwargs)
         self._model_name = model
         self._task_metadata: Optional[MutableMapping[str, Any]] = None
@@ -129,10 +133,22 @@ class TerminusTB(BaseAgent):
         input_tokens = getattr(agent_result, "total_input_tokens", 0) if agent_result else 0
         output_tokens = getattr(agent_result, "total_output_tokens", 0) if agent_result else 0
 
+        # Cost: prefer agent-reported cost, fall back to pricing table lookup
+        cost = getattr(agent_result, "total_cost", 0.0) if agent_result else 0.0
+        if not cost and (input_tokens or output_tokens):
+            try:
+                from ipw.cost.pricing import calculate_cost
+
+                provider, _, model_id = self._model_name.partition("/")
+                cost = calculate_cost(provider, model_id, input_tokens, output_tokens)
+            except Exception:
+                LOGGER.debug("Cost calculation failed for %s", self._model_name, exc_info=True)
+
         return AgentRunResult(
             content=terminal_output,
             input_tokens=input_tokens,
             output_tokens=output_tokens,
+            cost_usd=cost,
             metadata={
                 "task_id": task_id,
             },

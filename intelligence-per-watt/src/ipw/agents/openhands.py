@@ -607,6 +607,10 @@ class OpenHands(BaseAgent):
             llm_base_url = llm_base_url.replace("localhost", docker_ip)
             llm_base_url = llm_base_url.replace("127.0.0.1", docker_ip)
             os.environ["LLM_BASE_URL"] = llm_base_url
+        else:
+            # Cloud model path: remove stale LLM_BASE_URL so litellm routes
+            # to the provider's API endpoint directly.
+            os.environ.pop("LLM_BASE_URL", None)
 
         # Ensure the model string has a litellm provider prefix
         _KNOWN_PREFIXES = (
@@ -622,7 +626,13 @@ class OpenHands(BaseAgent):
         if llm_api_key is not None and hasattr(llm_api_key, "get_secret_value"):
             llm_api_key = llm_api_key.get_secret_value()
         if not llm_api_key:
-            llm_api_key = os.environ.get("LLM_API_KEY", "") or os.environ.get("OPENAI_API_KEY", "")
+            # Check provider-specific env vars based on model prefix
+            if model_str.startswith("anthropic/"):
+                llm_api_key = os.environ.get("ANTHROPIC_API_KEY", "")
+            elif model_str.startswith(("gemini/", "google/")):
+                llm_api_key = os.environ.get("GEMINI_API_KEY", "") or os.environ.get("GOOGLE_API_KEY", "")
+            if not llm_api_key:
+                llm_api_key = os.environ.get("LLM_API_KEY", "") or os.environ.get("OPENAI_API_KEY", "")
         if llm_api_key:
             os.environ["LLM_API_KEY"] = llm_api_key
 
