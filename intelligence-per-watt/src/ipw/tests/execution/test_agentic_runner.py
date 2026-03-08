@@ -1130,6 +1130,96 @@ class TestAgenticRunner:
         assert trace.query_mbu_avg_pct is None
         assert trace.query_mbu_max_pct is None
 
+    def test_is_resolved_populated_when_dataset_has_score(self) -> None:
+        """When a dataset provides a score() method, AgenticRunner calls it
+        and the resulting is_resolved value appears on the QueryTrace."""
+        agent = MagicMock()
+        agent.run.return_value = AgentRunResult(content="42")
+
+        dataset = MagicMock()
+        records = [
+            DatasetRecord(
+                problem="What is 6*7?",
+                answer="42",
+                subject="math",
+                dataset_metadata={"dataset_name": "test"},
+            )
+        ]
+        dataset.__iter__ = MagicMock(return_value=iter(records))
+        dataset.size.return_value = 1
+        # create_task_env returns None so the elif-score branch is taken
+        dataset.create_task_env.return_value = None
+        # score() returns (True, {}) indicating a correct answer
+        dataset.score.return_value = (True, {})
+
+        runner = AgenticRunner(
+            agent=agent,
+            dataset=dataset,
+            config={"model": "test-model"},
+        )
+        traces = asyncio.run(runner.run())
+
+        assert len(traces) == 1
+        assert traces[0].is_resolved is True
+        dataset.score.assert_called_once()
+
+    def test_is_resolved_false_when_score_returns_false(self) -> None:
+        """When dataset.score() returns False, is_resolved is False on the trace."""
+        agent = MagicMock()
+        agent.run.return_value = AgentRunResult(content="wrong answer")
+
+        dataset = MagicMock()
+        records = [
+            DatasetRecord(
+                problem="What is 6*7?",
+                answer="42",
+                subject="math",
+                dataset_metadata={"dataset_name": "test"},
+            )
+        ]
+        dataset.__iter__ = MagicMock(return_value=iter(records))
+        dataset.size.return_value = 1
+        dataset.create_task_env.return_value = None
+        dataset.score.return_value = (False, {})
+
+        runner = AgenticRunner(
+            agent=agent,
+            dataset=dataset,
+            config={"model": "test-model"},
+        )
+        traces = asyncio.run(runner.run())
+
+        assert len(traces) == 1
+        assert traces[0].is_resolved is False
+
+    def test_is_resolved_none_when_no_score_method(self) -> None:
+        """When dataset has no score() method, is_resolved remains None."""
+        agent = MagicMock()
+        agent.run.return_value = AgentRunResult(content="answer")
+
+        dataset = MagicMock()
+        records = [
+            DatasetRecord(
+                problem="Q", answer="A", subject="s",
+                dataset_metadata={"dataset_name": "test"},
+            )
+        ]
+        dataset.__iter__ = MagicMock(return_value=iter(records))
+        dataset.size.return_value = 1
+        dataset.create_task_env.return_value = None
+        # Remove the auto-generated score attribute so hasattr returns False
+        del dataset.score
+
+        runner = AgenticRunner(
+            agent=agent,
+            dataset=dataset,
+            config={"model": "test-model"},
+        )
+        traces = asyncio.run(runner.run())
+
+        assert len(traces) == 1
+        assert traces[0].is_resolved is None
+
     def test_mbu_zero_value_included(self) -> None:
         """MBU value of 0.0 is valid and should be included (not filtered)."""
         agent = MagicMock()
