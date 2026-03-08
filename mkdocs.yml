@@ -1,5 +1,5 @@
 site_name: Intelligence Per Watt
-site_description: Benchmarking suite for LLM inference systems measuring accuracy alongside energy consumption
+site_description: Benchmarking Intelligence Efficiency for LM Inference Systems
 site_url: https://hazyresearch.stanford.edu/intelligence-per-watt/
 repo_url: https://github.com/HazyResearch/intelligence-per-watt
 repo_name: HazyResearch/intelligence-per-watt
@@ -7,51 +7,50 @@ edit_uri: edit/main/docs/
 
 theme:
   name: material
+  font:
+    text: Spectral
+    code: JetBrains Mono
   palette:
     - scheme: default
-      primary: teal
-      accent: amber
+      primary: custom
+      accent: custom
       toggle:
         icon: material/brightness-7
         name: Switch to dark mode
+      media: "(prefers-color-scheme: light)"
     - scheme: slate
-      primary: teal
-      accent: amber
+      primary: custom
+      accent: custom
       toggle:
         icon: material/brightness-4
         name: Switch to light mode
+      media: "(prefers-color-scheme)"
   features:
-    - navigation.instant
-    - navigation.tracking
+    - navigation.tabs
+    - navigation.tabs.sticky
     - navigation.sections
-    - navigation.expand
     - navigation.top
+    - navigation.footer
+    - navigation.indexes
+    - toc.follow
     - search.suggest
     - search.highlight
     - content.code.copy
     - content.code.annotate
+    - content.tabs.link
   icon:
     repo: fontawesome/brands/github
 
 plugins:
   - search
-  - mkdocstrings:
-      handlers:
-        python:
-          options:
-            show_source: true
-            show_root_heading: true
-            members_order: source
-  - gen-files:
-      scripts:
-        - docs/gen_ref_pages.py
-  - literate-nav:
-      nav_file: SUMMARY.md
 
 extra:
   social:
     - icon: fontawesome/brands/github
       link: https://github.com/HazyResearch/intelligence-per-watt
+
+extra_css:
+  - stylesheets/extra.css
 
 markdown_extensions:
   - admonition
@@ -62,6 +61,7 @@ markdown_extensions:
   - tables
   - toc:
       permalink: true
+      toc_depth: 3
   - pymdownx.details
   - pymdownx.emoji:
       emoji_index: !!python/name:material.extensions.emoji.twemoji
@@ -70,7 +70,9 @@ markdown_extensions:
       anchor_linenums: true
   - pymdownx.inlinehilite
   - pymdownx.keys
-  - pymdownx.snippets
+  - pymdownx.snippets:
+      auto_append:
+        - docs/includes/abbreviations.md
   - pymdownx.superfences:
       custom_fences:
         - name: mermaid
@@ -85,34 +87,16 @@ nav:
   - Home: index.md
   - Getting Started:
       - Installation: getting-started/installation.md
-      - Prerequisites: getting-started/prerequisites.md
-      - Quickstart: getting-started/quickstart.md
+      - Quick Start: getting-started/quickstart.md
   - User Guide:
-      - Single-Turn Profiling: user-guide/profiling.md
-      - Agentic Profiling: user-guide/agentic-profiling.md
-      - Analysis: user-guide/analysis.md
-      - Visualization: user-guide/visualization.md
-      - Export Formats: user-guide/export-formats.md
-  - Agents:
-      - Overview: agents/overview.md
-      - ReAct: agents/react.md
-      - OpenHands: agents/openhands.md
-      - Terminus: agents/terminus.md
-  - Datasets:
-      - Overview: datasets/overview.md
-      - Single-Turn: datasets/single-turn.md
-      - Agentic: datasets/agentic.md
-      - Coding: datasets/coding.md
-  - Telemetry:
-      - Energy Monitor: telemetry/energy-monitor.md
-      - Platform Support: telemetry/platform-support.md
-      - Traces: telemetry/traces.md
-      - Metrics Reference: telemetry/metrics-reference.md
+      - Profiling: user-guide/profiling.md
+      - Agents: user-guide/agents.md
+      - Datasets: user-guide/datasets.md
+      - Analysis & Visualization: user-guide/analysis.md
+  - Benchmarking:
+      - Overview: benchmarking/overview.md
+      - Platform Support: benchmarking/platform-support.md
+  - Extending:
+      - Extending IPW: extending/index.md
   - Cost:
       - Pricing: cost/pricing.md
-  - Extending:
-      - Adding Clients: extending/adding-clients.md
-      - Adding Datasets: extending/adding-datasets.md
-      - Adding Agents: extending/adding-agents.md
-      - Adding Collectors: extending/adding-collectors.md
-  - API Reference: api-reference/
