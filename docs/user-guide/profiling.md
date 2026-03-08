@@ -26,7 +26,10 @@ ipw profile --client <client> --model <model> [options]
 | `--client-base-url` | client-specific | Base URL of the inference server |
 | `--dataset` | `ipw` | Dataset to use for prompts |
 | `--max-queries` | all | Limit the number of queries |
+| `--warmup-queries` | `3` | Number of warmup queries to discard before measurement (0 to disable) |
 | `--output-dir` | `./runs/` | Directory for results |
+| `--dataset-param` | none | Dataset params as `key=value` (repeatable) |
+| `--client-param` | none | Client params as `key=value` (repeatable) |
 | `--eval-client` | `openai` | Client for LLM judge evaluation |
 | `--eval-base-url` | `https://api.openai.com/v1` | Judge service URL |
 | `--eval-model` | `gpt-5-nano-2025-08-07` | Model for evaluation judging |
@@ -70,17 +73,22 @@ ipw run --agent <agent> --model <model> --dataset <dataset> [options]
 | Option | Description |
 |--------|-------------|
 | `--agent` | Agent harness ID (`react`, `openhands`, `terminus`) |
-| `--model` | Model name for the agent's LLM backbone |
+| `--model` | Model name for the agent's LLM backbone (or use `--preset`) |
 | `--dataset` | Dataset ID for the workload |
 
 ### Optional Options
 
 | Option | Default | Description |
 |--------|---------|-------------|
+| `--preset` | none | Model preset name (e.g., `glm-4.7-flash`); alternative to `--model` |
+| `--client-base-url` | `http://localhost:8000` | Inference server base URL |
+| `--api-key` | `EMPTY` | API key for the inference server |
 | `--max-queries` | all | Limit number of tasks to run |
 | `--output-dir` | `./runs/` | Directory for results |
-| `--max-turns` | 20 | Maximum agent turns per task |
 | `--concurrency` | 1 | Number of tasks to run in parallel |
+| `--query-timeout` | none | Wall-clock timeout in seconds per query |
+| `--export-format` | `jsonl,hf` | Comma-separated export formats (`jsonl`, `hf`) |
+| `--estimate-flops` | off | Enable FLOPs estimation |
 | `--dataset-kwargs` | none | JSON string of extra dataset arguments |
 | `--agent-kwargs` | none | JSON string of extra agent arguments |
 | `--eval-client` | `openai` | Client for evaluation judging |
@@ -113,7 +121,7 @@ ipw run --agent <agent> --model <model> --dataset <dataset> [options]
       --agent openhands \
       --model gpt-4o \
       --dataset swebench \
-      --max-turns 30
+      --max-queries 30
     ```
 
 === "Terminus"
@@ -215,7 +223,7 @@ runs/run_<agent>_<model>_<dataset>/
 
 ### summary.json
 
-Contains run metadata: profiler configuration (client/agent, model, dataset), hardware information (GPU, CPU, platform), timing (start/end timestamps, total duration), and aggregate token counts.
+Contains run configuration (client/agent, model, dataset), aggregate totals (queries, tokens, wall clock, energy, cost), per-query averages, per-metric statistics (avg, median, min, max, std), and a generation timestamp.
 
 ### Arrow Dataset Schema
 

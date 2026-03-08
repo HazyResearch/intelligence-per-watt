@@ -479,3 +479,77 @@ class TestEfficiencySection:
         summary = json.loads(path.read_text())
         assert summary["normalized_statistics"] is None
         assert summary["normalized_efficiency"] is None
+
+
+class TestResolvedUnresolvedCounts:
+    """Tests for resolved/unresolved aggregation in totals."""
+
+    def _make_trace(self, qid: str, is_resolved=None) -> QueryTrace:
+        return QueryTrace(
+            query_id=qid,
+            workload_type="test",
+            turns=[TurnTrace(turn_index=0, input_tokens=10, output_tokens=5, wall_clock_s=1.0)],
+            total_wall_clock_s=1.0,
+            completed=True,
+            is_resolved=is_resolved,
+        )
+
+    def test_all_resolved(self, tmp_path: Path) -> None:
+        traces = [self._make_trace(f"q{i}", is_resolved=True) for i in range(3)]
+        path = tmp_path / "summary.json"
+        export_summary_json(traces, {}, path)
+        totals = json.loads(path.read_text())["totals"]
+        assert totals["resolved"] == 3
+        assert totals["unresolved"] == 0
+
+    def test_all_unresolved(self, tmp_path: Path) -> None:
+        traces = [self._make_trace(f"q{i}", is_resolved=False) for i in range(3)]
+        path = tmp_path / "summary.json"
+        export_summary_json(traces, {}, path)
+        totals = json.loads(path.read_text())["totals"]
+        assert totals["resolved"] == 0
+        assert totals["unresolved"] == 3
+
+    def test_all_none_is_resolved(self, tmp_path: Path) -> None:
+        traces = [self._make_trace(f"q{i}", is_resolved=None) for i in range(3)]
+        path = tmp_path / "summary.json"
+        export_summary_json(traces, {}, path)
+        totals = json.loads(path.read_text())["totals"]
+        assert totals["resolved"] == 0
+        assert totals["unresolved"] == 0
+
+    def test_mixed_resolved_states(self, tmp_path: Path) -> None:
+        traces = [
+            self._make_trace("q0", is_resolved=True),
+            self._make_trace("q1", is_resolved=False),
+            self._make_trace("q2", is_resolved=None),
+            self._make_trace("q3", is_resolved=True),
+            self._make_trace("q4", is_resolved=False),
+        ]
+        path = tmp_path / "summary.json"
+        export_summary_json(traces, {}, path)
+        totals = json.loads(path.read_text())["totals"]
+        assert totals["resolved"] == 2
+        assert totals["unresolved"] == 2
+
+    def test_empty_traces_resolved_zero(self, tmp_path: Path) -> None:
+        path = tmp_path / "summary.json"
+        export_summary_json([], {}, path)
+        totals = json.loads(path.read_text())["totals"]
+        assert totals["resolved"] == 0
+        assert totals["unresolved"] == 0
+
+    def test_accuracy_computed_from_resolved(self, tmp_path: Path) -> None:
+        """accuracy = resolved / (resolved + unresolved), ignoring None."""
+        traces = [
+            self._make_trace("q0", is_resolved=True),
+            self._make_trace("q1", is_resolved=False),
+            self._make_trace("q2", is_resolved=False),
+            self._make_trace("q3", is_resolved=None),  # not scored
+        ]
+        path = tmp_path / "summary.json"
+        export_summary_json(traces, {}, path)
+        summary = json.loads(path.read_text())
+        # accuracy = 1 / 3 (only 3 scored, 1 resolved)
+        assert summary["totals"]["accuracy"] == pytest.approx(1.0 / 3.0)
+        assert summary["efficiency"]["accuracy"] == pytest.approx(1.0 / 3.0)
