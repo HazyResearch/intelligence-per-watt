@@ -10,11 +10,15 @@ import pytest
 
 @pytest.fixture()
 def mock_terminus2():
-    """Patch Terminus2 so we can instantiate TerminusTB without a real LLM."""
+    """Patch Terminus2 so we can instantiate TerminusTB without terminal-bench installed."""
     mock_cls = MagicMock()
-    with patch(
-        "terminal_bench.agents.terminus_2.Terminus2", mock_cls
-    ):
+    mock_module = MagicMock()
+    mock_module.Terminus2 = mock_cls
+    with patch.dict("sys.modules", {
+        "terminal_bench": MagicMock(),
+        "terminal_bench.agents": MagicMock(),
+        "terminal_bench.agents.terminus_2": mock_module,
+    }):
         yield mock_cls
 
 
