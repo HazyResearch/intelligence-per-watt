@@ -639,6 +639,7 @@ class OpenHands(BaseAgent):
         extracted_cost: float = 0.0
         extracted_num_turns = 0
 
+        _agent_exc: Exception | None = None
         self._record_event("lm_inference_start", model=model_str)
         try:
             tb_agent = TBOpenHandsAgent(model_name=model_str)
@@ -666,10 +667,14 @@ class OpenHands(BaseAgent):
             extracted_cost = stats.get("cost", 0.0)
             extracted_num_turns = stats.get("num_turns", 0)
 
-        except Exception:
+        except Exception as exc:
             logger.exception("OpenHands TB agent failed on task %s", task_id)
+            _agent_exc = exc
         finally:
             self._record_event("lm_inference_end", model=model_str)
+
+        if _agent_exc is not None:
+            raise _agent_exc
 
         return AgentRunResult(
             content=terminal_output,

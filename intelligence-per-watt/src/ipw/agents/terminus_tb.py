@@ -126,8 +126,13 @@ class TerminusTB(BaseAgent):
         finally:
             self._record_event("lm_inference_end", model=self._model_name)
 
+        input_tokens = getattr(agent_result, "total_input_tokens", 0) if agent_result else 0
+        output_tokens = getattr(agent_result, "total_output_tokens", 0) if agent_result else 0
+
         return AgentRunResult(
             content=terminal_output,
+            input_tokens=input_tokens,
+            output_tokens=output_tokens,
             metadata={
                 "task_id": task_id,
             },
