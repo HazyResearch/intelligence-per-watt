@@ -84,7 +84,7 @@ The selected platform is reported in each `TelemetryReading.platform` field (e.g
 
 === "NVIDIA"
 
-    **Prerequisites:** Rust and `protoc` must be installed. See [Prerequisites](../getting-started/prerequisites.md).
+    **Prerequisites:** Rust and `protoc` must be installed. See [Installation](../getting-started/installation.md).
 
     1. Install NVIDIA drivers (if not already present):
     ```bash
@@ -103,7 +103,7 @@ The selected platform is reported in each `TelemetryReading.platform` field (e.g
 
 === "AMD"
 
-    **Prerequisites:** Rust and `protoc` must be installed. See [Prerequisites](../getting-started/prerequisites.md).
+    **Prerequisites:** Rust and `protoc` must be installed. See [Installation](../getting-started/installation.md).
 
     1. Install ROCm:
     ```bash
@@ -139,7 +139,7 @@ The selected platform is reported in each `TelemetryReading.platform` field (e.g
 
     Tested on Apple M4 Pro.
 
-    **Prerequisites:** Rust and `protoc` must be installed. See [Prerequisites](../getting-started/prerequisites.md). On macOS, install `protoc` via Homebrew: `brew install protobuf`.
+    **Prerequisites:** Rust and `protoc` must be installed. See [Installation](../getting-started/installation.md). On macOS, install `protoc` via Homebrew: `brew install protobuf`.
 
     1. Build and stage the energy monitor:
     ```bash
