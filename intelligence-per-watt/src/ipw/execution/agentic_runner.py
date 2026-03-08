@@ -76,6 +76,20 @@ def _compute_power_avg(
     return statistics.mean(values) if values else None
 
 
+def _estimate_energy_from_power(
+    readings: list[TelemetrySample],
+    power_field: str,
+    duration_s: float,
+) -> float | None:
+    """Fallback: energy ≈ avg_power × duration when cumulative counters unavailable."""
+    if duration_s <= 0:
+        return None
+    avg_power = _compute_power_avg(readings, power_field)
+    if avg_power is not None and avg_power > 0:
+        return avg_power * duration_s
+    return None
+
+
 # ---------------------------------------------------------------------------
 # Patch extraction helpers
 # ---------------------------------------------------------------------------
@@ -457,6 +471,14 @@ class AgenticRunner:
         query_gpu_power_avg = _compute_power_avg(readings, "power_watts")
         query_cpu_power_avg = _compute_power_avg(readings, "cpu_power_watts")
 
+        # Fallback: estimate energy from average power when cumulative counters
+        # have fewer than 2 samples (no delta possible).
+        duration = end_time - start_time
+        if query_gpu_energy is None and readings:
+            query_gpu_energy = _estimate_energy_from_power(readings, "power_watts", duration)
+        if query_cpu_energy is None and readings:
+            query_cpu_energy = _estimate_energy_from_power(readings, "cpu_power_watts", duration)
+
         trace = QueryTrace(
             query_id=query_id,
             workload_type=str(workload_type),
@@ -552,6 +574,12 @@ class AgenticRunner:
                         if cpu_powers:
                             turn_cpu_power_avg = statistics.mean(cpu_powers)
 
+                    # Fallback: estimate energy from power when < 2 cumulative samples
+                    if turn_gpu_energy is None and turn_gpu_power_avg is not None and wall_clock > 0:
+                        turn_gpu_energy = turn_gpu_power_avg * wall_clock
+                    if turn_cpu_energy is None and turn_cpu_power_avg is not None and wall_clock > 0:
+                        turn_cpu_energy = turn_cpu_power_avg * wall_clock
+
                 turn = TurnTrace(
                     turn_index=current_turn_index,
                     input_tokens=input_tokens,
@@ -640,8 +668,14 @@ class AgenticRunner:
             delta = cpu_energies[-1] - cpu_energies[0]
             total_cpu_energy = delta if delta >= 0 else None
 
-        # Distribute proportionally by wall clock time
+        # Fallback: estimate from power when cumulative counters unavailable
         total_wall = sum(t.wall_clock_s for t in trace.turns)
+        if total_gpu_energy is None and total_wall > 0:
+            total_gpu_energy = _estimate_energy_from_power(readings, "power_watts", total_wall)
+        if total_cpu_energy is None and total_wall > 0:
+            total_cpu_energy = _estimate_energy_from_power(readings, "cpu_power_watts", total_wall)
+
+        # Distribute proportionally by wall clock time
         if total_wall > 0:
             for turn in trace.turns:
                 fraction = turn.wall_clock_s / total_wall
