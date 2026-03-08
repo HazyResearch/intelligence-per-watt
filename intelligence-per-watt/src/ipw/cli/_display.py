@@ -291,6 +291,7 @@ def print_efficiency_panel(
     traces: Optional[List["QueryTrace"]] = None,
     model: Optional[str] = None,
     accuracy: Optional[float] = None,
+    bench_energy: Optional[dict] = None,
 ) -> None:
     """Display aggregate IPJ / IPW in a Rich Panel."""
     con = console or display_console
@@ -335,6 +336,13 @@ def print_efficiency_panel(
             else:
                 completed = sum(1 for t in traces if t.completed)
                 acc = completed / total if total > 0 else 0.0
+
+        # Fall back to benchmark-level energy when per-query data is absent.
+        be = bench_energy or {}
+        if total_energy == 0.0 and be.get("gpu_energy_joules"):
+            total_energy = be["gpu_energy_joules"]
+        if avg_power == 0.0 and be.get("avg_gpu_power_watts"):
+            avg_power = be["avg_gpu_power_watts"]
 
     lines: list[str] = []
     # Context lines

@@ -135,6 +135,8 @@ def export_summary_json(
     traces: list[QueryTrace],
     config: dict[str, Any],
     path: Path,
+    *,
+    bench_energy: dict[str, Any] | None = None,
 ) -> Path:
     """Export aggregate summary as JSON.
 
@@ -142,6 +144,11 @@ def export_summary_json(
         traces: List of QueryTrace objects.
         config: Run configuration dictionary.
         path: Output file path.
+        bench_energy: Optional benchmark-level energy metrics.  When
+            telemetry is collected at aggregate (benchmark) granularity
+            rather than per-query, per-trace energy fields will be
+            ``None``.  This dict supplies the aggregate values so the
+            summary still includes energy/power/efficiency data.
 
     Returns:
         The path to the written file.
@@ -232,6 +239,44 @@ def export_summary_json(
         norm_eff["_outliers_removed"] = outlier_meta
         normalized_efficiency = norm_eff
 
+    # When per-query energy is unavailable but benchmark-level energy
+    # was collected, use the aggregate values for totals and efficiency.
+    be = bench_energy or {}
+    if total_gpu_energy is None and be.get("gpu_energy_joules") is not None:
+        total_gpu_energy = be["gpu_energy_joules"]
+        avg_gpu_energy = total_gpu_energy / total_queries if total_queries > 0 else None
+    if total_cpu_energy is None and be.get("cpu_energy_joules") is not None:
+        total_cpu_energy = be["cpu_energy_joules"]
+
+    bench_avg_gpu_power = be.get("avg_gpu_power_watts")
+    bench_max_gpu_power = be.get("max_gpu_power_watts")
+    bench_avg_cpu_power = be.get("avg_cpu_power_watts")
+    bench_avg_mbu = be.get("avg_mbu_pct")
+    bench_max_mbu = be.get("max_mbu_pct")
+
+    # Recompute efficiency with any newly available energy data.
+    if be and efficiency.get("total_gpu_energy_joules") is None and total_gpu_energy is not None:
+        avg_gpu_power = bench_avg_gpu_power or efficiency.get("avg_gpu_power_watts")
+        ipj = (
+            accuracy / total_gpu_energy
+            if (accuracy and accuracy > 0 and total_gpu_energy > 0)
+            else None
+        )
+        ipw = (
+            accuracy / avg_gpu_power
+            if (accuracy and accuracy > 0 and avg_gpu_power and avg_gpu_power > 0)
+            else None
+        )
+        efficiency = {
+            "accuracy": accuracy,
+            "total_gpu_energy_joules": total_gpu_energy,
+            "total_cpu_energy_joules": total_cpu_energy,
+            "avg_gpu_power_watts": avg_gpu_power,
+            "avg_cpu_power_watts": bench_avg_cpu_power or efficiency.get("avg_cpu_power_watts"),
+            "ipj": ipj,
+            "ipw": ipw,
+        }
+
     summary = {
         "generated_at": time.time(),
         "config": config,
@@ -261,6 +306,12 @@ def export_summary_json(
         "normalized_statistics": normalized_statistics,
         "normalized_efficiency": normalized_efficiency,
     }
+
+    # Include benchmark-level telemetry metrics that aren't per-query.
+    if be:
+        summary["bench_telemetry"] = {
+            k: v for k, v in be.items() if v is not None
+        }
 
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(summary, indent=2, default=str))
