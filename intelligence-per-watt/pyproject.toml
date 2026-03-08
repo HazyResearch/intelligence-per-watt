@@ -36,7 +36,7 @@ agents = ["agno", "terminal-bench", "docker", "openhands-sdk"]
 tavily = ["tavily-python"]
 flops = ["calflops"]
 dev = ["ruff>=0.4", "pytest>=8"]
-docs = ["mkdocs-material", "mkdocstrings[python]", "mkdocs-gen-files", "mkdocs-literate-nav"]
+docs = ["mkdocs-material"]
 all = [
     "ollama",
     "vllm>=0.11.0",
