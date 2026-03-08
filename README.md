@@ -3,7 +3,7 @@
 </p>
 
 <p align="center">
-  <b>Benchmarking intelligence efficiency for LLM inference systems.</b>
+  <b>Benchmarking Intelligence Efficiency of LM Inference.</b>
 </p>
 
 <p align="center">
@@ -29,7 +29,7 @@ Intelligence Per Watt measures **accuracy alongside energy** for any LLM inferen
 - **protoc** -- Protocol Buffer compiler ([install](https://grpc.io/docs/protoc-installation/))
 - **An inference runtime** -- [Ollama](https://ollama.ai/), [vLLM](https://docs.vllm.ai/), or an OpenAI-compatible API
 
-See [Prerequisites](https://hazyresearch.stanford.edu/intelligence-per-watt/getting-started/prerequisites/) for platform-specific setup (NVIDIA NVML, AMD ROCm, Apple Silicon, Linux RAPL).
+See [Prerequisites](https://hazyresearch.stanford.edu/intelligence-per-watt/getting-started/installation/) for platform-specific setup (NVIDIA NVML, AMD ROCm, Apple Silicon, Linux RAPL).
 
 ## Installation
 

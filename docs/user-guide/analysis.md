@@ -1,78 +1,43 @@
-# Analysis
+# Analysis & Visualization
 
-The `ipw analyze` command runs post-profiling analysis on results directories. IPW ships with two analysis providers: `accuracy` (default) and `regression`.
+## Analyzing Results
 
-## Command Reference
+The `ipw analyze` command runs post-profiling analysis on results directories.
 
 ```bash
 ipw analyze <results_dir> [--analysis <type>]
 ```
 
-| Option | Default | Description |
-|--------|---------|-------------|
-| `<results_dir>` | required | Path to the profiling results directory |
-| `--analysis` | `accuracy` | Analysis type (`accuracy` or `regression`) |
+IPW ships with two analysis providers:
 
-## Accuracy Analysis
+- **accuracy** (default) -- computes accuracy, IPJ, IPW, and energy/power statistics.
+- **regression** -- fits models for energy, power, and latency vs. token counts.
 
-The default analysis computes IPJ and IPW metrics. It works by:
-
-1. Loading the Arrow dataset from the results directory.
-2. Checking each record for evaluation data. If evaluation is missing, it instantiates the original dataset provider and scores unevaluated records using `dataset.score()`.
-3. Scoring uses either exact match (for MCQ datasets like MMLU-Pro) or an LLM judge (for open-ended datasets).
-4. Aggregating results into accuracy, energy, and power statistics.
-5. Computing the final efficiency metrics.
+Run multiple analyses on the same results:
 
 ```bash
-ipw analyze ./runs/profile_nvidia_llama3.2_1b_ipw/
+ipw analyze ./runs/profile_* --analysis accuracy --analysis regression
 ```
 
-### Output Metrics
+Each analysis writes to a separate file in the `analysis/` subdirectory without overwriting the others.
 
-The accuracy analysis produces a JSON report at `analysis/accuracy.json`:
-
-```json
-{
-  "analysis": "accuracy",
-  "summary": {
-    "model": "llama3.2:1b",
-    "correct": 42,
-    "incorrect": 58,
-    "total_scored": 100,
-    "accuracy": 0.42,
-    "intelligence_per_joule": 0.0084,
-    "intelligence_per_watt": 0.0028,
-    "avg_per_query_energy_joules": 50.0,
-    "avg_per_query_power_watts": 150.0
-  }
-}
-```
-
-### Key Metrics Explained
+## Key Metrics
 
 | Metric | Formula | Description |
 |--------|---------|-------------|
-| Accuracy | correct / total_scored | Fraction of correctly answered queries |
-| IPJ | accuracy / avg_energy_per_query | Intelligence Per Joule -- higher is better |
-| IPW | accuracy / avg_power_per_query | Intelligence Per Watt -- higher is better |
+| **Accuracy** | correct / total_scored | Fraction of correctly answered queries |
+| **IPJ** | accuracy / avg_energy_per_query | Intelligence Per Joule -- higher is better |
+| **IPW** | accuracy / avg_power_per_query | Intelligence Per Watt -- higher is better |
 
-### Energy Imputation
-
-When per-query energy readings are zero or negative (common on platforms without energy counters), IPW attempts to impute energy from power and latency:
+**Energy imputation:** When per-query energy readings are zero or negative (common on platforms without hardware energy counters), energy is imputed from power and latency:
 
 ```
-imputed_energy = avg_power_watts * query_latency_seconds
+imputed_energy = avg_power_watts × query_latency_seconds
 ```
-
-The analysis report notes how many values were imputed.
-
-### Evaluation Retry
-
-Failed evaluations are retried up to 3 times (configurable via `AccuracyAnalysis.MAX_EVALUATION_ATTEMPTS`). Each attempt is tracked in the evaluation metadata.
 
 ## Regression Analysis
 
-The regression analysis fits statistical models to understand how energy, power, and latency scale with input/output length:
+The regression provider fits statistical models to understand how energy, power, and latency scale with input/output length:
 
 ```bash
 ipw analyze ./runs/profile_nvidia_llama3.2_1b_ipw/ --analysis regression
@@ -85,42 +50,80 @@ This produces `analysis/regression.json` with coefficients for:
 - Power (watts) vs. input token count
 - Latency (seconds) vs. output token count
 
-## Custom Analysis Providers
+## Visualization
 
-You can create custom analysis providers by subclassing `AnalysisProvider` and registering with `@AnalysisRegistry.register("id")`:
+The `ipw plot` command generates charts from profiling results.
+
+```bash
+ipw plot <results_dir> [--output <dir>]
+```
+
+Built-in plots:
+
+- **Regression scatter plots** -- Energy, power, and latency vs. input/output tokens with fitted regression lines.
+- **Output KDE** -- Kernel density estimate of the output token length distribution.
+
+Output files are PNG images saved to `<results_dir>/plots/` by default, or to a custom directory via `--output`.
+
+### Custom Visualizations
+
+Subclass `VisualizationProvider` and register with the decorator:
 
 ```python
-from ipw.analysis.base import AnalysisContext, AnalysisProvider, AnalysisResult
-from ipw.core.registry import AnalysisRegistry
+from ipw.core.registry import VisualizationRegistry
 
-
-@AnalysisRegistry.register("my-analysis")
-class MyAnalysis(AnalysisProvider):
-    analysis_id = "my-analysis"
-
-    def run(self, context: AnalysisContext) -> AnalysisResult:
-        # Load data from context.results_dir
-        # Perform analysis
-        # Return AnalysisResult
-        ...
+@VisualizationRegistry.register("my-plot")
+class MyPlot(VisualizationProvider):
+    ...
 ```
 
-Then use it via the CLI:
+## Output Formats
 
-```bash
-ipw analyze ./runs/profile_* --analysis my-analysis
+### Arrow Dataset
+
+The primary output format. Location: `data-00000-of-00001.arrow` inside the results directory.
+
+Each row represents one query. Key fields:
+
+| Field | Description |
+|-------|-------------|
+| `problem` | The input query text |
+| `answer` | The ground-truth answer |
+| `subject` | Dataset category or subject |
+| `model_answers` | Model-generated responses |
+| `model_metrics` | Nested struct with `energy_metrics`, `latency_metrics`, `power_metrics`, `token_metrics`, `cost` |
+
+Loading an Arrow dataset:
+
+```python
+from datasets import load_from_disk
+
+ds = load_from_disk("runs/profile_nvidia_llama3.2_1b_ipw/")
+energy = ds[0]["model_metrics"]["model"]["energy_metrics"]["per_query_joules"]
 ```
 
-## Running Multiple Analyses
+### JSONL Traces (Agentic Runs)
 
-You can run different analysis types on the same results:
+Agentic runs produce `traces.jsonl` -- one `QueryTrace` per line.
 
-```bash
-# Default accuracy analysis
-ipw analyze ./runs/profile_nvidia_llama3.2_1b_ipw/
+- **QueryTrace**: `query_id`, `turns[]`, `total_wall_clock_s`, `completed`
+- **TurnTrace**: `turn_index`, `tokens`, `tools_called`, `energy`, `power`, `cost`
 
-# Then regression analysis
-ipw analyze ./runs/profile_nvidia_llama3.2_1b_ipw/ --analysis regression
+Loading traces:
+
+```python
+from pathlib import Path
+from ipw.execution.traces import QueryTrace
+
+traces = QueryTrace.load_jsonl(Path("runs/run_react_gpt4o_gaia/traces.jsonl"))
 ```
 
-Each analysis writes to a separate file in the `analysis/` subdirectory without overwriting the others.
+### Summary & Reports
+
+Each results directory contains:
+
+| File | Contents |
+|------|----------|
+| `summary.json` | Dataset, model, client, hardware info, timing |
+| `analysis/accuracy.json` | Accuracy, IPJ, IPW, energy/power statistics |
+| `analysis/regression.json` | Regression coefficients (after regression analysis) |
