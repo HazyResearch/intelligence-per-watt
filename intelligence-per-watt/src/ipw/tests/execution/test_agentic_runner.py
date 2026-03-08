@@ -923,6 +923,261 @@ class TestAgenticRunner:
         metrics = record.model_metrics["local-model"]
         assert metrics.cost.total_cost_usd == 0.0
 
+    def test_mbu_extracted_from_telemetry(self) -> None:
+        """MBU avg and max are extracted from telemetry readings."""
+        agent = MagicMock()
+        agent.run.return_value = AgentRunResult(content="ok")
+
+        dataset = MagicMock()
+        records = [
+            DatasetRecord(
+                problem="Q1", answer="A1", subject="s",
+                dataset_metadata={"dataset_name": "test"},
+            )
+        ]
+        dataset.__iter__ = MagicMock(return_value=iter(records))
+        dataset.size.return_value = 1
+        dataset.create_task_env.return_value = None
+
+        telemetry = MagicMock()
+        telemetry.readings.return_value = []
+        telemetry.window.return_value = iter([
+            TelemetrySample(
+                timestamp=1000.0,
+                reading=TelemetryReading(
+                    power_watts=200.0,
+                    gpu_memory_bandwidth_utilization_pct=40.0,
+                ),
+            ),
+            TelemetrySample(
+                timestamp=1000.5,
+                reading=TelemetryReading(
+                    power_watts=210.0,
+                    gpu_memory_bandwidth_utilization_pct=60.0,
+                ),
+            ),
+            TelemetrySample(
+                timestamp=1001.0,
+                reading=TelemetryReading(
+                    power_watts=220.0,
+                    gpu_memory_bandwidth_utilization_pct=80.0,
+                ),
+            ),
+        ])
+
+        runner = AgenticRunner(
+            agent=agent,
+            dataset=dataset,
+            telemetry_session=telemetry,
+            config={"model": "test-model"},
+        )
+        traces = asyncio.run(runner.run())
+
+        assert len(traces) == 1
+        trace = traces[0]
+        assert trace.query_mbu_avg_pct == pytest.approx(60.0)
+        assert trace.query_mbu_max_pct == pytest.approx(80.0)
+
+    def test_mbu_filters_negative_values(self) -> None:
+        """MBU extraction filters out -1 (unavailable) values."""
+        agent = MagicMock()
+        agent.run.return_value = AgentRunResult(content="ok")
+
+        dataset = MagicMock()
+        records = [
+            DatasetRecord(
+                problem="Q1", answer="A1", subject="s",
+                dataset_metadata={"dataset_name": "test"},
+            )
+        ]
+        dataset.__iter__ = MagicMock(return_value=iter(records))
+        dataset.size.return_value = 1
+        dataset.create_task_env.return_value = None
+
+        telemetry = MagicMock()
+        telemetry.readings.return_value = []
+        telemetry.window.return_value = iter([
+            TelemetrySample(
+                timestamp=1000.0,
+                reading=TelemetryReading(
+                    power_watts=200.0,
+                    gpu_memory_bandwidth_utilization_pct=-1.0,
+                ),
+            ),
+            TelemetrySample(
+                timestamp=1000.5,
+                reading=TelemetryReading(
+                    power_watts=210.0,
+                    gpu_memory_bandwidth_utilization_pct=50.0,
+                ),
+            ),
+            TelemetrySample(
+                timestamp=1001.0,
+                reading=TelemetryReading(
+                    power_watts=220.0,
+                    gpu_memory_bandwidth_utilization_pct=70.0,
+                ),
+            ),
+        ])
+
+        runner = AgenticRunner(
+            agent=agent,
+            dataset=dataset,
+            telemetry_session=telemetry,
+            config={"model": "test-model"},
+        )
+        traces = asyncio.run(runner.run())
+
+        trace = traces[0]
+        # -1 should be filtered out; avg of (50, 70) = 60, max = 70
+        assert trace.query_mbu_avg_pct == pytest.approx(60.0)
+        assert trace.query_mbu_max_pct == pytest.approx(70.0)
+
+    def test_mbu_none_when_no_telemetry(self) -> None:
+        """MBU fields are None when there is no telemetry session."""
+        runner = self._make_runner()
+        traces = asyncio.run(runner.run())
+
+        assert len(traces) == 1
+        assert traces[0].query_mbu_avg_pct is None
+        assert traces[0].query_mbu_max_pct is None
+
+    def test_mbu_none_when_all_values_unavailable(self) -> None:
+        """MBU fields are None when all readings have -1 (unavailable)."""
+        agent = MagicMock()
+        agent.run.return_value = AgentRunResult(content="ok")
+
+        dataset = MagicMock()
+        records = [
+            DatasetRecord(
+                problem="Q1", answer="A1", subject="s",
+                dataset_metadata={"dataset_name": "test"},
+            )
+        ]
+        dataset.__iter__ = MagicMock(return_value=iter(records))
+        dataset.size.return_value = 1
+        dataset.create_task_env.return_value = None
+
+        telemetry = MagicMock()
+        telemetry.readings.return_value = []
+        telemetry.window.return_value = iter([
+            TelemetrySample(
+                timestamp=1000.0,
+                reading=TelemetryReading(
+                    power_watts=200.0,
+                    gpu_memory_bandwidth_utilization_pct=-1.0,
+                ),
+            ),
+            TelemetrySample(
+                timestamp=1001.0,
+                reading=TelemetryReading(
+                    power_watts=220.0,
+                    gpu_memory_bandwidth_utilization_pct=-1.0,
+                ),
+            ),
+        ])
+
+        runner = AgenticRunner(
+            agent=agent,
+            dataset=dataset,
+            telemetry_session=telemetry,
+            config={"model": "test-model"},
+        )
+        traces = asyncio.run(runner.run())
+
+        trace = traces[0]
+        assert trace.query_mbu_avg_pct is None
+        assert trace.query_mbu_max_pct is None
+
+    def test_mbu_none_when_field_missing_from_readings(self) -> None:
+        """MBU fields are None when readings don't have the MBU field at all."""
+        agent = MagicMock()
+        agent.run.return_value = AgentRunResult(content="ok")
+
+        dataset = MagicMock()
+        records = [
+            DatasetRecord(
+                problem="Q1", answer="A1", subject="s",
+                dataset_metadata={"dataset_name": "test"},
+            )
+        ]
+        dataset.__iter__ = MagicMock(return_value=iter(records))
+        dataset.size.return_value = 1
+        dataset.create_task_env.return_value = None
+
+        telemetry = MagicMock()
+        telemetry.readings.return_value = []
+        telemetry.window.return_value = iter([
+            TelemetrySample(
+                timestamp=1000.0,
+                reading=TelemetryReading(power_watts=200.0),
+            ),
+            TelemetrySample(
+                timestamp=1001.0,
+                reading=TelemetryReading(power_watts=220.0),
+            ),
+        ])
+
+        runner = AgenticRunner(
+            agent=agent,
+            dataset=dataset,
+            telemetry_session=telemetry,
+            config={"model": "test-model"},
+        )
+        traces = asyncio.run(runner.run())
+
+        trace = traces[0]
+        assert trace.query_mbu_avg_pct is None
+        assert trace.query_mbu_max_pct is None
+
+    def test_mbu_zero_value_included(self) -> None:
+        """MBU value of 0.0 is valid and should be included (not filtered)."""
+        agent = MagicMock()
+        agent.run.return_value = AgentRunResult(content="ok")
+
+        dataset = MagicMock()
+        records = [
+            DatasetRecord(
+                problem="Q1", answer="A1", subject="s",
+                dataset_metadata={"dataset_name": "test"},
+            )
+        ]
+        dataset.__iter__ = MagicMock(return_value=iter(records))
+        dataset.size.return_value = 1
+        dataset.create_task_env.return_value = None
+
+        telemetry = MagicMock()
+        telemetry.readings.return_value = []
+        telemetry.window.return_value = iter([
+            TelemetrySample(
+                timestamp=1000.0,
+                reading=TelemetryReading(
+                    power_watts=200.0,
+                    gpu_memory_bandwidth_utilization_pct=0.0,
+                ),
+            ),
+            TelemetrySample(
+                timestamp=1001.0,
+                reading=TelemetryReading(
+                    power_watts=220.0,
+                    gpu_memory_bandwidth_utilization_pct=100.0,
+                ),
+            ),
+        ])
+
+        runner = AgenticRunner(
+            agent=agent,
+            dataset=dataset,
+            telemetry_session=telemetry,
+            config={"model": "test-model"},
+        )
+        traces = asyncio.run(runner.run())
+
+        trace = traces[0]
+        # 0.0 is valid (>= 0); avg of (0, 100) = 50, max = 100
+        assert trace.query_mbu_avg_pct == pytest.approx(50.0)
+        assert trace.query_mbu_max_pct == pytest.approx(100.0)
+
 
 class TestEnergyHelpers:
     """Test _compute_energy_delta and _compute_power_avg helpers."""

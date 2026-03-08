@@ -479,6 +479,20 @@ class AgenticRunner:
         if query_cpu_energy is None and readings:
             query_cpu_energy = _estimate_energy_from_power(readings, "cpu_power_watts", duration)
 
+        # Extract MBU from telemetry samples
+        query_mbu_avg = None
+        query_mbu_max = None
+        if readings:
+            mbu_values = [
+                s.reading.gpu_memory_bandwidth_utilization_pct
+                for s in readings
+                if getattr(s.reading, 'gpu_memory_bandwidth_utilization_pct', None) is not None
+                and s.reading.gpu_memory_bandwidth_utilization_pct >= 0
+            ]
+            if mbu_values:
+                query_mbu_avg = statistics.mean(mbu_values)
+                query_mbu_max = max(mbu_values)
+
         trace = QueryTrace(
             query_id=query_id,
             workload_type=str(workload_type),
@@ -491,6 +505,8 @@ class AgenticRunner:
             query_cpu_energy_joules=query_cpu_energy,
             query_gpu_power_avg_watts=query_gpu_power_avg,
             query_cpu_power_avg_watts=query_cpu_power_avg,
+            query_mbu_avg_pct=query_mbu_avg,
+            query_mbu_max_pct=query_mbu_max,
             is_resolved=record.dataset_metadata.get("is_resolved"),
         )
 
