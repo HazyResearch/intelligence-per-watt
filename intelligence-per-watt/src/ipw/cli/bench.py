@@ -192,6 +192,12 @@ def _compute_energy_metrics(samples, start_time: float, end_time: float) -> Dict
     gpu_power_samples = [r.power_watts for r in readings if r.power_watts is not None]
     cpu_power_samples = [r.cpu_power_watts for r in readings if r.cpu_power_watts is not None]
 
+    mbu_samples = [
+        r.gpu_memory_bandwidth_utilization_pct for r in readings
+        if getattr(r, 'gpu_memory_bandwidth_utilization_pct', None) is not None
+        and r.gpu_memory_bandwidth_utilization_pct >= 0
+    ]
+
     duration = max(end_time - start_time, 0.0)
     total_energy = (gpu_energy or 0) + (cpu_energy or 0)
 
@@ -203,6 +209,8 @@ def _compute_energy_metrics(samples, start_time: float, end_time: float) -> Dict
         "avg_gpu_power_watts": _safe_mean(gpu_power_samples),
         "max_gpu_power_watts": _safe_max(gpu_power_samples),
         "avg_cpu_power_watts": _safe_mean(cpu_power_samples),
+        "avg_mbu_pct": statistics.mean(mbu_samples) if mbu_samples else None,
+        "max_mbu_pct": max(mbu_samples) if mbu_samples else None,
         "telemetry_samples": len(samples),
     }
 
