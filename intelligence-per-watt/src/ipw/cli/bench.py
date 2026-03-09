@@ -350,6 +350,18 @@ def execute_benchmark(
         pass
 
     from ipw.agents import react as _react  # noqa: F401
+    try:
+        from ipw.agents import openhands as _openhands  # noqa: F401
+    except ImportError:
+        pass
+    try:
+        from ipw.agents import terminus as _terminus  # noqa: F401
+    except ImportError:
+        pass
+    try:
+        from ipw.agents import terminus_tb as _terminus_tb  # noqa: F401
+    except ImportError:
+        pass
     from ipw.core.registry import AgentRegistry, DatasetRegistry
     from ipw.execution.agentic_runner import AgenticRunner
     from ipw.execution.exporters import export_jsonl, export_summary_json

@@ -19,7 +19,6 @@ from ._display import (
     print_output_path,
 )
 
-
 _LITELLM_PREFIXES = (
     "openai/", "ollama/", "anthropic/", "gemini/", "google/",
     "azure/", "bedrock/", "vertex_ai/",

@@ -249,10 +249,7 @@ def export_summary_json(
         total_cpu_energy = be["cpu_energy_joules"]
 
     bench_avg_gpu_power = be.get("avg_gpu_power_watts")
-    bench_max_gpu_power = be.get("max_gpu_power_watts")
     bench_avg_cpu_power = be.get("avg_cpu_power_watts")
-    bench_avg_mbu = be.get("avg_mbu_pct")
-    bench_max_mbu = be.get("max_mbu_pct")
 
     # Recompute efficiency with any newly available energy data.
     if be and efficiency.get("total_gpu_energy_joules") is None and total_gpu_energy is not None:
