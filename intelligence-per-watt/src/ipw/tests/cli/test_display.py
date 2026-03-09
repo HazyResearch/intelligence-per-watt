@@ -323,6 +323,117 @@ class TestPrintEfficiencyPanel:
         assert "IPW" not in output
 
 
+class TestComputeTraceMetricsMBU:
+    """Verify MBU row appears in compute_trace_metrics output."""
+
+    def _make_trace(self, wall_s: float, gpu_energy: float | None, completed: bool, mbu_avg: float | None = None):
+        from ipw.execution.trace import QueryTrace, TurnTrace
+
+        turns = [TurnTrace(turn_index=0, input_tokens=100, output_tokens=50, wall_clock_s=wall_s)]
+        return QueryTrace(
+            query_id="q1",
+            workload_type="test",
+            turns=turns,
+            total_wall_clock_s=wall_s,
+            completed=completed,
+            query_gpu_energy_joules=gpu_energy,
+            query_mbu_avg_pct=mbu_avg,
+        )
+
+    def test_compute_trace_metrics_includes_mbu(self):
+        traces = [
+            self._make_trace(1.0, 5.0, True, mbu_avg=45.0),
+            self._make_trace(2.0, 10.0, True, mbu_avg=55.0),
+        ]
+        rows = compute_trace_metrics(traces)
+        labels = [r.label for r in rows]
+        assert "MBU" in labels
+        mbu_row = next(r for r in rows if r.label == "MBU")
+        assert mbu_row.unit == "%"
+        assert mbu_row.avg == pytest.approx(50.0)
+
+    def test_mbu_before_completed(self):
+        """MBU row should appear before the Completed row."""
+        traces = [self._make_trace(1.0, 5.0, True, mbu_avg=30.0)]
+        rows = compute_trace_metrics(traces)
+        labels = [r.label for r in rows]
+        assert labels.index("MBU") < labels.index("Completed")
+
+
+class TestEfficiencyPanelResolved:
+    """Verify resolved count and resolved-based accuracy in efficiency panel."""
+
+    def _make_trace(self, wall_s: float, gpu_energy: float | None, completed: bool, is_resolved: bool | None = None):
+        from ipw.execution.trace import QueryTrace, TurnTrace
+
+        turns = [TurnTrace(turn_index=0, input_tokens=100, output_tokens=50, wall_clock_s=wall_s)]
+        return QueryTrace(
+            query_id="q1",
+            workload_type="test",
+            turns=turns,
+            total_wall_clock_s=wall_s,
+            completed=completed,
+            query_gpu_energy_joules=gpu_energy,
+            is_resolved=is_resolved,
+        )
+
+    def test_efficiency_panel_shows_resolved_count(self):
+        from io import StringIO
+
+        from rich.console import Console
+
+        buf = StringIO()
+        con = Console(file=buf, highlight=False, width=120)
+
+        traces = [
+            self._make_trace(1.0, 5.0, True, is_resolved=True),
+            self._make_trace(2.0, 10.0, True, is_resolved=False),
+            self._make_trace(3.0, 15.0, True, is_resolved=True),
+        ]
+        print_efficiency_panel(con, traces=traces)
+        output = buf.getvalue()
+        assert "Resolved" in output
+        assert "2/3" in output
+
+    def test_efficiency_panel_uses_resolved_for_accuracy(self):
+        """When is_resolved is set, accuracy should be resolved/scored, not completed/total."""
+        from io import StringIO
+
+        from rich.console import Console
+
+        buf = StringIO()
+        con = Console(file=buf, highlight=False, width=120)
+
+        # 2 out of 3 are resolved, but all 3 are completed
+        traces = [
+            self._make_trace(1.0, 5.0, True, is_resolved=True),
+            self._make_trace(2.0, 10.0, True, is_resolved=False),
+            self._make_trace(3.0, 15.0, True, is_resolved=True),
+        ]
+        print_efficiency_panel(con, traces=traces)
+        output = buf.getvalue()
+        # acc = 2/3 = 66.7%, not 100% (completed)
+        assert "66.7%" in output
+
+    def test_efficiency_panel_falls_back_to_completed_when_no_resolved(self):
+        """When is_resolved is None for all traces, fall back to completed/total."""
+        from io import StringIO
+
+        from rich.console import Console
+
+        buf = StringIO()
+        con = Console(file=buf, highlight=False, width=120)
+
+        traces = [
+            self._make_trace(1.0, 5.0, True, is_resolved=None),
+            self._make_trace(2.0, 10.0, False, is_resolved=None),
+        ]
+        print_efficiency_panel(con, traces=traces)
+        output = buf.getvalue()
+        # acc = 1/2 = 50% (completed-based fallback)
+        assert "50.0%" in output
+
+
 class TestFLOPsModels:
     """Verify new model entries resolve correctly."""
 

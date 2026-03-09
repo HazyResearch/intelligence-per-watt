@@ -38,6 +38,14 @@ def ensure_registered() -> None:
                 f"`uv pip install -e 'intelligence-per-watt[{extra}]'`."
             )
             continue
+        except ImportError:
+            # Native extension load failures (e.g. broken .so ABI).
+            if extra is None:
+                raise
+            MISSING_CLIENTS[client_id] = (
+                f"Failed to load native extensions for '{extra}'."
+            )
+            continue
 
         _register_if_missing(client_id, module, class_name)
 

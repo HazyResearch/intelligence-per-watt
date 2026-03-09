@@ -103,6 +103,9 @@ class EnergyMonitorCollector:
             cpu_energy_joules=_safe_float(
                 getattr(message, "cpu_energy_joules", None)
             ),
+            gpu_memory_bandwidth_utilization_pct=_safe_float(
+                getattr(message, "gpu_memory_bandwidth_utilization_pct", None)
+            ),
             platform=getattr(message, "platform", None),
             timestamp_nanos=getattr(message, "timestamp_nanos", None),
             system_info=system,

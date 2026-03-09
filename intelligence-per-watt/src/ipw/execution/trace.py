@@ -80,6 +80,8 @@ class QueryTrace:
     query_cpu_energy_joules: Optional[float] = None
     query_gpu_power_avg_watts: Optional[float] = None
     query_cpu_power_avg_watts: Optional[float] = None
+    query_mbu_avg_pct: Optional[float] = None
+    query_mbu_max_pct: Optional[float] = None
     is_resolved: Optional[bool] = None
 
     @property
@@ -171,6 +173,8 @@ class QueryTrace:
             "query_cpu_energy_joules": self.query_cpu_energy_joules,
             "query_gpu_power_avg_watts": self.query_gpu_power_avg_watts,
             "query_cpu_power_avg_watts": self.query_cpu_power_avg_watts,
+            "query_mbu_avg_pct": self.query_mbu_avg_pct,
+            "query_mbu_max_pct": self.query_mbu_max_pct,
             "is_resolved": self.is_resolved,
         }
 
@@ -189,6 +193,8 @@ class QueryTrace:
             query_cpu_energy_joules=d.get("query_cpu_energy_joules"),
             query_gpu_power_avg_watts=d.get("query_gpu_power_avg_watts"),
             query_cpu_power_avg_watts=d.get("query_cpu_power_avg_watts"),
+            query_mbu_avg_pct=d.get("query_mbu_avg_pct"),
+            query_mbu_max_pct=d.get("query_mbu_max_pct"),
             is_resolved=d.get("is_resolved"),
         )
 
@@ -238,6 +244,8 @@ class QueryTrace:
                 "avg_cpu_power_watts": trace.avg_cpu_power_watts,
                 "throughput_tokens_per_sec": trace.throughput_tokens_per_sec,
                 "energy_per_token_joules": trace.energy_per_token_joules,
+                "query_mbu_avg_pct": trace.query_mbu_avg_pct,
+                "query_mbu_max_pct": trace.query_mbu_max_pct,
                 "completed": trace.completed,
                 "timed_out": trace.timed_out,
                 "is_resolved": trace.is_resolved,

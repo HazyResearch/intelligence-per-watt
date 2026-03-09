@@ -19,13 +19,33 @@ from ._display import (
     print_output_path,
 )
 
+_LITELLM_PREFIXES = (
+    "openai/", "ollama/", "anthropic/", "gemini/", "google/",
+    "azure/", "bedrock/", "vertex_ai/",
+)
+
+_CLOUD_PROVIDER_PREFIXES = (
+    "anthropic/", "gemini/", "google/", "azure/", "bedrock/", "vertex_ai/",
+)
+
+
+def _is_cloud_model(model: str, base_url: str) -> bool:
+    """Return True when the model targets a cloud API provider.
+
+    Cloud models are detected by their litellm provider prefix.  ``openai/``
+    is only treated as cloud when the base_url is the default localhost
+    (i.e. the user didn't point at a local vLLM/TGI server).
+    """
+    if model.startswith(_CLOUD_PROVIDER_PREFIXES):
+        return True
+    if model.startswith("openai/"):
+        _default_local = ("localhost", "127.0.0.1", "0.0.0.0")
+        return any(h in base_url for h in _default_local)
+    return False
+
 
 def _add_litellm_prefix(model: str, base_url: str) -> str:
     """Add LiteLLM provider prefix if not already present."""
-    _LITELLM_PREFIXES = (
-        "openai/", "ollama/", "anthropic/", "gemini/", "google/",
-        "azure/", "bedrock/", "vertex_ai/",
-    )
     if model.startswith(_LITELLM_PREFIXES):
         return model
     is_ollama = "11434" in base_url or "ollama" in base_url.lower()
@@ -35,14 +55,23 @@ def _add_litellm_prefix(model: str, base_url: str) -> str:
 
 def _create_model_for_agent(agent_id: str, model: str, base_url: str, api_key: str):
     """Create the framework-specific model object for the given agent type."""
+    cloud = _is_cloud_model(model, base_url)
+
+    # Normalize api_key: treat "EMPTY" as None so litellm reads env vars
+    effective_key = None if api_key == "EMPTY" else api_key
+
     if agent_id == "react":
         from agno.models.openai import OpenAIChat
 
+        if cloud:
+            return OpenAIChat(id=model, api_key=effective_key)
         return OpenAIChat(id=model, api_key=api_key, base_url=f"{base_url}/v1")
     elif agent_id == "openhands":
         from openhands.sdk import LLM
 
         litellm_model = _add_litellm_prefix(model, base_url)
+        if cloud:
+            return LLM(model=litellm_model, api_key=effective_key)
         # Ollama native API doesn't use /v1; OpenAI-compatible servers do
         is_ollama = "11434" in base_url or "ollama" in base_url.lower()
         llm_base_url = base_url if is_ollama else f"{base_url}/v1"
@@ -243,9 +272,11 @@ def run_cmd(
     event_recorder = EventRecorder()
     resolved_model = _create_model_for_agent(agent_id, model, client_base_url, api_key)
 
-    # Terminus-based agents need api_base so LiteLLM can reach the local server
+    # Terminus-based agents need api_base so LiteLLM can reach the local server,
+    # but only for locally-served models — cloud models route via litellm.
     if agent_id in ("terminus", "terminus-tb") and "api_base" not in extra_kwargs:
-        extra_kwargs["api_base"] = f"{client_base_url}/v1"
+        if not _is_cloud_model(model, client_base_url):
+            extra_kwargs["api_base"] = f"{client_base_url}/v1"
 
     try:
         agent_instance = agent_cls(
@@ -303,9 +334,12 @@ def run_cmd(
         rec = EventRecorder()
         return _agent_cls_ref(model=_model_ref, event_recorder=rec, **_extra_kwargs_ref)
 
-    # Run the agentic benchmark with energy telemetry
-    collector = EnergyMonitorCollector(timeout=30.0)
-    with TelemetrySession(collector) as telemetry:
+    # Run the agentic benchmark.
+    # Cloud models don't use the local GPU — skip energy telemetry so traces
+    # report None instead of misleading idle-GPU power draw.
+    cloud = _is_cloud_model(model, client_base_url)
+
+    def _run_with_telemetry(telemetry):
         runner = AgenticRunner(
             agent=agent_instance,
             dataset=dataset_instance,
@@ -317,12 +351,18 @@ def run_cmd(
             agent_factory=_make_agent if concurrency > 1 else None,
             query_timeout=query_timeout,
         )
-
         try:
-            traces = asyncio.run(runner.run(max_queries=max_queries))
+            return asyncio.run(runner.run(max_queries=max_queries))
         except Exception as exc:
             error(f"Run failed: {exc}")
             sys.exit(1)
+
+    if cloud:
+        traces = _run_with_telemetry(None)
+    else:
+        collector = EnergyMonitorCollector(timeout=30.0)
+        with TelemetrySession(collector) as telemetry:
+            traces = _run_with_telemetry(telemetry)
 
     if not traces:
         warning("No traces collected.")

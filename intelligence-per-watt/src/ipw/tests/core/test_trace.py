@@ -395,6 +395,33 @@ class TestQueryTrace:
         )
         assert trace.energy_per_token_joules is None
 
+    def test_mbu_fields_default_none(self) -> None:
+        trace = QueryTrace(query_id="q0", workload_type="test")
+        assert trace.query_mbu_avg_pct is None
+        assert trace.query_mbu_max_pct is None
+
+    def test_mbu_fields_in_to_dict(self) -> None:
+        trace = QueryTrace(
+            query_id="q0",
+            workload_type="test",
+            query_mbu_avg_pct=45.5,
+            query_mbu_max_pct=78.2,
+        )
+        d = trace.to_dict()
+        assert d["query_mbu_avg_pct"] == 45.5
+        assert d["query_mbu_max_pct"] == 78.2
+
+    def test_mbu_fields_roundtrip(self) -> None:
+        trace = QueryTrace(
+            query_id="q0",
+            workload_type="test",
+            query_mbu_avg_pct=33.3,
+            query_mbu_max_pct=99.9,
+        )
+        restored = QueryTrace.from_dict(trace.to_dict())
+        assert restored.query_mbu_avg_pct == pytest.approx(33.3)
+        assert restored.query_mbu_max_pct == pytest.approx(99.9)
+
     def test_to_hf_dataset(self) -> None:
         try:
             from datasets import Dataset  # noqa: F401
