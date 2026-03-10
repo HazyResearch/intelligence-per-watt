@@ -131,7 +131,10 @@ All components self-register via the **registry pattern** (`@ClientRegistry.regi
   <a href="https://www.laude.org/">Laude Institute</a> &bull;
   <a href="https://datascience.stanford.edu/marlowe">Stanford Marlowe</a> &bull;
   <a href="https://cloud.google.com/">Google Cloud Platform</a> &bull;
-  <a href="https://lambda.ai/">Lambda Labs</a>
+  <a href="https://lambda.ai/">Lambda Labs</a> &bull;
+  <a href="https://hai.stanford.edu/">Stanford HAI</a> &bull;
+  <a href="https://research.ibm.com/">IBM Research</a> &bull;
+  <a href="https://ollama.com/">Ollama</a>
 </p>
 
 ## Citation
