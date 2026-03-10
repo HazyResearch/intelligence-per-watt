@@ -74,3 +74,9 @@ hide:
 Built by [Stanford Hazy Research](https://hazyresearch.stanford.edu/) and the [Scaling Intelligence Lab](https://scalingintelligence.stanford.edu/).
 
 Paper: [arXiv:2511.07885](https://arxiv.org/abs/2511.07885)
+
+## Acknowledgements
+
+[Stanford HAI](https://hai.stanford.edu/) &bull;
+[IBM Research](https://research.ibm.com/) &bull;
+[Ollama](https://ollama.com/)
