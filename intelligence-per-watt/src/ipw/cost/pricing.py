@@ -58,7 +58,7 @@ ANTHROPIC_PRICING: dict[str, dict[str, float]] = {
 # ---------------------------------------------------------------------------
 GEMINI_PRICING: dict[str, dict[str, float]] = {
     # Gemini 3.1 models
-    "gemini-3.1-pro": {"input": 1.25, "output": 5.00},
+    "gemini-3.1-pro-preview": {"input": 1.25, "output": 5.00},
     "gemini-3.1-flash-lite-preview": {"input": 0.075, "output": 0.30},
     # Gemini 3.0 Flash (preview)
     "gemini-3-flash-preview": {"input": 0.10, "output": 0.40},

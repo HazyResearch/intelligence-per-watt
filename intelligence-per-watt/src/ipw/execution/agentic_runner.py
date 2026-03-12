@@ -399,6 +399,9 @@ class AgenticRunner:
         # Create per-task execution environment (e.g. Docker for TerminalBench)
         from contextlib import nullcontext
 
+        # Inject model into metadata so task envs can use unique container names
+        record.dataset_metadata.setdefault("model", model)
+
         task_env = self._dataset.create_task_env(record)
         ctx = task_env if task_env is not None else nullcontext()
 
