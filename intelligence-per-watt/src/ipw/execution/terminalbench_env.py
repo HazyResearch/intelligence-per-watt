@@ -68,7 +68,7 @@ class TerminalBenchTaskEnv:
         model_raw = self._metadata.get("model", "")
         model_slug = model_raw.split("/")[-1][:30] if model_raw else ""
         name_parts = ["ipw", task_id] + ([model_slug] if model_slug else [])
-        client_container_name = "-".join(name_parts).replace(".", "-")
+        client_container_name = "-".join(name_parts).replace(".", "-").lower()
 
         # TB's docker-compose.yaml references T_BENCH_TASK_LOGS_PATH for a
         # volume mount.  Provide a temp directory so it isn't blank.
