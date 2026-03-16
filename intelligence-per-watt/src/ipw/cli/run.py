@@ -33,14 +33,14 @@ def _is_cloud_model(model: str, base_url: str) -> bool:
     """Return True when the model targets a cloud API provider.
 
     Cloud models are detected by their litellm provider prefix.  ``openai/``
-    is only treated as cloud when the base_url is the default localhost
-    (i.e. the user didn't point at a local vLLM/TGI server).
+    is treated as local when the base_url points to a local server
+    (localhost / 127.0.0.1 / 0.0.0.0), and cloud otherwise.
     """
     if model.startswith(_CLOUD_PROVIDER_PREFIXES):
         return True
     if model.startswith("openai/"):
-        _default_local = ("localhost", "127.0.0.1", "0.0.0.0")
-        return any(h in base_url for h in _default_local)
+        _local_hosts = ("localhost", "127.0.0.1", "0.0.0.0")
+        return not any(h in base_url for h in _local_hosts)
     return False
 
 
@@ -74,7 +74,12 @@ def _create_model_for_agent(agent_id: str, model: str, base_url: str, api_key: s
             return LLM(model=litellm_model, api_key=effective_key)
         # Ollama native API doesn't use /v1; OpenAI-compatible servers do
         is_ollama = "11434" in base_url or "ollama" in base_url.lower()
-        llm_base_url = base_url if is_ollama else f"{base_url}/v1"
+        if is_ollama:
+            llm_base_url = base_url
+        elif base_url.rstrip("/").endswith("/v1"):
+            llm_base_url = base_url
+        else:
+            llm_base_url = f"{base_url}/v1"
         return LLM(model=litellm_model, api_key=api_key, base_url=llm_base_url)
     elif agent_id in ("terminus-tb", "terminus"):
         # terminus_tb.py already prepends "openai/" — pass raw model_id
