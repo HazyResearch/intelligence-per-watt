@@ -34,12 +34,6 @@ See [Prerequisites](https://hazyresearch.stanford.edu/intelligence-per-watt/gett
 ## Installation
 
 ```bash
-pip install intelligence-per-watt
-```
-
-Or from source:
-
-```bash
 git clone https://github.com/HazyResearch/intelligence-per-watt.git
 cd intelligence-per-watt
 uv venv && source .venv/bin/activate
