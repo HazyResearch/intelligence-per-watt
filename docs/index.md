@@ -9,8 +9,6 @@ hide:
 
 <p class="hero-tagline">Benchmarking Intelligence Efficiency of LM Inference.</p>
 
-<p class="install-command">pip install intelligence-per-watt</p>
-
 [Get Started](getting-started/installation.md){ .md-button .md-button--primary }
 [View on GitHub](https://github.com/HazyResearch/intelligence-per-watt){ .md-button }
 
