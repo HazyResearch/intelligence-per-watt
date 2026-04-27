@@ -35,6 +35,10 @@ class _AsyncLoopRunner:
         future = asyncio.run_coroutine_threadsafe(coro, self._loop)
         return future.result()
 
+    def submit(self, coro):
+        """Submit coroutine, return Future without blocking."""
+        return asyncio.run_coroutine_threadsafe(coro, self._loop)
+
     def shutdown(self) -> None:
         if not self._loop.is_closed():
 
@@ -94,6 +98,10 @@ class VLLMClient(InferenceClient):
             raise RuntimeError("vLLM client has been closed")
         self._ensure_engine(model)
 
+    def configure_batch_size(self, batch_size: int) -> None:
+        """Set vLLM engine max_num_seqs to enforce batch size."""
+        self._engine_kwargs["max_num_seqs"] = batch_size
+
     def stream_chat_completion(
         self, model: str, prompt: str, **params: Any
     ) -> Response:
@@ -111,6 +119,26 @@ class VLLMClient(InferenceClient):
                 prompt=prompt, request_id=request_id, sampling_params=sampling_params
             )
         )
+
+    def batch_stream_chat_completion(
+        self, model: str, prompts: list[str], **params: Any
+    ) -> list[Response]:
+        """Submit all prompts concurrently for vLLM scheduler batching."""
+        if self._closed:
+            raise RuntimeError("vLLM client has been closed")
+        self._ensure_engine(model)
+        runner = self._loop_runner
+        if runner is None:
+            raise RuntimeError("vLLM client is shut down")
+        futures = []
+        for prompt in prompts:
+            sampling_params = self._build_sampling_params(params)
+            request_id = str(uuid.uuid4())
+            coro = self._stream_response(
+                prompt=prompt, request_id=request_id, sampling_params=sampling_params
+            )
+            futures.append(runner.submit(coro))
+        return [f.result() for f in futures]
 
     def list_models(self) -> Sequence[str]:
         return [self._model_name] if self._model_name else []

@@ -51,6 +51,12 @@ def servers() -> None:
     help="Port to run server on (default: 11434 for Ollama, 8000 for vLLM)",
 )
 @click.option(
+    "--num-parallel",
+    type=int,
+    default=None,
+    help="Ollama: number of requests to process in parallel (OLLAMA_NUM_PARALLEL)",
+)
+@click.option(
     "--gpu-memory-utilization",
     type=float,
     default=0.9,
@@ -67,6 +73,7 @@ def start(
     vllm: bool,
     model: Optional[str],
     port: Optional[int],
+    num_parallel: Optional[int],
     gpu_memory_utilization: float,
     tensor_parallel_size: int,
 ) -> None:
@@ -74,6 +81,7 @@ def start(
 
     Examples:
         ipw servers start --ollama
+        ipw servers start --ollama --num-parallel 8
         ipw servers start --vllm --model Qwen/Qwen3-4B
         ipw servers start --vllm --model Qwen/Qwen3-4B --tensor-parallel-size 2
     """
@@ -86,7 +94,7 @@ def start(
         raise click.Abort()
 
     if ollama:
-        _start_ollama(port)
+        _start_ollama(port, num_parallel)
     elif vllm:
         if not model:
             error("--model is required for vLLM")
@@ -94,7 +102,7 @@ def start(
         _start_vllm(model, port, gpu_memory_utilization, tensor_parallel_size, None)
 
 
-def _start_ollama(port: Optional[int]) -> None:
+def _start_ollama(port: Optional[int], num_parallel: Optional[int] = None) -> None:
     """Start Ollama server."""
     actual_port = port or 11434
 
@@ -111,6 +119,8 @@ def _start_ollama(port: Optional[int]) -> None:
             raise click.Abort()
 
         env = {"OLLAMA_HOST": f"0.0.0.0:{actual_port}"}
+        if num_parallel is not None:
+            env["OLLAMA_NUM_PARALLEL"] = str(num_parallel)
         subprocess.Popen(
             ["ollama", "serve"],
             env={**subprocess.os.environ, **env},
@@ -118,6 +128,8 @@ def _start_ollama(port: Optional[int]) -> None:
             stderr=subprocess.DEVNULL,
         )
         success(f"Ollama server started on http://localhost:{actual_port}")
+        if num_parallel is not None:
+            info(f"OLLAMA_NUM_PARALLEL={num_parallel}")
         info("Use 'ollama pull <model>' to download models")
 
     except FileNotFoundError:
@@ -215,6 +227,12 @@ def _start_vllm(
     help="Model preset name (e.g. glm-4.7-flash, qwen3-30b-a3b)",
 )
 @click.option(
+    "--num-parallel",
+    type=int,
+    default=None,
+    help="Ollama: number of requests to process in parallel (OLLAMA_NUM_PARALLEL)",
+)
+@click.option(
     "--gpu-memory-utilization",
     type=float,
     default=0.9,
@@ -238,6 +256,7 @@ def launch(
     model: Optional[str],
     port: Optional[int],
     preset: Optional[str],
+    num_parallel: Optional[int],
     gpu_memory_utilization: float,
     tensor_parallel_size: Optional[int],
     wait_timeout: int,
@@ -250,6 +269,7 @@ def launch(
 
     Examples:
         ipw servers launch --ollama
+        ipw servers launch --ollama --num-parallel 8
         ipw servers launch --vllm --model Qwen/Qwen3-4B
         ipw servers launch --vllm --preset glm-4.7-flash
         ipw servers launch --vllm --model openai/gpt-oss-120b --tensor-parallel-size 4
@@ -285,7 +305,7 @@ def launch(
         tensor_parallel_size = 1
 
     if ollama:
-        _launch_ollama(port, model, wait_timeout)
+        _launch_ollama(port, model, wait_timeout, num_parallel)
     elif vllm:
         if not model:
             error("--model is required for vLLM (or use --preset)")
@@ -293,14 +313,14 @@ def launch(
         _launch_vllm(model, port, gpu_memory_utilization, tensor_parallel_size, wait_timeout, preset_extra_args)
 
 
-def _launch_ollama(port: Optional[int], model: Optional[str], timeout: int) -> None:
+def _launch_ollama(port: Optional[int], model: Optional[str], timeout: int, num_parallel: Optional[int] = None) -> None:
     """Launch Ollama server and wait for it to be ready."""
     actual_port = port or 11434
 
     if _check_ollama_status():
         info("Ollama server already running")
     else:
-        _start_ollama(port)
+        _start_ollama(port, num_parallel)
         info("Waiting for Ollama to be ready...")
 
         if not _wait_for_server("ollama", actual_port, timeout):

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
+from concurrent.futures import ThreadPoolExecutor
 from typing import Any, Sequence
 
 from ..core.types import Response
@@ -31,6 +32,21 @@ class InferenceClient(ABC):
         ``Response`` object once the stream finishes. ``prompt`` contains the
         raw text to submit to the inference service.
         """
+
+    def batch_stream_chat_completion(
+        self, model: str, prompts: list[str], **params: Any
+    ) -> list["Response"]:
+        """Run multiple completions concurrently via thread pool."""
+        with ThreadPoolExecutor(max_workers=len(prompts)) as pool:
+            futures = [
+                pool.submit(self.stream_chat_completion, model, p, **params)
+                for p in prompts
+            ]
+            return [f.result() for f in futures]
+
+    def configure_batch_size(self, batch_size: int) -> None:
+        """Configure engine for batch inference. Override in subclasses."""
+        pass
 
     @abstractmethod
     def list_models(self) -> Sequence[str]:

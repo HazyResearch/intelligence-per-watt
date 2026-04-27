@@ -2,8 +2,10 @@
 
 from __future__ import annotations
 
+import json
+import statistics
 from pathlib import Path
-from typing import Dict
+from typing import Dict, List, Optional
 
 import click
 
@@ -11,6 +13,7 @@ from ipw.core.types import ProfilerConfig
 
 from ._console import _print_result, info, success, warning
 from ._display import (
+    MetricRow,
     compute_profile_metrics,
     print_banner,
     print_config_summary,
@@ -78,6 +81,13 @@ def _collect_params(ctx, param, values):
     show_default=True,
     help="Number of warmup queries to discard before measurement (0 to disable)",
 )
+@click.option(
+    "--batch-size",
+    type=int,
+    default=1,
+    show_default=True,
+    help="Number of prompts to send concurrently (batch inference)",
+)
 def profile(
     dataset_id: str,
     client_id: str,
@@ -88,6 +98,7 @@ def profile(
     output_dir: str | None,
     max_queries: int | None,
     warmup_queries: int,
+    batch_size: int,
     eval_client: str | None,
     eval_base_url: str | None,
     eval_model: str | None,
@@ -121,6 +132,7 @@ def profile(
         max_queries=max_queries,
         output_dir=Path(output_dir) if output_dir else None,
         warmup_queries=warmup_queries,
+        max_concurrency=batch_size,
     )
 
     # Preflight: dataset requirements (api keys, etc)
@@ -144,6 +156,7 @@ def profile(
         "Base URL": client_base_url or "(default)",
         "Warmup Queries": warmup_queries,
         "Max Queries": max_queries or "(all)",
+        "Batch Size": batch_size,
     })
 
     runner = ProfilerRunner(config)
@@ -188,8 +201,78 @@ def profile(
         print_efficiency_panel(records=records, model=model, accuracy=accuracy_value)
     print_output_path(path=results_dir)
 
+    # Persist aggregate metrics and efficiency data into summary.json
+    if results_dir and records:
+        _save_metrics_to_summary(results_dir, metric_rows, records, model, accuracy_value)
+
 
 __all__ = ["profile"]
+
+
+def _save_metrics_to_summary(
+    results_dir: Path,
+    metric_rows: List[MetricRow],
+    records: list,
+    model: str,
+    accuracy: Optional[float],
+) -> None:
+    """Append profile_metrics and efficiency data to the run's summary.json."""
+    summary_path = results_dir / "summary.json"
+    if not summary_path.exists():
+        return
+
+    try:
+        summary = json.loads(summary_path.read_text())
+    except (json.JSONDecodeError, OSError):
+        return
+
+    summary["profile_metrics"] = [
+        {
+            "label": row.label,
+            "avg": row.avg,
+            "median": row.median,
+            "min": row.min,
+            "max": row.max,
+            "std": row.std,
+            "unit": row.unit,
+        }
+        for row in metric_rows
+        if not all(v is None for v in (row.avg, row.median, row.min, row.max, row.std))
+    ]
+
+    energies: list[float] = []
+    powers: list[float] = []
+    for rec in records:
+        mm = rec.model_metrics.get(model)
+        if mm is None and len(rec.model_metrics) == 1:
+            mm = next(iter(rec.model_metrics.values()))
+        if mm is None:
+            continue
+        e = mm.energy_metrics.per_query_joules
+        if e is not None:
+            energies.append(e)
+        p = mm.power_metrics.gpu.per_query_watts.avg
+        if p is not None:
+            powers.append(p)
+
+    total_energy = sum(energies) if energies else None
+    avg_power = statistics.mean(powers) if powers else None
+
+    efficiency: dict = {}
+    if accuracy is not None:
+        efficiency["accuracy"] = accuracy
+    if total_energy is not None:
+        efficiency["total_energy_j"] = total_energy
+    if avg_power is not None:
+        efficiency["avg_power_w"] = avg_power
+    if accuracy is not None and total_energy and total_energy > 0:
+        efficiency["ipj"] = accuracy / total_energy
+    if accuracy is not None and avg_power and avg_power > 0:
+        efficiency["ipw"] = accuracy / avg_power
+
+    summary["efficiency"] = efficiency
+
+    summary_path.write_text(json.dumps(summary, indent=2, default=str))
 
 
 def _warn_on_custom_eval(

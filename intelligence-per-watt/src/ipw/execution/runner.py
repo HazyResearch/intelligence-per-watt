@@ -166,6 +166,8 @@ class ProfilerRunner:
                 self._config.client_params,
             )
 
+            if self._config.max_concurrency > 1:
+                client.configure_batch_size(self._config.max_concurrency)
             self._ensure_client_ready(client)
 
             with TelemetrySession(collector) as telemetry:
@@ -187,30 +189,108 @@ class ProfilerRunner:
         warmup = self._config.warmup_queries
         total_queries = self._config.max_queries or dataset.size()
         total_with_warmup = total_queries + warmup
+        batch_size = self._config.max_concurrency
         iterator = enumerate(dataset)
         # Prime hardware metadata early so the output directory label is accurate.
         self._prime_hardware_metadata(telemetry)
         # Prepare output directory (and confirm overwrite) before any inference.
         self._ensure_output_prepared(dataset)
         with tqdm(total=total_queries, desc="Profiling", unit="query") as progress:
-            for index, record in iterator:
-                if index >= total_with_warmup:
-                    break
-                start = time.time()
-                response = self._invoke_client(client, record)
-                end = time.time()
+            if batch_size <= 1:
+                # Sequential path (original behavior)
+                for index, record in iterator:
+                    if index >= total_with_warmup:
+                        break
+                    start = time.time()
+                    response = self._invoke_client(client, record)
+                    end = time.time()
 
-                if index < warmup:
-                    progress.set_postfix_str(f"warmup {index + 1}/{warmup}")
-                    continue  # Discard warmup queries
+                    if index < warmup:
+                        progress.set_postfix_str(f"warmup {index + 1}/{warmup}")
+                        continue  # Discard warmup queries
 
-                samples = list(telemetry.window(start, end))
-                built = self._build_record(index, record, response, samples, start, end)
-                if built is not None:
-                    self._records.append(built)
-                    if len(self._records) % self._FLUSH_INTERVAL == 0:
-                        self._persist_records(dataset)
-                progress.update(1)
+                    samples = list(telemetry.window(start, end))
+                    built = self._build_record(index, record, response, samples, start, end)
+                    if built is not None:
+                        self._records.append(built)
+                        if len(self._records) % self._FLUSH_INTERVAL == 0:
+                            self._persist_records(dataset)
+                    progress.update(1)
+            else:
+                # Batched path
+                self._process_records_batched(
+                    iterator, client, telemetry, progress,
+                    warmup, total_with_warmup, batch_size, dataset,
+                )
+
+    def _process_records_batched(
+        self,
+        iterator,
+        client,
+        telemetry: TelemetrySession,
+        progress,
+        warmup: int,
+        total_with_warmup: int,
+        batch_size: int,
+        dataset,
+    ) -> None:
+        """Process records in batches for concurrent inference."""
+        # Sequential warmup
+        for index, record in iterator:
+            if index >= warmup:
+                pending: list[tuple[int, DatasetRecord]] = [(index, record)]
+                break
+            start = time.time()
+            self._invoke_client(client, record)
+            time.time()
+            progress.set_postfix_str(f"warmup {index + 1}/{warmup}")
+        else:
+            return
+
+        # Collect and process batches
+        for index, record in iterator:
+            if index >= total_with_warmup:
+                break
+            pending.append((index, record))
+            if len(pending) >= batch_size:
+                self._execute_batch(pending, client, telemetry, progress, dataset)
+                pending = []
+
+        # Final partial batch
+        if pending:
+            self._execute_batch(pending, client, telemetry, progress, dataset)
+
+    def _execute_batch(
+        self,
+        batch: list[tuple[int, "DatasetRecord"]],
+        client,
+        telemetry: TelemetrySession,
+        progress,
+        dataset,
+    ) -> None:
+        """Execute a single batch of records."""
+        records = [rec for _, rec in batch]
+        start = time.time()
+        responses = self._invoke_client_batch(client, records)
+        end = time.time()
+
+        samples = list(telemetry.window(start, end))
+        actual_batch_size = len(batch)
+        amortized_duration = (end - start) / actual_batch_size
+
+        for i, ((index, record), response) in enumerate(zip(batch, responses)):
+            # Amortize wall-clock time across the batch, just like energy.
+            query_start = start + i * amortized_duration
+            query_end = query_start + amortized_duration
+            built = self._build_record(
+                index, record, response, samples, query_start, query_end,
+                energy_divisor=actual_batch_size,
+            )
+            if built is not None:
+                self._records.append(built)
+                if len(self._records) % self._FLUSH_INTERVAL == 0:
+                    self._persist_records(dataset)
+            progress.update(1)
 
     def _build_record(
         self,
@@ -220,11 +300,21 @@ class ProfilerRunner:
         samples: Sequence[TelemetrySample],
         start_time: float,
         end_time: float,
+        energy_divisor: int = 1,
     ) -> Optional[ProfilingRecord]:
         self._update_hardware_metadata(samples)
         telemetry_readings = [sample.reading for sample in samples]
 
         energy_metrics = self._compute_energy_metrics(telemetry_readings)
+        if energy_divisor > 1:
+            for attr in (
+                "per_query_joules", "total_joules",
+                "cpu_per_query_joules", "cpu_total_joules",
+                "ane_per_query_joules", "ane_total_joules",
+            ):
+                val = getattr(energy_metrics, attr, None)
+                if val is not None:
+                    setattr(energy_metrics, attr, val / energy_divisor)
         power_stats = _stat_summary(
             [reading.power_watts for reading in telemetry_readings]
         )
@@ -336,7 +426,8 @@ class ProfilerRunner:
 
         # --- Tier 2.1: Phase separation at TTFT ---
         phase_metrics = self._compute_phase_metrics(
-            response, samples, telemetry_readings, prompt_tokens, completion_tokens
+            response, samples, telemetry_readings, prompt_tokens, completion_tokens,
+            energy_divisor=energy_divisor,
         )
 
         model_name = self._config.model
@@ -412,6 +503,7 @@ class ProfilerRunner:
         telemetry_readings: Sequence[TelemetryReading],
         prompt_tokens: int,
         completion_tokens: int,
+        energy_divisor: int = 1,
     ) -> PhaseMetrics:
         """Split telemetry at TTFT boundary to populate prefill/decode phase metrics."""
         if (
@@ -439,6 +531,12 @@ class ProfilerRunner:
         # Need at least 2 readings in a phase to compute an energy delta
         prefill_energy = self._compute_phase_energy(prefill_readings)
         decode_energy = self._compute_phase_energy(decode_readings)
+
+        if energy_divisor > 1:
+            if prefill_energy is not None:
+                prefill_energy /= energy_divisor
+            if decode_energy is not None:
+                decode_energy /= energy_divisor
 
         # Duration
         prefill_duration_ms = response.time_to_first_token_ms
@@ -590,6 +688,15 @@ class ProfilerRunner:
         payload: MutableMapping[str, object] = dict(self._config.additional_parameters)
         return client.stream_chat_completion(
             self._config.model, record.problem, **payload
+        )
+
+    def _invoke_client_batch(
+        self, client, records: list[DatasetRecord]
+    ) -> list[Response]:
+        payload: MutableMapping[str, object] = dict(self._config.additional_parameters)
+        prompts = [record.problem for record in records]
+        return client.batch_stream_chat_completion(
+            self._config.model, prompts, **payload
         )
 
     def _resolve_dataset(self, dataset_id: str, params: Mapping[str, Any]):
