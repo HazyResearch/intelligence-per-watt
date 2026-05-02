@@ -21,8 +21,9 @@ from pathlib import Path
 # Configuration
 # ---------------------------------------------------------------------------
 MODELS = [
-    "qwen3:8b",
-    "qwen3.5:9b"
+    # "qwen3:8b",
+    # "qwen3.5:9b",
+    "granite3.1-dense:8b"
 ]
 
 BATCH_SIZES = [1, 8, 16]
