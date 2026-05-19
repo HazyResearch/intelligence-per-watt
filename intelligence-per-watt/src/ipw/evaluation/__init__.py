@@ -1,6 +1,7 @@
 from .base import EvaluationHandler
 from .frames import FRAMESHandler
 from .gaia import GAIAHandler
+from .gdpval import GdpvalHandler
 from .gpqa import GPQAHandler, SuperGPQAHandler
 from .hle import HLEHandler
 from .math500 import Math500Handler
@@ -18,6 +19,7 @@ __all__ = [
     "EvaluationHandler",
     "FRAMESHandler",
     "GAIAHandler",
+    "GdpvalHandler",
     "GPQAHandler",
     "SuperGPQAHandler",
     "HLEHandler",

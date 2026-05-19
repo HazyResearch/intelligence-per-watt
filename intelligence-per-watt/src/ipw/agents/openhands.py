@@ -6,7 +6,9 @@ import json
 import logging
 import os
 import re
+import shutil
 import subprocess
+from pathlib import Path
 from typing import TYPE_CHECKING, Any, Dict, List, MutableMapping, Optional, Sequence
 
 from ipw.agents.base import BaseAgent
@@ -426,6 +428,20 @@ class OpenHands(BaseAgent):
 
     def set_task_metadata(self, metadata: MutableMapping[str, Any]) -> None:
         self._task_metadata = metadata
+        # GDPval: materialize reference files into the workspace so the agent
+        # can read them via its file tools. Skipped in TerminalBench mode
+        # (handled separately via Docker copy).
+        inputs_dir = metadata.get("gdpval_inputs_dir") if metadata else None
+        if inputs_dir and not metadata.get("session"):
+            try:
+                dest = Path(self._workspace) / "inputs"
+                dest.mkdir(parents=True, exist_ok=True)
+                for src in Path(inputs_dir).iterdir():
+                    target = dest / src.name
+                    if not target.exists():
+                        shutil.copy2(src, target)
+            except Exception:
+                logger.warning("Failed to stage gdpval inputs", exc_info=True)
 
     def set_workspace(self, workspace_path: str) -> None:
         """Set the workspace directory for the next agent run."""

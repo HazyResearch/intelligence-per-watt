@@ -11,6 +11,7 @@ def ensure_registered() -> None:
     from . import (  # noqa: F401
         frames,
         gaia,
+        gdpval,
         gpqa,
         hle,
         ipw,

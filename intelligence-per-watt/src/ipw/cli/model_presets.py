@@ -96,6 +96,15 @@ MODEL_PRESETS: Dict[str, Dict[str, Any]] = {
             "language_model_only": True,
         },
     },
+    "qwen35-9b": {
+        "model_id": "Qwen/Qwen3.5-9B",
+        "vllm_args": {
+            "tensor_parallel_size": 1,
+            "reasoning_parser": "qwen3",
+            "tool_call_parser": "qwen3_coder",
+            "language_model_only": True,
+        },
+    },
     "qwen35-397b-a17b-fp8": {
         "model_id": "Qwen/Qwen3.5-397B-A17B-FP8",
         "vllm_args": {
