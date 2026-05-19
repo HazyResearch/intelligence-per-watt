@@ -117,7 +117,7 @@ All components self-register via the **registry pattern** (`@ClientRegistry.regi
 
 ## About
 
-[Intelligence Per Watt](https://www.intelligence-per-watt.ai/) is a research initiative studying the efficiency of on-device AI systems. The project is developed at [Hazy Research](https://hazyresearch.stanford.edu/) and the [Scaling Intelligence Lab](https://scalingintelligence.stanford.edu/) at [Stanford SAIL](https://ai.stanford.edu/).
+[Intelligence Per Watt](https://www.intelligence-per-watt.ai/) is a research initiative studying the intelligence efficiency of AI systems. The project is developed at [Hazy Research](https://hazyresearch.stanford.edu/) and the [Scaling Intelligence Lab](https://scalingintelligence.stanford.edu/) at [Stanford SAIL](https://ai.stanford.edu/).
 
 ## Sponsors
 
