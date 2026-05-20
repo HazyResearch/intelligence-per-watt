@@ -18,6 +18,7 @@ from __future__ import annotations
 import json
 import logging
 import re
+from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
 from ..core.registry import EvaluationRegistry
@@ -26,15 +27,16 @@ from .base import EvaluationHandler
 LOGGER = logging.getLogger(__name__)
 
 _PASS_THRESHOLD = 0.5
+_OUTPUTS_BUDGET_CHARS = 12_000  # per-file budget when summarising deliverables
 
 _JUDGE_PROMPT = """You are grading a candidate response against a single rubric criterion.
 
 ## Task given to the candidate
 {problem}
 
-## Candidate response
+## Candidate response (plain-text answer)
 {response}
-
+{deliverables_section}
 ## Rubric criterion
 {criterion}
 
@@ -44,6 +46,65 @@ Reply with exactly one line in this format:
 verdict: <yes or no>
 reason: <one short sentence>
 """
+
+
+def _extract_deliverable_text(outputs_dir: Path) -> str:
+    """Return a concatenated text view of any deliverable files.
+
+    Used so the judge can verify rubric criteria that reference produced
+    files (e.g. ``Workbook contains tab 'Sample'``).
+    """
+    if not outputs_dir or not Path(outputs_dir).is_dir():
+        return ""
+    sections: list[str] = []
+    for path in sorted(Path(outputs_dir).iterdir()):
+        if not path.is_file():
+            continue
+        suf = path.suffix.lower()
+        try:
+            if suf in (".txt", ".md", ".csv", ".tsv", ".json"):
+                text = path.read_text(encoding="utf-8", errors="ignore")
+            elif suf in (".xlsx", ".xls", ".xlsm"):
+                try:
+                    from openpyxl import load_workbook
+                except ImportError:
+                    text = "<openpyxl not installed>"
+                else:
+                    wb = load_workbook(filename=str(path), data_only=True, read_only=True)
+                    parts: list[str] = []
+                    for sheet in wb.worksheets:
+                        parts.append(f"# Sheet: {sheet.title}")
+                        for row in sheet.iter_rows(values_only=True):
+                            cells = [("" if v is None else str(v)) for v in row]
+                            parts.append("\t".join(cells))
+                    text = "\n".join(parts)
+            elif suf == ".pdf":
+                try:
+                    import pdfplumber
+                except ImportError:
+                    text = "<pdfplumber not installed>"
+                else:
+                    pages = []
+                    with pdfplumber.open(str(path)) as pdf:
+                        for page in pdf.pages:
+                            pages.append(page.extract_text() or "")
+                    text = "\n\n".join(pages)
+            elif suf == ".docx":
+                try:
+                    import docx
+                except ImportError:
+                    text = "<python-docx not installed>"
+                else:
+                    text = "\n".join(p.text for p in docx.Document(str(path)).paragraphs)
+            else:
+                text = path.read_text(encoding="utf-8", errors="ignore")
+        except Exception as exc:
+            text = f"<error reading {path.name}: {exc}>"
+
+        if len(text) > _OUTPUTS_BUDGET_CHARS:
+            text = text[:_OUTPUTS_BUDGET_CHARS] + "\n... [truncated]"
+        sections.append(f"### Deliverable file: {path.name}\n{text}")
+    return "\n\n".join(sections)
 
 
 def _parse_rubric(raw: Any) -> List[Dict[str, Any]]:
@@ -116,6 +177,20 @@ class GdpvalHandler(EvaluationHandler):
         if not hasattr(self._client, "chat"):
             return None, {"reason": "no_llm_client_for_judging"}
 
+        # Optional deliverable-file content: the file-io agent writes outputs
+        # under <workspace>/outputs/ and surfaces the path via metadata.
+        outputs_dir = metadata.get("gdpval_outputs_dir")
+        if not outputs_dir:
+            # Conventional path: workspace sibling of metadata's instance_id
+            # — fall back to scanning common locations.
+            pass
+        deliverable_text = _extract_deliverable_text(Path(outputs_dir)) if outputs_dir else ""
+        deliverables_section = (
+            f"\n## Deliverable files produced\n{deliverable_text}\n"
+            if deliverable_text
+            else ""
+        )
+
         per_criterion: list[dict[str, Any]] = []
         achieved_points = 0.0
         max_points = 0.0
@@ -138,6 +213,7 @@ class GdpvalHandler(EvaluationHandler):
             prompt = _JUDGE_PROMPT.format(
                 problem=problem[:4000],  # keep judge prompt bounded
                 response=model_answer[:8000],
+                deliverables_section=deliverables_section,
                 criterion=criterion_text,
             )
             try:

@@ -31,8 +31,8 @@ ollama = ["ollama"]
 vllm = ["vllm>=0.11.0"]
 react = ["agno"]
 terminus = ["terminal-bench", "docker"]
-openhands = ["openhands-sdk"]
-agents = ["agno", "terminal-bench", "docker", "openhands-sdk"]
+openhands = ["openhands-sdk", "openhands-tools"]
+agents = ["agno", "terminal-bench", "docker", "openhands-sdk", "openhands-tools"]
 tavily = ["tavily-python"]
 flops = ["calflops"]
 dev = ["ruff>=0.4", "pytest>=8"]
@@ -44,6 +44,7 @@ all = [
     "terminal-bench",
     "docker",
     "openhands-sdk",
+    "openhands-tools",
     "tavily-python",
     "calflops",
 ]

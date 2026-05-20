@@ -18,6 +18,7 @@ import os
 import shutil
 from pathlib import Path
 from typing import Any, Dict, Iterable, List, MutableMapping, Optional, Sequence, Tuple
+from urllib.parse import unquote
 
 from huggingface_hub import hf_hub_download
 
@@ -44,16 +45,32 @@ accept as a deliverable.
 
 {task_prompt}
 
-When you finish, write your final answer / deliverable as plain text in the \
-last message. If you produced a file (e.g. spreadsheet, document), include \
-its location and a detailed description of its contents so it can be graded.
+## Tools and workflow
+
+You have `terminal` (bash) and `file_editor`. The reference files for this \
+task are at the absolute paths listed above — read them directly.
+
+This task only asks you to: read the reference files, produce one or more \
+output files (Excel, CSV, PDF, etc.) in the current directory, and call \
+`finish` describing what you produced.
+
+The grader checks for the actual output files on disk — saved scripts that \
+you didn't run are worth nothing. After producing the deliverable, run \
+`ls -la` to confirm the files exist before calling `finish`. Do not ask the \
+user questions; make reasonable assumptions.
 """
 
 
-def _hf_uri_to_repo_path(hf_uri: str) -> Optional[Tuple[str, str]]:
-    """Parse ``hf://datasets/<repo>/<path>`` into ``(repo, path)``.
+def _hf_uri_to_repo_path(
+    hf_uri: str,
+) -> Optional[Tuple[str, str, Optional[str]]]:
+    """Parse a HuggingFace dataset URI into ``(repo, file_path, revision)``.
 
-    Returns ``None`` if the URI isn't a HuggingFace dataset URI.
+    Accepts both forms:
+        hf://datasets/<org>/<name>/<file_path>
+        hf://datasets/<org>/<name>@<revision>/<file_path>
+
+    The file_path is URL-decoded (``%20`` → space, etc.).
     """
     if not hf_uri or not isinstance(hf_uri, str):
         return None
@@ -61,13 +78,16 @@ def _hf_uri_to_repo_path(hf_uri: str) -> Optional[Tuple[str, str]]:
     if not hf_uri.startswith(prefix):
         return None
     remainder = hf_uri[len(prefix):]
-    # repo is the first two path segments: "<org>/<name>"
     parts = remainder.split("/", 2)
     if len(parts) < 3:
         return None
-    repo = f"{parts[0]}/{parts[1]}"
-    file_path = parts[2]
-    return repo, file_path
+    org, name_with_rev, file_path = parts
+    if "@" in name_with_rev:
+        name, revision = name_with_rev.split("@", 1)
+    else:
+        name, revision = name_with_rev, None
+    repo = f"{org}/{name}"
+    return repo, unquote(file_path), revision
 
 
 @DatasetRegistry.register("gdpval")
@@ -249,12 +269,13 @@ class GDPvalDataset(DatasetProvider):
             if parsed is None:
                 LOGGER.warning("Skipping non-HF reference URI: %s", uri)
                 continue
-            repo, path_in_repo = parsed
+            repo, path_in_repo, revision = parsed
             try:
                 local = hf_hub_download(
                     repo_id=repo,
                     repo_type="dataset",
                     filename=path_in_repo,
+                    revision=revision,
                     cache_dir=str(self._cache_dir / "_hf_cache"),
                 )
             except Exception as exc:

@@ -125,6 +125,29 @@ class TestGDPvalDataset:
         assert meta["sector"] == "Professional Services"
         assert meta["rubric_json"]  # not empty
 
+    def test_hf_uri_parser_handles_revision_and_urlencoding(self) -> None:
+        from ipw.datasets.gdpval import _hf_uri_to_repo_path
+
+        # @revision + URL-encoded filename (real gdpval URI shape)
+        repo, path, rev = _hf_uri_to_repo_path(
+            "hf://datasets/openai/gdpval@main/reference_files/abc/Population%20v2.xlsx"
+        )
+        assert repo == "openai/gdpval"
+        assert rev == "main"
+        assert path == "reference_files/abc/Population v2.xlsx"
+
+        # No revision, no encoding
+        repo, path, rev = _hf_uri_to_repo_path(
+            "hf://datasets/openai/gdpval/files/x.pdf"
+        )
+        assert repo == "openai/gdpval"
+        assert rev is None
+        assert path == "files/x.pdf"
+
+        # Non-HF URIs return None
+        assert _hf_uri_to_repo_path("https://example.com/x.pdf") is None
+        assert _hf_uri_to_repo_path("") is None
+
     @patch("ipw.datasets.gdpval.hf_hub_download")
     @patch("ipw.datasets.gdpval.load_dataset")
     def test_skip_download_when_disabled(
