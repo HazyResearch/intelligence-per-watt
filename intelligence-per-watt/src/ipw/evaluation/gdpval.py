@@ -96,6 +96,98 @@ def _extract_deliverable_text(outputs_dir: Path) -> str:
                     text = "<python-docx not installed>"
                 else:
                     text = "\n".join(p.text for p in docx.Document(str(path)).paragraphs)
+            elif suf == ".pptx":
+                try:
+                    from pptx import Presentation
+                except ImportError:
+                    text = "<python-pptx not installed>"
+                else:
+                    prs = Presentation(str(path))
+                    parts = []
+                    for i, slide in enumerate(prs.slides):
+                        parts.append(f"## Slide {i + 1}")
+                        for shape in slide.shapes:
+                            if hasattr(shape, "text") and shape.text:
+                                parts.append(shape.text)
+                    text = "\n".join(parts)
+            elif suf == ".ipynb":
+                try:
+                    nb = json.loads(path.read_text(encoding="utf-8", errors="ignore"))
+                    parts = []
+                    for i, cell in enumerate(nb.get("cells") or []):
+                        src = cell.get("source")
+                        if isinstance(src, list):
+                            src = "".join(src)
+                        parts.append(f"## Cell {i + 1} ({cell.get('cell_type', '?')})\n{src or ''}")
+                    text = "\n\n".join(parts)
+                except Exception as exc:
+                    text = f"<ipynb parse error: {exc}>"
+            elif suf == ".zip":
+                try:
+                    import zipfile
+                    with zipfile.ZipFile(str(path)) as z:
+                        names = z.namelist()
+                    text = "Archive contents:\n" + "\n".join(
+                        f"  {n}" for n in names[:200]
+                    ) + (f"\n  ... [{len(names) - 200} more]" if len(names) > 200 else "")
+                except Exception as exc:
+                    text = f"<zip read error: {exc}>"
+            elif suf in (".png", ".jpg", ".jpeg", ".webp", ".gif", ".bmp"):
+                try:
+                    from PIL import Image
+                    img = Image.open(str(path))
+                    text = f"Image file. format={img.format} mode={img.mode} size={img.size}"
+                except Exception as exc:
+                    text = f"<image read error: {exc}>"
+            elif suf in (".wav", ".mp3", ".m4a", ".flac", ".ogg"):
+                # Transcribe with whisper (~base model). Limited to first
+                # ~30 s of audio to keep grade time bounded.
+                try:
+                    import whisper
+                    model = whisper.load_model("base")
+                    result = model.transcribe(str(path), verbose=False)
+                    transcript = (result.get("text") or "")[:_OUTPUTS_BUDGET_CHARS]
+                    text = f"Audio transcript:\n{transcript}"
+                except Exception as exc:
+                    text = f"<audio transcribe error: {exc}>"
+            elif suf == ".mp4":
+                # Extract audio with ffmpeg, transcribe with whisper
+                import subprocess
+                import tempfile
+                wav = path.with_suffix(".wav")
+                try:
+                    if not wav.exists():
+                        wav = Path(tempfile.NamedTemporaryFile(
+                            delete=False, suffix=".wav"
+                        ).name)
+                        subprocess.run(
+                            ["ffmpeg", "-y", "-i", str(path), "-vn", "-ar", "16000",
+                             "-ac", "1", str(wav)],
+                            capture_output=True, check=True, timeout=120,
+                        )
+                    import whisper
+                    model = whisper.load_model("base")
+                    result = model.transcribe(str(wav), verbose=False)
+                    transcript = (result.get("text") or "")[:_OUTPUTS_BUDGET_CHARS]
+                    text = f"Video file (audio transcribed):\n{transcript}"
+                except Exception as exc:
+                    text = f"<video transcribe error: {exc}>"
+            elif suf == ".psd":
+                try:
+                    from psd_tools import PSDImage
+                    psd = PSDImage.open(str(path))
+                    text = (
+                        f"PSD file. size={psd.size} layers="
+                        + ",".join(layer.name for layer in psd.descendants() if layer.name)[:1000]
+                    )
+                except Exception as exc:
+                    text = f"<psd read error: {exc}>"
+            elif suf == ".step":
+                # CAD file. No installable reader on this box; describe only.
+                text = f"STEP CAD file. size={path.stat().st_size}B  (binary CAD content not parsed)"
+            elif suf == ".py":
+                # Treat py deliverables like text (judge will read the source)
+                text = path.read_text(encoding="utf-8", errors="ignore")
             else:
                 text = path.read_text(encoding="utf-8", errors="ignore")
         except Exception as exc:

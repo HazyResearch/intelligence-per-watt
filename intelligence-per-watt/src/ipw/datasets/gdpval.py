@@ -50,14 +50,44 @@ accept as a deliverable.
 You have `terminal` (bash) and `file_editor`. The reference files for this \
 task are at the absolute paths listed above — read them directly.
 
-This task only asks you to: read the reference files, produce one or more \
-output files (Excel, CSV, PDF, etc.) in the current directory, and call \
-`finish` describing what you produced.
+This task asks you to read the reference files (if any), produce one or more \
+output files in the current directory, and call `finish` describing what you \
+produced.
 
-The grader checks for the actual output files on disk — saved scripts that \
-you didn't run are worth nothing. After producing the deliverable, run \
-`ls -la` to confirm the files exist before calling `finish`. Do not ask the \
-user questions; make reasonable assumptions.
+Available system tools and Python libraries (installed and ready):
+
+- `web_search "<query>" [N]` — DuckDuckGo search; prints JSON list of \
+  {{title, url, snippet}}. Use for tasks that need internet research. After \
+  finding a URL, fetch with `curl -L`.
+- `tesseract` + `pdftoppm`/`pdftotext`/`pdfinfo` — for OCR of scanned PDFs.
+- `ffmpeg` — for audio/video manipulation (e.g. extract audio from mp4).
+- Python: `pdfplumber`, `openpyxl`, `xlsxwriter`, `python-docx`, \
+  `python-pptx`, `reportlab`, `fpdf2`, `weasyprint`, `Pillow`, \
+  `pdf2image`, `psd_tools`, `whisper`, `pandas`.
+
+## Important: produce-first, verify-before-finish
+
+1. PRODUCE FIRST: As soon as you have any plausible understanding of the \
+   task, write a first draft of the output file with `file_editor:create`. \
+   A partial deliverable on disk is far better than no deliverable.
+
+2. VERIFY AFTER WRITING SCRIPTS: After writing a generator script (e.g. \
+   `build_workbook.py`), you MUST run it AND then `ls -la` to confirm the \
+   deliverable file actually appears. A saved script with no output file \
+   on disk is worth zero. If the script errors, read the traceback, fix \
+   it, re-run — iterate until the actual deliverable file exists.
+
+3. AVOID THE EXPLORATION LOOP: You CAN read different sections of an input \
+   file you've already opened, and you SHOULD re-read your own output files \
+   to verify them. But do NOT repeat the same high-level survey: don't \
+   `ls inputs/` twice, don't "examine the template structure" twice, don't \
+   "dump all source files" twice. After your first sweep through the \
+   inputs, you have enough to write a draft — start writing.
+
+4. Before calling `finish`, run `ls -la *.xlsx *.pdf *.docx *.pptx` \
+   (whichever extension the task asked for) and confirm the deliverable \
+   file exists on disk. Do not ask the user questions; make reasonable \
+   assumptions when information is ambiguous.
 """
 
 
@@ -115,6 +145,8 @@ class GDPvalDataset(DatasetProvider):
         max_samples: Optional[int] = None,
         cache_dir: Optional[str] = None,
         download_files: bool = True,
+        shard_idx: Optional[int] = None,
+        n_shards: Optional[int] = None,
     ) -> None:
         self._split = split or self._default_split
         self._subset = subset or self._default_subset
@@ -122,6 +154,14 @@ class GDPvalDataset(DatasetProvider):
         self._cache_dir = Path(cache_dir) if cache_dir else _DEFAULT_CACHE_DIR
         self._cache_dir.mkdir(parents=True, exist_ok=True)
         self._download_files = download_files
+        if (shard_idx is None) != (n_shards is None):
+            raise ValueError("shard_idx and n_shards must be specified together")
+        if n_shards is not None and n_shards <= 0:
+            raise ValueError("n_shards must be > 0")
+        if shard_idx is not None and not (0 <= shard_idx < n_shards):
+            raise ValueError(f"shard_idx must be in [0, {n_shards})")
+        self._shard_idx = shard_idx
+        self._n_shards = n_shards
         self._records: Tuple[DatasetRecord, ...] = tuple(self._build_records())
 
     def iter_records(self) -> Iterable[DatasetRecord]:
@@ -176,6 +216,12 @@ class GDPvalDataset(DatasetProvider):
             rows = list(dataset)
         if self._max_samples is not None:
             rows = rows[: self._max_samples]
+
+        # Shard by global task index, modulo n_shards. Round-robin distribution
+        # gives each shard a similar mix of task difficulty (rather than e.g.
+        # shard 0 getting all the bank-audit tasks).
+        if self._n_shards is not None:
+            rows = [r for i, r in enumerate(rows) if i % self._n_shards == self._shard_idx]
 
         records: list[DatasetRecord] = []
         for raw in rows:
