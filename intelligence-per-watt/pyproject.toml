@@ -35,6 +35,13 @@ openhands = ["openhands-sdk"]
 agents = ["agno", "terminal-bench", "docker", "openhands-sdk"]
 tavily = ["tavily-python"]
 flops = ["calflops"]
+# Browser + pdf extras for react-native + GAIA. After installing
+# ipw[browser] run `playwright install chromium` (one-time, ~200MB).
+browser = ["playwright>=1.40"]
+pdf = ["pdfplumber>=0.10", "pypdf>=4.0"]
+# Image understanding (vision via OpenAI) + audio transcription (Whisper).
+# Pillow is the only new hard dep; the OpenAI client is already required.
+multimodal = ["pillow>=10.0"]
 dev = ["ruff>=0.4", "pytest>=8"]
 docs = ["mkdocs-material"]
 all = [
@@ -46,6 +53,21 @@ all = [
     "openhands-sdk",
     "tavily-python",
     "calflops",
+    "playwright>=1.40",
+    "pdfplumber>=0.10",
+    "pypdf>=4.0",
+    "pillow>=10.0",
+]
+# Benchmark suite — superset including the browser, pdf, and multimodal tools.
+bench = [
+    "playwright>=1.40",
+    "pdfplumber>=0.10",
+    "pypdf>=4.0",
+    "pillow>=10.0",
+    "agno",
+    "openhands-sdk",
+    "terminal-bench",
+    "docker",
 ]
 
 [project.scripts]
@@ -59,7 +81,12 @@ markers = [
     "integration: marks tests as integration tests (may require hardware and running server)",
     "auto_server: marks tests that use the auto-server functionality",
     "submodel: marks tests that use multiple models/submodels",
+    "stress: marks the 20-way concurrency stress test (offline, opt-in; excluded from default runs)",
 ]
+# Exclude the opt-in concurrency stress test from default runs. Invoke explicitly with -m stress.
+addopts = "-m 'not stress'"
+# `timeout` requires pytest-timeout (not currently in dev deps). When installed,
+# this caps per-test wall-clock at 10 minutes.
 timeout = 600
 
 [tool.ruff]

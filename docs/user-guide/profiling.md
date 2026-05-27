@@ -87,6 +87,8 @@ ipw run --agent <agent> --model <model> --dataset <dataset> [options]
 | `--output-dir` | `./runs/` | Directory for results |
 | `--concurrency` | 1 | Number of tasks to run in parallel |
 | `--query-timeout` | none | Wall-clock timeout in seconds per query |
+| `--max-retries` | 3 | Per-turn retry budget on transient errors (0 disables retry) |
+| `--require-dedicated-hardware` | off | Abort if preflight detects competing GPU/CPU workloads (precision mode) |
 | `--export-format` | `jsonl,hf` | Comma-separated export formats (`jsonl`, `hf`) |
 | `--estimate-flops` | off | Enable FLOPs estimation |
 | `--dataset-kwargs` | none | JSON string of extra dataset arguments |
@@ -416,3 +418,64 @@ ipw servers status
 ```
 
 Displays whether Ollama and vLLM are running, the loaded model (if detectable), and any registered server lock files with port, model, PID, and owner information.
+
+## Preflight hardware check
+
+Before the first query, `AgenticRunner` samples GPU and CPU utilization to
+detect whether the hardware is shared with other workloads. Whole-device
+energy measurement inflates per-query attribution proportionally to any
+contaminating workload — a baseline check catches the most common case before
+results are spent.
+
+By default the check is **informational**: if baseline utilization exceeds
+thresholds (GPU > 5%, CPU > 10%, or foreign GPU processes detected via NVML),
+every subsequent `TurnTrace` and `QueryTrace` is tagged `shared_device_warning:
+true` and warnings are logged. Runs proceed normally — the flag is
+informational, surfacing in the JSON output so downstream analysis can filter
+contaminated runs.
+
+Strict mode (`--require-dedicated-hardware`) aborts the run if contamination
+is detected, ensuring publishable energy numbers are never silently inflated.
+
+The check skips gracefully when `pynvml` or `psutil` is unavailable — only the
+GPU half (or CPU half) is gated by the missing dependency.
+
+## EventBus
+
+Internal telemetry now flows through an in-process `EventBus` pub/sub layer.
+The legacy `EventRecorder.record()` API is preserved verbatim — every call
+appends an `AgentEvent` to the recorder's list (existing `get_events()`
+contract intact) *and* publishes an `Event` to the bus so additional
+subscribers can observe without changing the recorder.
+
+A single shadow subscriber attaches by default: `EnergyAttribution`,
+which pairs `TOOL_CALL_START`/`TOOL_CALL_END` and `LM_INFERENCE_START`/
+`LM_INFERENCE_END` events by correlation_id, computes the energy window via
+the `TelemetrySession`, and emits `ENERGY_ATTRIBUTED` events. Additional
+subscribers can plug in without further plumbing changes. Cloud LM inferences
+explicitly emit
+`gpu_energy_j=None` (no local GPU involved); only `cpu_energy_j` is populated
+for the local-CPU request marshaling.
+
+## Trace schema additions
+
+The trace types carry these fields on `TurnTrace` (all default to `None` or `False`):
+
+- `dram_energy_joules: float | None`
+- `peak_watts: float | None`
+- `reasoning_tokens: int | None`
+- `cached_tokens: int | None`
+- `has_parallel_tools: bool`  (set when an executor dispatches multiple tools concurrently)
+- `shared_device_warning: bool`  (set when the preflight or per-window check detects contamination)
+
+And to `QueryTrace`:
+
+- `lm_energy_measurable: bool`  (True by default; runner sets `False` for cloud LMs where GPU telemetry is unavailable)
+- `shared_device_warning: bool`
+- `accuracy_score: float | None`  (evaluators may return float, bool, or dict; annotated `float` for the common case)
+- `accuracy_metadata: dict[str, Any]`
+- `n_retries: int`
+
+These fields are **additive**: existing analysis tooling and JSONL exports
+continue to work without modification, and the new fields default to their
+safe values when no subscriber populates them.

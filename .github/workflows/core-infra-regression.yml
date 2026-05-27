@@ -1,0 +1,46 @@
+# core-infra-regression.yml
+#
+# Runs the OFFLINE unit-level regression subset on PRs that touch the agentic
+# core (executor / telemetry / tools).
+#
+# Tests that need a running server or GPU are marked `integration` and the
+# concurrency stress test is marked `stress`; both are excluded from this CI job.
+
+name: Core-Infra Regression
+
+on:
+  pull_request:
+    paths:
+      - "intelligence-per-watt/src/ipw/execution/**"
+      - "intelligence-per-watt/src/ipw/telemetry/**"
+      - "intelligence-per-watt/src/ipw/tools/**"
+      - ".github/workflows/core-infra-regression.yml"
+
+concurrency:
+  group: core-infra-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  core-infra-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v4
+
+      - name: Install dependencies
+        working-directory: intelligence-per-watt
+        run: uv sync --extra dev
+
+      - name: Run offline core-infra regression tests
+        working-directory: intelligence-per-watt
+        run: >-
+          uv run pytest -v --tb=short
+          src/ipw/tests/execution src/ipw/tests/telemetry src/ipw/tests/tools
+          -m "not integration and not stress"
