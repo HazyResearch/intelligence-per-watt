@@ -32,6 +32,24 @@ class TestEventType:
     def test_is_string_enum(self) -> None:
         assert isinstance(EventType.LM_INFERENCE_START, str)
 
+    def test_turn_lifecycle_events_exist(self) -> None:
+        assert EventType.TURN_START.value == "turn_start"
+        assert EventType.TURN_END.value == "turn_end"
+
+    def test_retry_and_error_events_exist(self) -> None:
+        assert EventType.RETRY_ATTEMPT.value == "retry_attempt"
+        assert EventType.ERROR_CLASSIFIED.value == "error_classified"
+
+    def test_agent_lifecycle_events_exist(self) -> None:
+        assert EventType.AGENT_START.value == "agent_start"
+        assert EventType.AGENT_END.value == "agent_end"
+
+    def test_energy_attributed_event_exists(self) -> None:
+        assert EventType.ENERGY_ATTRIBUTED.value == "energy_attributed"
+
+    def test_trajectory_end_event_exists(self) -> None:
+        assert EventType.TRAJECTORY_END.value == "trajectory_end"
+
 
 class TestAgentEvent:
     """Test AgentEvent dataclass."""
@@ -153,3 +171,67 @@ class TestEventRecorderFixture:
         assert events[1].event_type == "tool_call_start"
         assert events[2].event_type == "tool_call_end"
         assert events[3].event_type == "lm_inference_end"
+
+
+class TestEventRecorderBusIntegration:
+    """EventRecorder publishes every recorded event to its internal EventBus."""
+
+    def test_bus_receives_published_event(self) -> None:
+        from ipw.telemetry.eventbus import EventBus
+
+        bus = EventBus()
+        got: list = []
+        bus.subscribe(None, got.append)
+
+        recorder = EventRecorder(bus=bus)
+        recorder.record("tool_call_start", tool="calculator")
+
+        assert len(got) == 1
+        assert got[0].event_type == EventType.TOOL_CALL_START
+        assert got[0].payload["tool"] == "calculator"
+
+    def test_backwards_compat_default_bus(self) -> None:
+        # No bus passed -> recorder creates its own, still works as before
+        recorder = EventRecorder()
+        recorder.record("tool_call_start", tool="calculator")
+        events = recorder.get_events()
+        assert len(events) == 1
+        assert events[0].event_type == "tool_call_start"
+
+    def test_unknown_event_type_still_records(self) -> None:
+        # Agent code may pass string-valued event types not in the enum
+        recorder = EventRecorder()
+        recorder.record("custom_event", foo="bar")
+        events = recorder.get_events()
+        assert len(events) == 1
+        assert events[0].event_type == "custom_event"
+
+    def test_unknown_event_type_skips_bus_publish(self) -> None:
+        # Unknown event types append to the list but do NOT publish to the bus
+        from ipw.telemetry.eventbus import EventBus
+
+        bus = EventBus()
+        got: list = []
+        bus.subscribe(None, got.append)
+        recorder = EventRecorder(bus=bus)
+        recorder.record("not_a_real_type", foo="bar")
+        assert len(got) == 0  # bus saw nothing
+        assert len(recorder.get_events()) == 1  # but the list got it
+
+    def test_bus_property_exposes_internal_bus(self) -> None:
+        from ipw.telemetry.eventbus import EventBus
+
+        recorder = EventRecorder()
+        assert isinstance(recorder.bus, EventBus)
+
+    def test_bus_event_carries_turn_id_and_correlation_id_from_metadata(self) -> None:
+        from ipw.telemetry.eventbus import EventBus
+
+        bus = EventBus()
+        got: list = []
+        bus.subscribe(None, got.append)
+        recorder = EventRecorder(bus=bus)
+        recorder.record("tool_call_start", tool="calc", turn_id="t5", correlation_id="c9")
+
+        assert got[0].turn_id == "t5"
+        assert got[0].correlation_id == "c9"

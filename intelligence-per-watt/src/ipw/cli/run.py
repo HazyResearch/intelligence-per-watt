@@ -84,6 +84,13 @@ def _create_model_for_agent(agent_id: str, model: str, base_url: str, api_key: s
     elif agent_id in ("terminus-tb", "terminus"):
         # terminus_tb.py already prepends "openai/" — pass raw model_id
         return model
+    elif agent_id == "react-native":
+        from ipw.clients.openai_chat_adapter import OpenAIChatAdapter
+        if cloud:
+            return OpenAIChatAdapter(model=model, api_key=effective_key)
+        return OpenAIChatAdapter(
+            model=model, api_key=api_key, base_url=f"{base_url}/v1",
+        )
     else:
         return model  # Fallback: pass string
 
@@ -154,6 +161,19 @@ def _create_model_for_agent(agent_id: str, model: str, base_url: str, api_key: s
     help="Wall-clock timeout in seconds per query (default: no limit)",
 )
 @click.option(
+    "--max-retries",
+    type=int,
+    default=3,
+    show_default=True,
+    help="Per-turn retry budget on transient errors (0 disables retry).",
+)
+@click.option(
+    "--require-dedicated-hardware",
+    is_flag=True,
+    default=False,
+    help="Abort if preflight detects competing GPU/CPU workloads (precision mode).",
+)
+@click.option(
     "--eval-client",
     default="openai",
     show_default=True,
@@ -180,6 +200,8 @@ def run_cmd(
     dataset_kwargs: str | None,
     concurrency: int,
     query_timeout: float | None,
+    max_retries: int,
+    require_dedicated_hardware: bool,
     eval_client: str,
     eval_model: str,
 ) -> None:
@@ -208,6 +230,10 @@ def run_cmd(
     # Ensure agent modules are imported for registry population
     from ipw.agents import react as _react  # noqa: F401
     try:
+        from ipw.agents import react_native as _react_native  # noqa: F401
+    except ImportError:
+        pass
+    try:
         from ipw.agents import openhands as _openhands  # noqa: F401
     except ImportError:
         pass
@@ -215,6 +241,22 @@ def run_cmd(
         from ipw.agents import terminus, terminus_tb  # noqa: F401
     except ImportError:
         pass
+
+    # Trigger tool registrations so ToolRegistry is populated for ToolUsingAgent
+    # construction.  Each import is guarded so missing optional deps don't abort
+    # the CLI — the tool is simply absent from the registry.
+    for _tool_mod in (
+        "shell_exec", "git_tool", "apply_patch", "http_request",
+        "repl", "code_interpreter_docker",
+        "browser", "browser_axtree", "pdf_tool",
+        "image_tool", "audio_tool", "docker_shell_exec",
+    ):
+        try:
+            __import__(f"ipw.tools.{_tool_mod}")
+        except Exception:
+            pass
+
+    from ipw.agents.base import ToolUsingAgent
     from ipw.core.registry import AgentRegistry, DatasetRegistry
     from ipw.execution.agentic_runner import AgenticRunner
     from ipw.execution.exporters import export_artifacts_manifest, export_hf_dataset, export_jsonl, export_summary_json
@@ -283,12 +325,45 @@ def run_cmd(
         if not _is_cloud_model(model, client_base_url):
             extra_kwargs["api_base"] = f"{client_base_url}/v1"
 
-    try:
-        agent_instance = agent_cls(
-            model=resolved_model,
-            event_recorder=event_recorder,
-            **extra_kwargs,
+    def _build_agent(a_cls, a_resolved_model, a_event_recorder, a_extra_kwargs):
+        """Construct an agent instance, handling ToolUsingAgent specially.
+
+        ToolUsingAgent subclasses (e.g. NativeReact / react-native) require
+        a bare model string, the LM adapter as ``llm``, and an instantiated
+        list of ``tools`` bound to the event bus.  Generic agents receive just
+        ``model`` and ``event_recorder``.
+        """
+        try:
+            _is_tool_using = issubclass(a_cls, ToolUsingAgent)
+        except TypeError:
+            # a_cls is not a real class (e.g. a mock in tests) — use generic path.
+            _is_tool_using = False
+        if _is_tool_using:
+            from ipw.tools.registry import ToolRegistry
+            # NativeReact wants the bare model id (no provider prefix).
+            bare = model.split("/", 1)[1] if "/" in model else model
+            # Build all currently-registered tools bound to this recorder's bus.
+            tools: list = []
+            for _tid, _tcls in ToolRegistry.items():
+                try:
+                    tools.append(_tcls(bus=a_event_recorder.bus))
+                except Exception:
+                    pass
+            return a_cls(
+                model=bare,
+                llm=a_resolved_model,
+                tools=tools,
+                event_recorder=a_event_recorder,
+                **a_extra_kwargs,
+            )
+        return a_cls(
+            model=a_resolved_model,
+            event_recorder=a_event_recorder,
+            **a_extra_kwargs,
         )
+
+    try:
+        agent_instance = _build_agent(agent_cls, resolved_model, event_recorder, extra_kwargs)
     except TypeError as exc:
         raise click.ClickException(
             f"Failed to initialize agent '{agent_id}': {exc}"
@@ -298,6 +373,9 @@ def run_cmd(
     model_slug = "".join(c if c.isalnum() else "_" for c in model).strip("_") or "model"
     run_dir = Path(output_dir) / f"run_{agent_id}_{model_slug}_{dataset_id}"
     run_dir.mkdir(parents=True, exist_ok=True)
+
+    # Convert CLI retries count to runner attempt count (retries + 1 = attempts).
+    max_attempts = max_retries + 1
 
     # Build config for summary
     run_config = {
@@ -312,6 +390,8 @@ def run_cmd(
         "estimate_flops": estimate_flops,
         "eval_client": eval_client,
         "eval_model": eval_model,
+        "max_retries": max_retries,
+        "require_dedicated_hardware": require_dedicated_hardware,
     }
 
     print_banner()
@@ -337,7 +417,7 @@ def run_cmd(
 
     def _make_agent() -> "BaseAgent":  # noqa: F821
         rec = EventRecorder()
-        return _agent_cls_ref(model=_model_ref, event_recorder=rec, **_extra_kwargs_ref)
+        return _build_agent(_agent_cls_ref, _model_ref, rec, _extra_kwargs_ref)
 
     # Run the agentic benchmark.
     # Cloud models don't use the local GPU — skip energy telemetry so traces
@@ -355,6 +435,8 @@ def run_cmd(
             concurrency=concurrency,
             agent_factory=_make_agent if concurrency > 1 else None,
             query_timeout=query_timeout,
+            max_attempts=max_attempts,
+            require_dedicated_hardware=require_dedicated_hardware,
         )
         try:
             return asyncio.run(runner.run(max_queries=max_queries))
