@@ -12,7 +12,6 @@ def ensure_registered() -> None:
         frames,
         gaia,
         gdpval,
-        gdpval_stirrup,
         gpqa,
         hle,
         ipw,

@@ -49,22 +49,6 @@ deliverables = [
     "scipy",
     "weasyprint",
 ]
-stirrup = [
-    "fpdf2",
-    "mutagen",
-    "openpyxl",
-    "pdf2image",
-    "pdfplumber",
-    "Pillow",
-    "psd-tools",
-    "pymupdf",
-    "python-docx",
-    "python-pptx",
-    "reportlab",
-    "scipy",
-    "stirrup[litellm,e2b,docker]>=0.1.8",
-    "weasyprint",
-]
 tavily = ["tavily-python"]
 flops = ["calflops"]
 media-transcription = ["openai-whisper"]
@@ -90,7 +74,6 @@ all = [
     "python-pptx",
     "reportlab",
     "scipy",
-    "stirrup[litellm,e2b,docker]>=0.1.8",
     "tavily-python",
     "calflops",
     "weasyprint",

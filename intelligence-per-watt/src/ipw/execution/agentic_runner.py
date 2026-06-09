@@ -511,7 +511,6 @@ class AgenticRunner:
                     for key in (
                         "gdpval_outputs_dir",
                         "gdpval_submitted_files",
-                        "stirrup_finish_params",
                     ):
                         if key in result.metadata:
                             record.dataset_metadata[key] = result.metadata[key]
@@ -675,9 +674,6 @@ class AgenticRunner:
         judge_gpu_power_avg = _compute_power_avg(judge_readings, "power_watts")
         judge_cpu_power_avg = _compute_power_avg(judge_readings, "cpu_power_watts")
 
-        agent_completed = result.metadata.get("stirrup_finished")
-        completed = True if agent_completed is None else bool(agent_completed)
-
         trace = QueryTrace(
             query_id=query_id,
             workload_type=str(workload_type),
@@ -685,7 +681,7 @@ class AgenticRunner:
             response_text=result.content,
             turns=turns,
             total_wall_clock_s=prompt_end_time - start_time,
-            completed=completed,
+            completed=True,
             query_gpu_energy_joules=query_gpu_energy,
             query_cpu_energy_joules=query_cpu_energy,
             query_gpu_power_avg_watts=query_gpu_power_avg,
@@ -922,8 +918,6 @@ class AgenticRunner:
             "test_results",
             "gdpval_outputs_dir",
             "gdpval_submitted_files",
-            "stirrup_finish_params",
-            "stirrup_finished",
             "evaluation_metadata",
         ):
             val = record.dataset_metadata.get(key)

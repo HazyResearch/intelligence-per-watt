@@ -209,10 +209,6 @@ def run_cmd(
         from ipw.agents import terminus, terminus_tb  # noqa: F401
     except ImportError:
         pass
-    try:
-        from ipw.agents import stirrup as _stirrup  # noqa: F401
-    except ImportError:
-        pass
     from ipw.core.registry import AgentRegistry, DatasetRegistry
     from ipw.execution.agentic_runner import AgenticRunner
     from ipw.execution.exporters import export_artifacts_manifest, export_hf_dataset, export_jsonl, export_summary_json
@@ -285,13 +281,6 @@ def run_cmd(
     # Terminus-based agents need api_base so LiteLLM can reach the local server
     if agent_id in ("terminus", "terminus-tb") and "api_base" not in extra_kwargs:
         extra_kwargs["api_base"] = f"{client_base_url}/v1"
-    if agent_id == "stirrup":
-        if "base_url" not in extra_kwargs:
-            base = client_base_url.rstrip("/")
-            extra_kwargs["base_url"] = base if base.endswith("/v1") else f"{base}/v1"
-        if "api_key" not in extra_kwargs:
-            extra_kwargs["api_key"] = api_key
-
     try:
         agent_instance = agent_cls(
             model=resolved_model,
