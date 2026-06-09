@@ -20,6 +20,7 @@ dependencies = [
     "requests>=2",
     "datasets>=2.20",
     "numpy>=1.26",
+    "pandas>=2.2",
     "pyarrow>=18",
     "tqdm>=4.66",
     "hf_transfer",
@@ -33,8 +34,40 @@ react = ["agno"]
 terminus = ["terminal-bench", "docker"]
 openhands = ["openhands-sdk", "openhands-tools"]
 agents = ["agno", "terminal-bench", "docker", "openhands-sdk", "openhands-tools"]
+deliverables = [
+    "fpdf2",
+    "mutagen",
+    "openpyxl",
+    "pdf2image",
+    "pdfplumber",
+    "Pillow",
+    "psd-tools",
+    "pymupdf",
+    "python-docx",
+    "python-pptx",
+    "reportlab",
+    "scipy",
+    "weasyprint",
+]
+stirrup = [
+    "fpdf2",
+    "mutagen",
+    "openpyxl",
+    "pdf2image",
+    "pdfplumber",
+    "Pillow",
+    "psd-tools",
+    "pymupdf",
+    "python-docx",
+    "python-pptx",
+    "reportlab",
+    "scipy",
+    "stirrup[litellm,e2b,docker]>=0.1.8",
+    "weasyprint",
+]
 tavily = ["tavily-python"]
 flops = ["calflops"]
+media-transcription = ["openai-whisper"]
 dev = ["ruff>=0.4", "pytest>=8"]
 docs = ["mkdocs-material", "mkdocstrings[python]", "mkdocs-gen-files", "mkdocs-literate-nav"]
 all = [
@@ -45,8 +78,22 @@ all = [
     "docker",
     "openhands-sdk",
     "openhands-tools",
+    "fpdf2",
+    "mutagen",
+    "openpyxl",
+    "pdf2image",
+    "pdfplumber",
+    "Pillow",
+    "psd-tools",
+    "pymupdf",
+    "python-docx",
+    "python-pptx",
+    "reportlab",
+    "scipy",
+    "stirrup[litellm,e2b,docker]>=0.1.8",
     "tavily-python",
     "calflops",
+    "weasyprint",
 ]
 
 [project.scripts]

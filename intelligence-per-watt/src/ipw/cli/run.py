@@ -120,10 +120,34 @@ def _create_model_for_agent(agent_id: str, model: str, base_url: str, api_key: s
     help="Wall-clock timeout in seconds per query (default: no limit)",
 )
 @click.option(
+    "--telemetry-gpu-id",
+    type=int,
+    default=None,
+    help="Sample only this NVIDIA GPU id via nvidia-smi instead of aggregate energy-monitor telemetry",
+)
+@click.option(
+    "--telemetry-interval",
+    type=float,
+    default=0.2,
+    show_default=True,
+    help="Telemetry sampling interval in seconds for --telemetry-gpu-id",
+)
+@click.option(
+    "--telemetry-buffer-seconds",
+    type=float,
+    default=None,
+    help="Telemetry retention window in seconds (default: query timeout + 300s, or 7200s)",
+)
+@click.option(
     "--eval-client",
     default="openai",
     show_default=True,
     help="Client for evaluation",
+)
+@click.option(
+    "--eval-base-url",
+    default=None,
+    help="Base URL for evaluation client (default: dataset/client default)",
 )
 @click.option(
     "--eval-model",
@@ -146,7 +170,11 @@ def run_cmd(
     dataset_kwargs: str | None,
     concurrency: int,
     query_timeout: float | None,
+    telemetry_gpu_id: int | None,
+    telemetry_interval: float,
+    telemetry_buffer_seconds: float | None,
     eval_client: str,
+    eval_base_url: str | None,
     eval_model: str,
 ) -> None:
     """Execute an agentic benchmark run."""
@@ -181,9 +209,14 @@ def run_cmd(
         from ipw.agents import terminus, terminus_tb  # noqa: F401
     except ImportError:
         pass
+    try:
+        from ipw.agents import stirrup as _stirrup  # noqa: F401
+    except ImportError:
+        pass
     from ipw.core.registry import AgentRegistry, DatasetRegistry
     from ipw.execution.agentic_runner import AgenticRunner
     from ipw.execution.exporters import export_artifacts_manifest, export_hf_dataset, export_jsonl, export_summary_json
+    from ipw.execution.nvidia_smi_telemetry import NvidiaSmiTelemetrySession
     from ipw.execution.telemetry_session import TelemetrySession
     from ipw.telemetry import EnergyMonitorCollector
     from ipw.telemetry.events import EventRecorder
@@ -229,6 +262,12 @@ def run_cmd(
     # Preflight: dataset requirements
     try:
         dataset_instance = dataset_cls(**extra_dataset_kwargs)
+        if eval_client:
+            dataset_instance.eval_client = eval_client
+        if eval_base_url:
+            dataset_instance.eval_base_url = eval_base_url
+        if eval_model:
+            dataset_instance.eval_model = eval_model
         issues = dataset_instance.verify_requirements()
         if issues:
             raise click.ClickException(
@@ -246,6 +285,12 @@ def run_cmd(
     # Terminus-based agents need api_base so LiteLLM can reach the local server
     if agent_id in ("terminus", "terminus-tb") and "api_base" not in extra_kwargs:
         extra_kwargs["api_base"] = f"{client_base_url}/v1"
+    if agent_id == "stirrup":
+        if "base_url" not in extra_kwargs:
+            base = client_base_url.rstrip("/")
+            extra_kwargs["base_url"] = base if base.endswith("/v1") else f"{base}/v1"
+        if "api_key" not in extra_kwargs:
+            extra_kwargs["api_key"] = api_key
 
     try:
         agent_instance = agent_cls(
@@ -272,9 +317,13 @@ def run_cmd(
         "max_queries": max_queries,
         "concurrency": concurrency,
         "query_timeout": query_timeout,
+        "telemetry_gpu_id": telemetry_gpu_id,
+        "telemetry_interval": telemetry_interval,
+        "telemetry_buffer_seconds": telemetry_buffer_seconds,
         "export_format": export_format,
         "estimate_flops": estimate_flops,
         "eval_client": eval_client,
+        "eval_base_url": eval_base_url,
         "eval_model": eval_model,
     }
 
@@ -290,6 +339,17 @@ def run_cmd(
         run_display_config["Concurrency"] = concurrency
     if query_timeout:
         run_display_config["Query Timeout"] = f"{query_timeout:.0f}s"
+    if telemetry_gpu_id is not None:
+        run_display_config["Telemetry GPU"] = telemetry_gpu_id
+    if telemetry_buffer_seconds is not None:
+        run_display_config["Telemetry Buffer"] = f"{telemetry_buffer_seconds:.0f}s"
+    if getattr(dataset_instance, "requires_serial_telemetry", False) and concurrency != 1:
+        warning(
+            f"Dataset '{dataset_id}' requires clean per-prompt telemetry; forcing concurrency=1."
+        )
+        concurrency = 1
+        run_config["concurrency"] = 1
+        run_display_config["Concurrency"] = 1
     run_display_config["Output"] = str(run_dir)
     print_config_summary(config=run_display_config)
 
@@ -303,9 +363,37 @@ def run_cmd(
         rec = EventRecorder()
         return _agent_cls_ref(model=_model_ref, event_recorder=rec, **_extra_kwargs_ref)
 
-    # Run the agentic benchmark with energy telemetry
-    collector = EnergyMonitorCollector(timeout=30.0)
-    with TelemetrySession(collector) as telemetry:
+    # Run the agentic benchmark with energy telemetry. On multi-GPU boxes the
+    # bundled energy monitor may expose an aggregate device; --telemetry-gpu-id
+    # keeps one-shard-per-GPU runs attributable to the assigned GPU.
+    resolved_telemetry_buffer_seconds = telemetry_buffer_seconds
+    if resolved_telemetry_buffer_seconds is None:
+        resolved_telemetry_buffer_seconds = (
+            max(300.0, query_timeout + 300.0)
+            if query_timeout is not None
+            else 7200.0
+        )
+    if resolved_telemetry_buffer_seconds <= 0:
+        raise click.ClickException("--telemetry-buffer-seconds must be positive")
+    telemetry_max_samples = int(
+        resolved_telemetry_buffer_seconds / max(telemetry_interval, 0.001)
+    ) + 100
+    if telemetry_gpu_id is not None:
+        telemetry_context = NvidiaSmiTelemetrySession(
+            [telemetry_gpu_id],
+            interval_seconds=telemetry_interval,
+            buffer_seconds=resolved_telemetry_buffer_seconds,
+            max_samples=telemetry_max_samples,
+        )
+    else:
+        collector = EnergyMonitorCollector(timeout=30.0)
+        telemetry_context = TelemetrySession(
+            collector,
+            buffer_seconds=resolved_telemetry_buffer_seconds,
+            max_samples=telemetry_max_samples,
+        )
+
+    with telemetry_context as telemetry:
         runner = AgenticRunner(
             agent=agent_instance,
             dataset=dataset_instance,

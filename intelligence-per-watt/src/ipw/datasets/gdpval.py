@@ -65,29 +65,10 @@ Available system tools and Python libraries (installed and ready):
   `python-pptx`, `reportlab`, `fpdf2`, `weasyprint`, `Pillow`, \
   `pdf2image`, `psd_tools`, `whisper`, `pandas`.
 
-## Important: produce-first, verify-before-finish
-
-1. PRODUCE FIRST: As soon as you have any plausible understanding of the \
-   task, write a first draft of the output file with `file_editor:create`. \
-   A partial deliverable on disk is far better than no deliverable.
-
-2. VERIFY AFTER WRITING SCRIPTS: After writing a generator script (e.g. \
-   `build_workbook.py`), you MUST run it AND then `ls -la` to confirm the \
-   deliverable file actually appears. A saved script with no output file \
-   on disk is worth zero. If the script errors, read the traceback, fix \
-   it, re-run — iterate until the actual deliverable file exists.
-
-3. AVOID THE EXPLORATION LOOP: You CAN read different sections of an input \
-   file you've already opened, and you SHOULD re-read your own output files \
-   to verify them. But do NOT repeat the same high-level survey: don't \
-   `ls inputs/` twice, don't "examine the template structure" twice, don't \
-   "dump all source files" twice. After your first sweep through the \
-   inputs, you have enough to write a draft — start writing.
-
-4. Before calling `finish`, run `ls -la *.xlsx *.pdf *.docx *.pptx` \
-   (whichever extension the task asked for) and confirm the deliverable \
-   file exists on disk. Do not ask the user questions; make reasonable \
-   assumptions when information is ambiguous.
+The grader checks for the actual output files on disk — saved scripts that \
+you didn't run are worth nothing. After producing the deliverable, run \
+`ls -la` to confirm the files exist before calling `finish`. Do not ask the \
+user questions; make reasonable assumptions.
 """
 
 

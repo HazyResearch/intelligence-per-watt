@@ -30,6 +30,11 @@ class EnergyMetrics:
     # CPU energy
     cpu_per_query_joules: Optional[float] = None
     cpu_total_joules: Optional[float] = None
+    # Judge/evaluation energy, kept separate from the prompt/query window
+    judge_gpu_joules: Optional[float] = None
+    judge_cpu_joules: Optional[float] = None
+    total_task_gpu_joules: Optional[float] = None
+    total_task_cpu_joules: Optional[float] = None
     # ANE energy (macOS only)
     ane_per_query_joules: Optional[float] = None
     ane_total_joules: Optional[float] = None

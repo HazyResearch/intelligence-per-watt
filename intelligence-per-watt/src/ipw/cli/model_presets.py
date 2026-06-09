@@ -9,7 +9,10 @@ from typing import Any, Dict
 MODEL_PRESETS: Dict[str, Dict[str, Any]] = {
     "glm-4.7-flash": {
         "model_id": "zai-org/GLM-4.7-FP8",
-        "vllm_args": {"tensor_parallel_size": 8},
+        "vllm_args": {
+            "tensor_parallel_size": 8,
+            "tool_call_parser": "glm47",
+        },
     },
     "glm-5-fp8": {
         "model_id": "zai-org/GLM-5-FP8",

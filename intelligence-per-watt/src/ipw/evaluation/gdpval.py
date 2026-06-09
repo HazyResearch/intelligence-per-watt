@@ -1,6 +1,6 @@
 """GDPval evaluation: rubric-based LLM-as-judge.
 
-GDPval tasks have no reference answers — each task ships a ``rubric_json``
+GDPval tasks have no reference answers - each task ships a ``rubric_json``
 listing criteria with point values. We ask the judge model to score the
 candidate answer against each criterion, then aggregate:
 
@@ -15,9 +15,13 @@ candidate answer against each criterion, then aggregate:
 
 from __future__ import annotations
 
+import base64
 import json
 import logging
+import os
 import re
+import subprocess
+import tempfile
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
@@ -28,6 +32,69 @@ LOGGER = logging.getLogger(__name__)
 
 _PASS_THRESHOLD = 0.5
 _OUTPUTS_BUDGET_CHARS = 12_000  # per-file budget when summarising deliverables
+_IMAGE_EXTS = {".png", ".jpg", ".jpeg", ".webp", ".gif", ".bmp"}
+_OFFICE_EXTS = {".xlsx", ".xls", ".xlsm", ".docx", ".pptx"}
+
+
+def _describe_image_with_vision(path: Path, client) -> str:
+    """One-shot image describer using a vision-capable judge model.
+
+    Encodes the image as base64 and asks the judge to produce a detailed
+    factual description. The result is reused across every criterion call
+    for this deliverable, so cost is O(1 vision call per image), not
+    O(n_criteria).
+    """
+    if not hasattr(client, "_chat_completion"):
+        return f"<vision unavailable: client lacks _chat_completion>"
+    try:
+        with path.open("rb") as f:
+            b64 = base64.b64encode(f.read()).decode("ascii")
+    except Exception as exc:
+        return f"<image read error: {exc}>"
+    suf = path.suffix.lower().lstrip(".")
+    if suf == "jpg": suf = "jpeg"
+    data_url = f"data:image/{suf};base64,{b64}"
+    messages = [
+        {"role": "system", "content": "You are a careful visual describer."},
+        {"role": "user", "content": [
+            {"type": "text", "text": (
+                "Describe this image factually in 4-8 sentences. Cover: "
+                "subject, layout/composition, any visible text or labels, "
+                "colour palette, and notable details. Be specific and "
+                "literal - no speculation about purpose."
+            )},
+            {"type": "image_url", "image_url": {"url": data_url}},
+        ]},
+    ]
+    try:
+        resp = client._chat_completion(client.model, "", messages=messages)
+        return (resp.content or "").strip() or "<empty vision response>"
+    except Exception as exc:
+        return f"<vision call failed: {exc}>"
+
+
+def _render_office_to_pdf(src: Path) -> Optional[Path]:
+    """Render .docx/.xlsx/.pptx to .pdf using libreoffice headless.
+
+    Returns path to the generated PDF, or None on failure. The PDF
+    captures charts, conditional formatting, page layout, embedded
+    images etc. that python-docx / openpyxl / python-pptx skip.
+    """
+    if not src.exists() or src.suffix.lower() not in _OFFICE_EXTS:
+        return None
+    if not (Path("/usr/bin/soffice").exists() or Path("/usr/bin/libreoffice").exists()):
+        return None
+    out_dir = Path(tempfile.mkdtemp(prefix="lo_render_"))
+    try:
+        subprocess.run(
+            ["soffice", "--headless", "--norestore", "--convert-to", "pdf",
+             "--outdir", str(out_dir), str(src)],
+            check=False, capture_output=True, timeout=90,
+        )
+    except Exception:
+        return None
+    pdf = out_dir / (src.stem + ".pdf")
+    return pdf if pdf.exists() else None
 
 _JUDGE_PROMPT = """You are grading a candidate response against a single rubric criterion.
 
@@ -48,11 +115,22 @@ reason: <one short sentence>
 """
 
 
-def _extract_deliverable_text(outputs_dir: Path) -> str:
+def _extract_deliverable_text(outputs_dir: Path, vision_client: Any = None) -> str:
     """Return a concatenated text view of any deliverable files.
 
     Used so the judge can verify rubric criteria that reference produced
     files (e.g. ``Workbook contains tab 'Sample'``).
+
+    Enrichments:
+
+    - **LibreOffice rendering**: for .xlsx/.docx/.pptx, additionally render
+      to PDF via headless soffice and extract that text; catches charts,
+      conditional formatting, page layout, and embedded images that the
+      Python office libraries silently drop.
+    - **Vision-based image description**: when ``vision_client`` is
+      supplied (a client whose model accepts image_url content), every
+      image deliverable gets a 4-8 sentence factual description appended
+      to its text section.
     """
     if not outputs_dir or not Path(outputs_dir).is_dir():
         return ""
@@ -78,6 +156,21 @@ def _extract_deliverable_text(outputs_dir: Path) -> str:
                             cells = [("" if v is None else str(v)) for v in row]
                             parts.append("\t".join(cells))
                     text = "\n".join(parts)
+                # Also render to PDF via libreoffice to catch charts /
+                # conditional formatting / page layout that openpyxl drops.
+                pdf = _render_office_to_pdf(path)
+                if pdf is not None:
+                    try:
+                        import pdfplumber
+                        pages = []
+                        with pdfplumber.open(str(pdf)) as p:
+                            for page in p.pages:
+                                pages.append(page.extract_text() or "")
+                        rendered = "\n\n".join(pages).strip()
+                        if rendered:
+                            text += "\n\n## Rendered (libreoffice PDF):\n" + rendered
+                    except Exception:
+                        pass
             elif suf == ".pdf":
                 try:
                     import pdfplumber
@@ -96,6 +189,18 @@ def _extract_deliverable_text(outputs_dir: Path) -> str:
                     text = "<python-docx not installed>"
                 else:
                     text = "\n".join(p.text for p in docx.Document(str(path)).paragraphs)
+                pdf = _render_office_to_pdf(path)
+                if pdf is not None:
+                    try:
+                        import pdfplumber
+                        with pdfplumber.open(str(pdf)) as p:
+                            rendered = "\n\n".join(
+                                page.extract_text() or "" for page in p.pages
+                            ).strip()
+                        if rendered:
+                            text += "\n\n## Rendered (libreoffice PDF):\n" + rendered
+                    except Exception:
+                        pass
             elif suf == ".pptx":
                 try:
                     from pptx import Presentation
@@ -110,6 +215,18 @@ def _extract_deliverable_text(outputs_dir: Path) -> str:
                             if hasattr(shape, "text") and shape.text:
                                 parts.append(shape.text)
                     text = "\n".join(parts)
+                pdf = _render_office_to_pdf(path)
+                if pdf is not None:
+                    try:
+                        import pdfplumber
+                        with pdfplumber.open(str(pdf)) as p:
+                            rendered = "\n\n".join(
+                                page.extract_text() or "" for page in p.pages
+                            ).strip()
+                        if rendered:
+                            text += "\n\n## Rendered (libreoffice PDF):\n" + rendered
+                    except Exception:
+                        pass
             elif suf == ".ipynb":
                 try:
                     nb = json.loads(path.read_text(encoding="utf-8", errors="ignore"))
@@ -139,6 +256,13 @@ def _extract_deliverable_text(outputs_dir: Path) -> str:
                     text = f"Image file. format={img.format} mode={img.mode} size={img.size}"
                 except Exception as exc:
                     text = f"<image read error: {exc}>"
+                # When a vision-capable client is available, ask it to
+                # describe the image so the rubric judge can evaluate visual
+                # criteria (composition, labels, color, etc.) using text.
+                if vision_client is not None:
+                    desc = _describe_image_with_vision(path, vision_client)
+                    if desc:
+                        text += "\n\n## Vision description:\n" + desc
             elif suf in (".wav", ".mp3", ".m4a", ".flac", ".ogg"):
                 # Transcribe with whisper (~base model). Limited to first
                 # ~30 s of audio to keep grade time bounded.
@@ -274,9 +398,12 @@ class GdpvalHandler(EvaluationHandler):
         outputs_dir = metadata.get("gdpval_outputs_dir")
         if not outputs_dir:
             # Conventional path: workspace sibling of metadata's instance_id
-            # — fall back to scanning common locations.
+            # - fall back to scanning common locations.
             pass
-        deliverable_text = _extract_deliverable_text(Path(outputs_dir)) if outputs_dir else ""
+        deliverable_text = (
+            _extract_deliverable_text(Path(outputs_dir), vision_client=self._client)
+            if outputs_dir else ""
+        )
         deliverables_section = (
             f"\n## Deliverable files produced\n{deliverable_text}\n"
             if deliverable_text

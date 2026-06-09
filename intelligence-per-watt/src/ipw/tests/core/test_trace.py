@@ -194,12 +194,23 @@ class TestQueryTrace:
             query_cpu_energy_joules=5.0,
             query_gpu_power_avg_watts=200.0,
             query_cpu_power_avg_watts=80.0,
+            judge_gpu_energy_joules=2.0,
+            judge_cpu_energy_joules=1.0,
+            judge_gpu_power_avg_watts=150.0,
+            judge_cpu_power_avg_watts=60.0,
+            judge_wall_clock_s=0.5,
         )
         d = trace.to_dict()
         assert d["query_gpu_energy_joules"] == 10.0
         assert d["query_cpu_energy_joules"] == 5.0
         assert d["query_gpu_power_avg_watts"] == 200.0
         assert d["query_cpu_power_avg_watts"] == 80.0
+        assert d["judge_gpu_energy_joules"] == 2.0
+        assert d["judge_cpu_energy_joules"] == 1.0
+        assert d["judge_gpu_power_avg_watts"] == 150.0
+        assert d["judge_cpu_power_avg_watts"] == 60.0
+        assert d["judge_wall_clock_s"] == 0.5
+        assert d["total_task_gpu_energy_joules"] == 12.0
 
     def test_query_energy_fields_roundtrip(self) -> None:
         trace = QueryTrace(
@@ -209,12 +220,23 @@ class TestQueryTrace:
             query_cpu_energy_joules=5.0,
             query_gpu_power_avg_watts=200.0,
             query_cpu_power_avg_watts=80.0,
+            judge_gpu_energy_joules=2.0,
+            judge_cpu_energy_joules=1.0,
+            judge_gpu_power_avg_watts=150.0,
+            judge_cpu_power_avg_watts=60.0,
+            judge_wall_clock_s=0.5,
         )
         restored = QueryTrace.from_dict(trace.to_dict())
         assert restored.query_gpu_energy_joules == 10.0
         assert restored.query_cpu_energy_joules == 5.0
         assert restored.query_gpu_power_avg_watts == 200.0
         assert restored.query_cpu_power_avg_watts == 80.0
+        assert restored.judge_gpu_energy_joules == 2.0
+        assert restored.judge_cpu_energy_joules == 1.0
+        assert restored.judge_gpu_power_avg_watts == 150.0
+        assert restored.judge_cpu_power_avg_watts == 60.0
+        assert restored.judge_wall_clock_s == 0.5
+        assert restored.total_task_gpu_energy_joules == 12.0
 
     def test_to_dict_from_dict_roundtrip(self) -> None:
         trace = self._make_trace()

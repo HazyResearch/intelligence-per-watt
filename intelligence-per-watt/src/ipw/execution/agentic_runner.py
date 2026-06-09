@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import copy
+import inspect
 import json
 import logging
 import math
@@ -48,18 +49,100 @@ LOGGER = logging.getLogger(__name__)
 def _compute_energy_delta(
     readings: list[TelemetrySample],
     field: str,
+    start_time: float | None = None,
+    end_time: float | None = None,
 ) -> float | None:
     """Compute energy delta from first to last reading for *field*."""
-    values = [
-        getattr(s.reading, field)
-        for s in readings
-        if getattr(s.reading, field, None) is not None
-        and math.isfinite(getattr(s.reading, field))
-    ]
-    if len(values) >= 2:
-        delta = values[-1] - values[0]
+    points = sorted(
+        (
+            (s.timestamp, getattr(s.reading, field))
+            for s in readings
+            if getattr(s.reading, field, None) is not None
+            and math.isfinite(getattr(s.reading, field))
+        ),
+        key=lambda item: item[0],
+    )
+    if len(points) < 2:
+        return None
+
+    if start_time is not None and end_time is not None and end_time >= start_time:
+        if start_time > points[-1][0] or end_time < points[0][0]:
+            delta = points[-1][1] - points[0][1]
+            return delta if delta >= 0 else None
+        start_value = _interpolate_cumulative_value(points, start_time)
+        end_value = _interpolate_cumulative_value(points, end_time)
+        if start_value is None or end_value is None:
+            return None
+        delta = end_value - start_value
         return delta if delta >= 0 else None
+
+    delta = points[-1][1] - points[0][1]
+    if delta >= 0:
+        return delta
     return None
+
+
+def _interpolate_cumulative_value(
+    points: list[tuple[float, float]],
+    timestamp: float,
+) -> float | None:
+    """Interpolate a cumulative telemetry counter at an exact timestamp."""
+    if not points:
+        return None
+    if timestamp <= points[0][0]:
+        return points[0][1]
+    if timestamp >= points[-1][0]:
+        return points[-1][1]
+
+    previous_time, previous_value = points[0]
+    for current_time, current_value in points[1:]:
+        if current_time < timestamp:
+            previous_time, previous_value = current_time, current_value
+            continue
+        span = current_time - previous_time
+        if span <= 0:
+            return current_value
+        fraction = (timestamp - previous_time) / span
+        return previous_value + ((current_value - previous_value) * fraction)
+    return points[-1][1]
+
+
+def _collect_telemetry_window(
+    telemetry: TelemetrySession,
+    start_time: float,
+    end_time: float,
+) -> list[TelemetrySample]:
+    """Collect samples inside a window plus nearest boundary samples.
+
+    The extra boundary samples let cumulative-energy deltas be interpolated at
+    the exact prompt/judge start and end times without resetting the underlying
+    telemetry counter.
+    """
+    samples = sorted(list(telemetry.readings()), key=lambda sample: sample.timestamp)
+    if not samples:
+        return list(telemetry.window(start_time, end_time))
+
+    before = None
+    inside: list[TelemetrySample] = []
+    after = None
+
+    for sample in samples:
+        if sample.timestamp < start_time:
+            before = sample
+        elif sample.timestamp <= end_time:
+            inside.append(sample)
+        else:
+            after = sample
+            break
+
+    selected: list[TelemetrySample] = []
+    for sample in [before, *inside, after]:
+        if sample is None:
+            continue
+        if selected and selected[-1].timestamp == sample.timestamp:
+            continue
+        selected.append(sample)
+    return selected
 
 
 def _compute_power_avg(
@@ -193,17 +276,7 @@ class AgenticRunner:
                         "Query %s timed out after %.0fs (limit=%ss)",
                         query_id, elapsed, self._query_timeout,
                     )
-                    workload_type = record.dataset_metadata.get("workload_type", "agentic")
-                    trace = QueryTrace(
-                        query_id=query_id,
-                        workload_type=str(workload_type),
-                        query_text=record.problem,
-                        response_text=f"Query timed out after {elapsed:.0f}s",
-                        total_wall_clock_s=elapsed,
-                        completed=False,
-                        timed_out=True,
-                        is_resolved=record.dataset_metadata.get("is_resolved"),
-                    )
+                    trace = self._timeout_trace(query_id, record, start_time, time.time())
                 self._traces.append(trace)
 
                 # Log per-task latency
@@ -290,17 +363,7 @@ class AgenticRunner:
                         "Query %s timed out after %.0fs (limit=%ss)",
                         query_id, elapsed, self._query_timeout,
                     )
-                    workload_type = record.dataset_metadata.get("workload_type", "agentic")
-                    trace = QueryTrace(
-                        query_id=query_id,
-                        workload_type=str(workload_type),
-                        query_text=record.problem,
-                        response_text=f"Query timed out after {elapsed:.0f}s",
-                        total_wall_clock_s=elapsed,
-                        completed=False,
-                        timed_out=True,
-                        is_resolved=record.dataset_metadata.get("is_resolved"),
-                    )
+                    trace = self._timeout_trace(query_id, record, start_time, time.time())
 
                 # Log per-task latency
                 status = "TIMEOUT" if trace.timed_out else ("OK" if trace.completed else "FAIL")
@@ -336,6 +399,46 @@ class AgenticRunner:
 
         return self._traces
 
+    def _timeout_trace(
+        self,
+        query_id: str,
+        record: DatasetRecord,
+        start_time: float,
+        end_time: float,
+    ) -> QueryTrace:
+        """Build a timeout trace with prompt-window telemetry populated."""
+        workload_type = record.dataset_metadata.get("workload_type", "agentic")
+        readings = (
+            _collect_telemetry_window(self._telemetry, start_time, end_time)
+            if self._telemetry
+            else []
+        )
+        elapsed = end_time - start_time
+        return QueryTrace(
+            query_id=query_id,
+            workload_type=str(workload_type),
+            query_text=record.problem,
+            response_text=f"Query timed out after {elapsed:.0f}s",
+            total_wall_clock_s=elapsed,
+            completed=False,
+            timed_out=True,
+            is_resolved=record.dataset_metadata.get("is_resolved"),
+            query_gpu_energy_joules=_compute_energy_delta(
+                readings,
+                "energy_joules",
+                start_time,
+                end_time,
+            ),
+            query_cpu_energy_joules=_compute_energy_delta(
+                readings,
+                "cpu_energy_joules",
+                start_time,
+                end_time,
+            ),
+            query_gpu_power_avg_watts=_compute_power_avg(readings, "power_watts"),
+            query_cpu_power_avg_watts=_compute_power_avg(readings, "cpu_power_watts"),
+        )
+
     def _run_single_query_sync(
         self,
         index: int,
@@ -364,8 +467,13 @@ class AgenticRunner:
         query_id = f"q{index:04d}"
         workload_type = record.dataset_metadata.get("workload_type", "agentic")
 
-        # Capture telemetry window around the agent call
+        # Capture prompt and judge/evaluation telemetry in separate windows.
+        # The telemetry source can remain cumulative; each field below is a
+        # delta over its own wall-clock interval.
         start_time = time.time()
+        prompt_end_time: float | None = None
+        judge_start_time: float | None = None
+        judge_end_time: float | None = None
         _telemetry_samples_before = (  # noqa: F841
             list(self._telemetry.readings()) if self._telemetry else []
         )
@@ -393,40 +501,126 @@ class AgenticRunner:
                 # set_task_metadata INSIDE context so metadata has session
                 agent.set_task_metadata(record.dataset_metadata)
 
-                result: AgentRunResult = agent.run(record.problem)
+                run_async = getattr(agent, "run_async", None)
+                if inspect.iscoroutinefunction(run_async):
+                    result = await run_async(record.problem)
+                else:
+                    result = agent.run(record.problem)
+                if result.metadata:
+                    record.dataset_metadata.setdefault("agent_result_metadata", result.metadata)
+                    for key in (
+                        "gdpval_outputs_dir",
+                        "gdpval_submitted_files",
+                        "stirrup_finish_params",
+                    ):
+                        if key in result.metadata:
+                            record.dataset_metadata[key] = result.metadata[key]
+
+                prompt_end_time = time.time()
 
                 if task_env is not None:
+                    judge_start_time = time.time()
                     task_env.run_tests()
+                    judge_end_time = time.time()
                 elif hasattr(self._dataset, "score") and record.answer:
+                    judge_start_time = time.time()
                     try:
-                        is_correct, _ = self._dataset.score(record, result.content)
+                        is_correct, score_metadata = self._dataset.score(record, result.content)
                         record.dataset_metadata["is_resolved"] = is_correct
+                        record.dataset_metadata["evaluation_metadata"] = score_metadata
                     except Exception as score_exc:
                         LOGGER.warning("Scoring failed for %s: %s", query_id, score_exc)
+                    finally:
+                        judge_end_time = time.time()
         except Exception as exc:
             LOGGER.warning("Agent failed on query %s: %s", query_id, exc)
-            end_time = time.time()
+            failure_time = time.time()
+            prompt_end_time = prompt_end_time or failure_time
+            prompt_readings = []
+            judge_readings = []
+            if self._telemetry:
+                prompt_readings = _collect_telemetry_window(
+                    self._telemetry,
+                    start_time,
+                    prompt_end_time,
+                )
+                if judge_start_time is not None:
+                    judge_readings = _collect_telemetry_window(
+                        self._telemetry,
+                        judge_start_time,
+                        judge_end_time or failure_time,
+                    )
             trace = QueryTrace(
                 query_id=query_id,
                 workload_type=str(workload_type),
                 query_text=record.problem,
                 response_text=str(exc),
-                total_wall_clock_s=end_time - start_time,
+                total_wall_clock_s=prompt_end_time - start_time,
                 completed=False,
+                query_gpu_energy_joules=_compute_energy_delta(
+                    prompt_readings,
+                    "energy_joules",
+                    start_time,
+                    prompt_end_time,
+                ),
+                query_cpu_energy_joules=_compute_energy_delta(
+                    prompt_readings,
+                    "cpu_energy_joules",
+                    start_time,
+                    prompt_end_time,
+                ),
+                query_gpu_power_avg_watts=_compute_power_avg(prompt_readings, "power_watts"),
+                query_cpu_power_avg_watts=_compute_power_avg(prompt_readings, "cpu_power_watts"),
+                judge_gpu_energy_joules=_compute_energy_delta(
+                    judge_readings,
+                    "energy_joules",
+                    judge_start_time,
+                    judge_end_time or failure_time,
+                ) if judge_start_time is not None else None,
+                judge_cpu_energy_joules=_compute_energy_delta(
+                    judge_readings,
+                    "cpu_energy_joules",
+                    judge_start_time,
+                    judge_end_time or failure_time,
+                ) if judge_start_time is not None else None,
+                judge_gpu_power_avg_watts=_compute_power_avg(judge_readings, "power_watts"),
+                judge_cpu_power_avg_watts=_compute_power_avg(judge_readings, "cpu_power_watts"),
+                judge_wall_clock_s=(
+                    (judge_end_time or failure_time) - judge_start_time
+                    if judge_start_time is not None
+                    else None
+                ),
                 is_resolved=record.dataset_metadata.get("is_resolved"),
             )
             return trace
 
-        end_time = time.time()
+        prompt_end_time = prompt_end_time or time.time()
 
-        # Collect telemetry samples for this query window
+        # Collect telemetry samples for the prompt-only query window. Judge
+        # telemetry is kept separate below.
         readings: list[TelemetrySample] = []
+        judge_readings: list[TelemetrySample] = []
         if self._telemetry:
-            readings = list(self._telemetry.window(start_time, end_time))
+            readings = _collect_telemetry_window(
+                self._telemetry,
+                start_time,
+                prompt_end_time,
+            )
+            if judge_start_time is not None and judge_end_time is not None:
+                judge_readings = _collect_telemetry_window(
+                    self._telemetry,
+                    judge_start_time,
+                    judge_end_time,
+                )
 
         # Build turn traces from event recorder
         events = event_recorder.get_events()
-        turns = self._build_turn_traces(events, readings)
+        if result.trace is not None and result.trace.turns:
+            turns = result.trace.turns
+            for turn_index, turn in enumerate(turns):
+                turn.turn_index = turn_index
+        else:
+            turns = self._build_turn_traces(events, readings)
 
         # When EventRecorder captured nothing, create a synthetic turn from
         # AgentRunResult so token counts and wall clock are preserved.
@@ -435,7 +629,7 @@ class AgenticRunner:
                 turn_index=0,
                 input_tokens=result.input_tokens,
                 output_tokens=result.output_tokens,
-                wall_clock_s=end_time - start_time,
+                wall_clock_s=prompt_end_time - start_time,
                 cost_usd=result.cost_usd if result.cost_usd is not None else None,
             )]
 
@@ -447,15 +641,42 @@ class AgenticRunner:
             if total_turn_in == 0 and total_turn_out == 0:
                 turns[0].input_tokens = result.input_tokens
                 turns[0].output_tokens = result.output_tokens
-                turns[0].wall_clock_s = turns[0].wall_clock_s or (end_time - start_time)
+                turns[0].wall_clock_s = turns[0].wall_clock_s or (prompt_end_time - start_time)
                 if result.cost_usd is not None and turns[0].cost_usd is None:
                     turns[0].cost_usd = result.cost_usd
 
-        # Always compute query-level energy from telemetry window
-        query_gpu_energy = _compute_energy_delta(readings, "energy_joules")
-        query_cpu_energy = _compute_energy_delta(readings, "cpu_energy_joules")
+        # Always compute prompt-only query energy from the prompt window.
+        query_gpu_energy = _compute_energy_delta(
+            readings,
+            "energy_joules",
+            start_time,
+            prompt_end_time,
+        )
+        query_cpu_energy = _compute_energy_delta(
+            readings,
+            "cpu_energy_joules",
+            start_time,
+            prompt_end_time,
+        )
         query_gpu_power_avg = _compute_power_avg(readings, "power_watts")
         query_cpu_power_avg = _compute_power_avg(readings, "cpu_power_watts")
+        judge_gpu_energy = _compute_energy_delta(
+            judge_readings,
+            "energy_joules",
+            judge_start_time,
+            judge_end_time,
+        ) if judge_start_time is not None and judge_end_time is not None else None
+        judge_cpu_energy = _compute_energy_delta(
+            judge_readings,
+            "cpu_energy_joules",
+            judge_start_time,
+            judge_end_time,
+        ) if judge_start_time is not None and judge_end_time is not None else None
+        judge_gpu_power_avg = _compute_power_avg(judge_readings, "power_watts")
+        judge_cpu_power_avg = _compute_power_avg(judge_readings, "cpu_power_watts")
+
+        agent_completed = result.metadata.get("stirrup_finished")
+        completed = True if agent_completed is None else bool(agent_completed)
 
         trace = QueryTrace(
             query_id=query_id,
@@ -463,12 +684,21 @@ class AgenticRunner:
             query_text=record.problem,
             response_text=result.content,
             turns=turns,
-            total_wall_clock_s=end_time - start_time,
-            completed=True,
+            total_wall_clock_s=prompt_end_time - start_time,
+            completed=completed,
             query_gpu_energy_joules=query_gpu_energy,
             query_cpu_energy_joules=query_cpu_energy,
             query_gpu_power_avg_watts=query_gpu_power_avg,
             query_cpu_power_avg_watts=query_cpu_power_avg,
+            judge_gpu_energy_joules=judge_gpu_energy,
+            judge_cpu_energy_joules=judge_cpu_energy,
+            judge_gpu_power_avg_watts=judge_gpu_power_avg,
+            judge_cpu_power_avg_watts=judge_cpu_power_avg,
+            judge_wall_clock_s=(
+                judge_end_time - judge_start_time
+                if judge_start_time is not None and judge_end_time is not None
+                else None
+            ),
             is_resolved=record.dataset_metadata.get("is_resolved"),
         )
 
@@ -678,9 +908,24 @@ class AgenticRunner:
             "timed_out": trace.timed_out,
             "wall_clock_s": trace.total_wall_clock_s,
             "num_turns": trace.num_turns,
+            "query_gpu_energy_joules": trace.query_gpu_energy_joules,
+            "judge_gpu_energy_joules": trace.judge_gpu_energy_joules,
+            "judge_wall_clock_s": trace.judge_wall_clock_s,
+            "total_task_gpu_energy_joules": trace.total_task_gpu_energy_joules,
         }
         # Include select dataset metadata
-        for key in ("repo", "base_commit", "dataset_name", "is_resolved", "test_results"):
+        for key in (
+            "repo",
+            "base_commit",
+            "dataset_name",
+            "is_resolved",
+            "test_results",
+            "gdpval_outputs_dir",
+            "gdpval_submitted_files",
+            "stirrup_finish_params",
+            "stirrup_finished",
+            "evaluation_metadata",
+        ):
             val = record.dataset_metadata.get(key)
             if val is not None:
                 meta[key] = val
@@ -723,6 +968,10 @@ class AgenticRunner:
             total_joules=gpu_energy,
             cpu_per_query_joules=cpu_energy,
             cpu_total_joules=cpu_energy,
+            judge_gpu_joules=trace.judge_gpu_energy_joules,
+            judge_cpu_joules=trace.judge_cpu_energy_joules,
+            total_task_gpu_joules=trace.total_task_gpu_energy_joules,
+            total_task_cpu_joules=trace.total_task_cpu_energy_joules,
             energy_per_output_token_joules=energy_per_output_token,
             energy_per_total_token_joules=energy_per_total_token,
         )
