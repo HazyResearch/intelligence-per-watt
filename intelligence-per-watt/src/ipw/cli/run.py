@@ -580,9 +580,12 @@ def run_cmd(
     _agent_cls_ref = agent_cls
     _extra_kwargs_ref = dict(extra_kwargs)
 
-    def _make_agent() -> "BaseAgent":  # noqa: F821
-        rec = EventRecorder()
-        return _agent_cls_ref(model=_model_ref, event_recorder=rec, **_extra_kwargs_ref)
+    def _make_agent(recorder: EventRecorder) -> "BaseAgent":  # noqa: F821
+        return _agent_cls_ref(
+            model=_model_ref,
+            event_recorder=recorder,
+            **_extra_kwargs_ref,
+        )
 
     # Run the agentic benchmark.
     # Cloud models don't use the local GPU — skip energy telemetry so traces

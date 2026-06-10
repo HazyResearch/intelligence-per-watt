@@ -8,6 +8,7 @@ from unittest.mock import MagicMock
 
 import pytest
 
+from ipw.agents.base import BaseAgent
 from ipw.core.types import AgentRunResult, DatasetRecord, TelemetryReading
 from ipw.execution.agentic_runner import (
     AgenticRunner,
@@ -16,7 +17,7 @@ from ipw.execution.agentic_runner import (
 )
 from ipw.execution.telemetry_session import TelemetrySample
 from ipw.execution.trace import QueryTrace
-from ipw.telemetry.events import EventRecorder
+from ipw.telemetry.events import EventRecorder, EventType
 
 
 class TestAgenticRunner:
@@ -53,7 +54,9 @@ class TestAgenticRunner:
             dataset=dataset,
             telemetry_session=None,
             config={"model": "test-model"},
-            event_recorder=event_recorder or EventRecorder(),
+            event_recorder=(
+                event_recorder if event_recorder is not None else EventRecorder()
+            ),
         )
 
     def test_run_returns_traces(self) -> None:
@@ -117,6 +120,24 @@ class TestAgenticRunner:
         runner = self._make_runner(agent=agent, dataset=dataset)
         traces = asyncio.run(runner.run(max_queries=3))
         assert len(traces) == 3
+
+    def test_start_index_keeps_max_queries_as_count(self) -> None:
+        agent = MagicMock()
+        agent.run.return_value = AgentRunResult(content="ok")
+
+        dataset = MagicMock()
+        records = [
+            DatasetRecord(problem=f"Q{i}", answer=f"A{i}", subject="s")
+            for i in range(10)
+        ]
+        dataset.__iter__ = MagicMock(return_value=iter(records))
+        dataset.size.return_value = 10
+
+        runner = self._make_runner(agent=agent, dataset=dataset)
+        traces = asyncio.run(runner.run(max_queries=3, start_index=4))
+
+        assert [trace.query_id for trace in traces] == ["q0004", "q0005", "q0006"]
+        assert [trace.query_text for trace in traces] == ["Q4", "Q5", "Q6"]
 
     def test_subset_manifest_records_query_hashes(self, tmp_path) -> None:
         agent = MagicMock()
@@ -399,6 +420,51 @@ class TestAgenticRunner:
 
         assert len(traces) == 4
         assert all(t.completed for t in traces)
+
+    def test_concurrent_factory_agent_events_flow_into_trace(self) -> None:
+        """Concurrent agents and runner must share the same EventRecorder."""
+
+        class RecordingAgent(BaseAgent):
+            def run(self, input: str, **kwargs) -> AgentRunResult:
+                self._record_event(EventType.LM_INFERENCE_START)
+                self._record_event(
+                    EventType.LM_INFERENCE_END,
+                    prompt_tokens=11,
+                    completion_tokens=7,
+                )
+                return AgentRunResult(content=f"ok: {input}")
+
+        dataset = MagicMock()
+        records = [
+            DatasetRecord(
+                problem=f"Q{i}",
+                answer=f"A{i}",
+                subject="s",
+                dataset_metadata={"dataset_name": "test"},
+            )
+            for i in range(2)
+        ]
+        dataset.__iter__ = MagicMock(return_value=iter(records))
+        dataset.size.return_value = 2
+        dataset.create_task_env.return_value = None
+
+        def make_agent(recorder: EventRecorder) -> BaseAgent:
+            return RecordingAgent(event_recorder=recorder)
+
+        runner = AgenticRunner(
+            agent=RecordingAgent(event_recorder=EventRecorder()),
+            dataset=dataset,
+            config={"model": "test-model"},
+            concurrency=2,
+            agent_factory=make_agent,
+        )
+
+        traces = asyncio.run(runner.run())
+
+        assert len(traces) == 2
+        assert all(trace.num_turns == 1 for trace in traces)
+        assert all(trace.turns[0].input_tokens == 11 for trace in traces)
+        assert all(trace.turns[0].output_tokens == 7 for trace in traces)
 
     def test_concurrent_uses_agent_factory(self) -> None:
         """Verify agent_factory is called for each concurrent task."""

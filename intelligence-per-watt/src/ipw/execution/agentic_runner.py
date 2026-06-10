@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 import copy
 import hashlib
+import inspect
 import json
 import logging
 import math
@@ -154,7 +155,7 @@ class AgenticRunner:
         event_recorder: Optional[EventRecorder] = None,
         run_dir: Optional[Path] = None,
         concurrency: int = 1,
-        agent_factory: Optional[Callable[[], BaseAgent]] = None,
+        agent_factory: Optional[Callable[..., BaseAgent]] = None,
         query_timeout: Optional[float] = None,
     ) -> None:
         self._agent = agent
@@ -179,14 +180,19 @@ class AgenticRunner:
         """Run the agent over the dataset, collecting traces and telemetry.
 
         Args:
-            max_queries: Upper record index to process. None means all.
+            max_queries: Maximum number of records to process from start_index.
+                None means all.
             start_index: First dataset record index to process.
 
         Returns:
             List of QueryTrace objects with energy-correlated telemetry.
         """
         start_index = max(0, int(start_index))
-        end_index = max_queries if max_queries is not None else self._dataset.size()
+        end_index = (
+            start_index + max(0, int(max_queries))
+            if max_queries is not None
+            else self._dataset.size()
+        )
         model = self._config.get("model", "unknown")
 
         # Collect the records we'll process
@@ -309,12 +315,8 @@ class AgenticRunner:
 
         async def _process(slot: int, index: int, record: DatasetRecord) -> None:
             async with semaphore:
-                # Each concurrent task gets a fresh agent + event recorder
-                if self._agent_factory is not None:
-                    agent = self._agent_factory()
-                else:
-                    agent = copy.deepcopy(self._agent)
                 recorder = EventRecorder()
+                agent, recorder = self._create_concurrent_agent(recorder)
 
                 query_id = f"q{index:04d}"
                 start_time = time.time()
@@ -386,6 +388,55 @@ class AgenticRunner:
                 self._records.append(profiling_record)
 
         return self._traces
+
+    def _create_concurrent_agent(
+        self,
+        recorder: EventRecorder,
+    ) -> tuple[BaseAgent, EventRecorder]:
+        """Create a per-task agent and return the recorder it will write to."""
+        if self._agent_factory is not None:
+            agent = self._call_agent_factory(recorder)
+        else:
+            agent = copy.deepcopy(self._agent)
+            if hasattr(agent, "event_recorder"):
+                agent.event_recorder = recorder
+            return agent, recorder
+
+        agent_recorder = getattr(agent, "event_recorder", None)
+        if isinstance(agent_recorder, EventRecorder):
+            return agent, agent_recorder
+        if hasattr(agent, "event_recorder"):
+            agent.event_recorder = recorder
+        return agent, recorder
+
+    def _call_agent_factory(self, recorder: EventRecorder) -> BaseAgent:
+        assert self._agent_factory is not None
+        try:
+            signature = inspect.signature(self._agent_factory)
+        except (TypeError, ValueError):
+            return self._agent_factory(recorder)
+
+        accepts_positional = any(
+            param.kind
+            in (
+                param.POSITIONAL_ONLY,
+                param.POSITIONAL_OR_KEYWORD,
+                param.VAR_POSITIONAL,
+            )
+            for param in signature.parameters.values()
+        )
+        accepts_event_recorder = (
+            "event_recorder" in signature.parameters
+            or any(
+                param.kind == param.VAR_KEYWORD
+                for param in signature.parameters.values()
+            )
+        )
+        if accepts_event_recorder and not accepts_positional:
+            return self._agent_factory(event_recorder=recorder)
+        if accepts_positional:
+            return self._agent_factory(recorder)
+        return self._agent_factory()
 
     def _build_timeout_trace(
         self,
@@ -571,7 +622,9 @@ class AgenticRunner:
     ) -> QueryTrace:
         """Run a single query through the agent with telemetry capture."""
         agent = agent or self._agent
-        event_recorder = event_recorder or self._event_recorder
+        event_recorder = (
+            event_recorder if event_recorder is not None else self._event_recorder
+        )
 
         query_id = f"q{index:04d}"
         workload_type = record.dataset_metadata.get("workload_type", "agentic")
