@@ -357,9 +357,9 @@ def execute_benchmark(
     except ImportError:
         pass
 
-    from ipw.agents import react as _react  # noqa: F401
     from ipw.agents import dspy_rlm as _dspy_rlm  # noqa: F401
     from ipw.agents import forgecode as _forgecode  # noqa: F401
+    from ipw.agents import react as _react  # noqa: F401
     try:
         from ipw.agents import openhands as _openhands  # noqa: F401
     except ImportError:

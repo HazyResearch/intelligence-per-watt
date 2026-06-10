@@ -13,8 +13,8 @@ from datasets import load_dataset
 from ..clients.base import InferenceClient
 from ..core.registry import DatasetRegistry
 from ..core.types import DatasetRecord
-from .base import DatasetProvider
 from ._git_workspace import prepare_git_workspace
+from .base import DatasetProvider
 
 _DATASET_PATHS = {
     "verified": "princeton-nlp/SWE-bench_Verified",

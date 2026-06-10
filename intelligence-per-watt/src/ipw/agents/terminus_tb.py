@@ -219,9 +219,8 @@ class TerminusTB(BaseAgent):
         try:
             LOGGER.info("Running Terminus2 on task %s", task_id)
             start = time.time()
-            agent_result = None
             try:
-                agent_result = self._terminus.perform_task(
+                self._terminus.perform_task(
                     task.instruction,
                     session=session,
                     time_limit_seconds=timeout,

@@ -8,9 +8,9 @@ import os
 from typing import TYPE_CHECKING, Any, Callable, List, Optional
 
 from ipw.agents.base import BaseAgent
-from ipw.cost.pricing import calculate_cost
 from ipw.core.registry import AgentRegistry
 from ipw.core.types import AgentRunResult
+from ipw.cost.pricing import calculate_cost
 
 if TYPE_CHECKING:
     from ipw.agents.mcp.base import BaseMCPServer

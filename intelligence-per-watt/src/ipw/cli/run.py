@@ -450,9 +450,9 @@ def run_cmd(
     ipw.datasets.ensure_registered()
 
     # Ensure agent modules are imported for registry population
-    from ipw.agents import react as _react  # noqa: F401
     from ipw.agents import dspy_rlm as _dspy_rlm  # noqa: F401
     from ipw.agents import forgecode as _forgecode  # noqa: F401
+    from ipw.agents import react as _react  # noqa: F401
     try:
         from ipw.agents import react_native as _react_native  # noqa: F401
     except ImportError:

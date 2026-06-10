@@ -12,8 +12,8 @@ from datasets import load_dataset
 from ..clients.base import InferenceClient
 from ..core.registry import DatasetRegistry
 from ..core.types import DatasetRecord
-from .base import DatasetProvider
 from ._git_workspace import prepare_git_workspace
+from .base import DatasetProvider
 from .swebench import _apply_patch, _apply_patch_if_needed, _extract_patch, _git_diff, _run_cmd
 
 _DEFAULT_INPUT_PROMPT = """You are a software performance engineer. Your task is to optimize the code in the repository to improve performance.

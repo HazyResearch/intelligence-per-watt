@@ -41,9 +41,9 @@ class TestAgentRunResult:
         assert result.tool_calls_succeeded == 0
         assert result.tool_names_used == []
         assert result.num_turns == 0
-        assert result.input_tokens == 0
-        assert result.output_tokens == 0
-        assert result.cost_usd == 0.0
+        assert result.input_tokens is None
+        assert result.output_tokens is None
+        assert result.cost_usd is None
         assert result.trace is None
 
     def test_slots_behavior(self) -> None:

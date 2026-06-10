@@ -2,18 +2,18 @@
 
 from __future__ import annotations
 
+import logging
 import os
 import time
 import types
 import uuid
-import logging
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Optional
 
 from ipw.agents.base import BaseAgent
-from ipw.cost.pricing import calculate_cost
 from ipw.core.registry import AgentRegistry
 from ipw.core.types import AgentRunResult
+from ipw.cost.pricing import calculate_cost
 
 if TYPE_CHECKING:
     from ipw.telemetry.events import EventRecorder
@@ -602,7 +602,7 @@ class Terminus(BaseAgent):
         session = self._instrument_session_tools(self.get_session(tmux_session))
         try:
             self._usage_calls = []
-            agent_result = self.agent.perform_task(input, session=session, **kwargs)
+            self.agent.perform_task(input, session=session, **kwargs)
 
             if not session.is_session_alive():
                 raise RuntimeError(
