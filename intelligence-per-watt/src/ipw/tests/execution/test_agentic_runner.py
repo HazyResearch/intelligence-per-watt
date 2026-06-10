@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import json
 from unittest.mock import MagicMock
 
 import pytest
@@ -117,6 +118,43 @@ class TestAgenticRunner:
         traces = asyncio.run(runner.run(max_queries=3))
         assert len(traces) == 3
 
+    def test_subset_manifest_records_query_hashes(self, tmp_path) -> None:
+        agent = MagicMock()
+        agent.run.return_value = AgentRunResult(content="ok")
+
+        dataset = MagicMock()
+        records = [
+            DatasetRecord(
+                problem=f"Q{i}",
+                answer=f"A{i}",
+                subject="s",
+                dataset_metadata={"task_id": f"task-{i}"},
+            )
+            for i in range(3)
+        ]
+        dataset.__iter__ = MagicMock(return_value=iter(records))
+        dataset.size.return_value = 3
+
+        runner = AgenticRunner(
+            agent=agent,
+            dataset=dataset,
+            telemetry_session=None,
+            config={"model": "test-model", "dataset": "test-dataset", "agent": "test-agent"},
+            event_recorder=EventRecorder(),
+            run_dir=tmp_path,
+        )
+
+        traces = asyncio.run(runner.run(max_queries=2))
+        manifest = json.loads((tmp_path / "subset_manifest.json").read_text())
+
+        assert len(traces) == 2
+        assert manifest["subset_size"] == 2
+        assert len(manifest["records"]) == 2
+        assert manifest["records"][0]["query_id"] == "q0000"
+        assert manifest["records"][0]["stable_ids"] == {"task_id": "task-0"}
+        assert manifest["records"][0]["query_hash"]
+        assert runner._config["subset"]["subset_hash"] == manifest["subset_hash"]
+
     def test_multi_turn_trace_building(self) -> None:
         """Verify _build_turn_traces correctly parses events into turns."""
         from ipw.telemetry.events import AgentEvent, EventType
@@ -160,6 +198,49 @@ class TestAgenticRunner:
         assert turns[0].output_tokens == 20
         assert turns[1].input_tokens == 30
         assert turns[1].output_tokens == 10
+
+    def test_tool_after_lm_end_attaches_to_previous_turn(self) -> None:
+        """Terminal-style tools run after the LLM response that requested them."""
+        from ipw.telemetry.events import AgentEvent, EventType
+
+        runner = self._make_runner()
+        now = 1000.0
+
+        events = [
+            AgentEvent(event_type=EventType.LM_INFERENCE_START, timestamp=now),
+            AgentEvent(
+                event_type=EventType.LM_INFERENCE_END,
+                timestamp=now + 1.0,
+                metadata={"prompt_tokens": 50, "completion_tokens": 20},
+            ),
+            AgentEvent(
+                event_type=EventType.TOOL_CALL_START,
+                timestamp=now + 1.1,
+                metadata={"tool": "terminal"},
+            ),
+            AgentEvent(
+                event_type=EventType.TOOL_CALL_END,
+                timestamp=now + 2.0,
+                metadata={"tool": "terminal"},
+            ),
+            AgentEvent(
+                event_type=EventType.LM_INFERENCE_START,
+                timestamp=now + 2.1,
+            ),
+            AgentEvent(
+                event_type=EventType.LM_INFERENCE_END,
+                timestamp=now + 3.0,
+                metadata={"prompt_tokens": 30, "completion_tokens": 10},
+            ),
+        ]
+
+        turns = runner._build_turn_traces(events, readings=[])
+
+        assert len(turns) == 2
+        assert turns[0].tools_called == ["terminal"]
+        assert turns[0].tool_latencies_s["terminal"] == pytest.approx(0.9)
+        assert turns[0].wall_clock_s == pytest.approx(2.0)
+        assert turns[1].tools_called == []
 
     def test_event_recorder_integration_with_runner(self) -> None:
         """Verify events recorded during agent.run() flow into traces.
@@ -227,6 +308,19 @@ class TestAgenticRunner:
         dataset.__iter__ = MagicMock(return_value=iter(records))
         dataset.size.return_value = 1
         dataset.create_task_env.return_value = mock_env
+        mock_env.run_tests.side_effect = lambda: records[0].dataset_metadata.update(
+            {
+                "is_resolved": True,
+                "test_results": {"parser_results": {"test_one": "passed"}},
+            }
+        )
+        dataset.score.return_value = (
+            True,
+            {
+                "match_type": "test_script",
+                "test_results": {"parser_results": {"test_one": "passed"}},
+            },
+        )
 
         runner = AgenticRunner(
             agent=agent,
@@ -241,6 +335,9 @@ class TestAgenticRunner:
         mock_env.__enter__.assert_called_once()
         mock_env.__exit__.assert_called_once()
         mock_env.run_tests.assert_called_once()
+        dataset.score.assert_called_once()
+        assert traces[0].is_resolved is True
+        assert traces[0].score_metadata["match_type"] == "test_script"
 
     def test_task_env_none_uses_nullcontext(self) -> None:
         """When create_task_env returns None, agent.run() still works."""

@@ -2,6 +2,9 @@
 
 from __future__ import annotations
 
+import subprocess
+import sys
+from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -101,3 +104,59 @@ class TestSWEBenchDataset:
 
         dataset = SWEBenchDataset()
         assert dataset.size() == 1
+
+    def test_score_applies_patch_and_runs_tests(self, tmp_path: Path) -> None:
+        from ipw.datasets.swebench import SWEBenchDataset
+
+        repo = tmp_path / "repo"
+        repo.mkdir()
+        subprocess.run(["git", "init"], cwd=repo, check=True, stdout=subprocess.PIPE)
+        (repo / "calc.py").write_text("def add_one(x):\n    return x\n", encoding="utf-8")
+        subprocess.run(["git", "add", "calc.py"], cwd=repo, check=True)
+
+        record = DatasetRecord(
+            problem="Fix add_one",
+            answer="",
+            subject="local/repo",
+            dataset_metadata={
+                "instance_id": "local__repo-1",
+                "workspace_path": str(repo),
+                "test_cmd": (
+                    f"{sys.executable} -c "
+                    "'import calc; assert calc.add_one(1) == 2'"
+                ),
+            },
+        )
+        patch = """diff --git a/calc.py b/calc.py
+--- a/calc.py
++++ b/calc.py
+@@ -1,2 +1,2 @@
+ def add_one(x):
+-    return x
++    return x + 1
+"""
+
+        dataset = object.__new__(SWEBenchDataset)
+        ok, meta = dataset.score(record, patch)
+
+        assert ok is True
+        assert meta["match_type"] == "test_execution"
+
+    def test_score_rejects_missing_patch_and_workspace_diff(self, tmp_path: Path) -> None:
+        from ipw.datasets.swebench import SWEBenchDataset
+
+        repo = tmp_path / "repo"
+        repo.mkdir()
+        subprocess.run(["git", "init"], cwd=repo, check=True, stdout=subprocess.PIPE)
+        record = DatasetRecord(
+            problem="Fix bug",
+            answer="",
+            subject="local/repo",
+            dataset_metadata={"instance_id": "local__repo-2", "workspace_path": str(repo)},
+        )
+
+        dataset = object.__new__(SWEBenchDataset)
+        ok, meta = dataset.score(record, "No patch here")
+
+        assert ok is False
+        assert meta["reason"] == "no_patch_or_workspace_diff"

@@ -2,6 +2,9 @@
 
 from __future__ import annotations
 
+import subprocess
+import sys
+from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 from ipw.core.types import DatasetRecord
@@ -111,3 +114,63 @@ class TestSWEfficiencyDataset:
 
         dataset = SWEfficiencyDataset()
         assert dataset.size() == 1
+
+    @patch("ipw.datasets.swefficiency.load_dataset")
+    def test_max_samples_applies_after_filtering(
+        self, mock_load_dataset: MagicMock
+    ) -> None:
+        from ipw.datasets.swefficiency import SWEfficiencyDataset
+
+        mock_dataset = MagicMock()
+        mock_dataset.to_list.return_value = [
+            {"instance_id": "", "repo": "r", "problem_statement": "skip"},
+            {"instance_id": "id_1", "repo": "r", "problem_statement": "P1"},
+            {"instance_id": "id_2", "repo": "r", "problem_statement": "P2"},
+            {"instance_id": "id_3", "repo": "r", "problem_statement": "P3"},
+        ]
+        mock_load_dataset.return_value = mock_dataset
+
+        dataset = SWEfficiencyDataset(max_samples=2)
+        records = list(dataset.iter_records())
+
+        assert [r.dataset_metadata["instance_id"] for r in records] == [
+            "id_1",
+            "id_2",
+        ]
+
+    def test_score_applies_patch_and_runs_tests(self, tmp_path: Path) -> None:
+        from ipw.datasets.swefficiency import SWEfficiencyDataset
+
+        repo = tmp_path / "repo"
+        repo.mkdir()
+        subprocess.run(["git", "init"], cwd=repo, check=True, stdout=subprocess.PIPE)
+        (repo / "calc.py").write_text("def add_one(x):\n    return x\n", encoding="utf-8")
+        subprocess.run(["git", "add", "calc.py"], cwd=repo, check=True)
+
+        record = DatasetRecord(
+            problem="Optimize add_one",
+            answer="",
+            subject="local/repo",
+            dataset_metadata={
+                "instance_id": "swe-eff-1",
+                "workspace_path": str(repo),
+                "test_cmd": (
+                    f"{sys.executable} -c "
+                    "'import calc; assert calc.add_one(1) == 2'"
+                ),
+            },
+        )
+        patch = """diff --git a/calc.py b/calc.py
+--- a/calc.py
++++ b/calc.py
+@@ -1,2 +1,2 @@
+ def add_one(x):
+-    return x
++    return x + 1
+"""
+
+        dataset = object.__new__(SWEfficiencyDataset)
+        ok, meta = dataset.score(record, patch)
+
+        assert ok is True
+        assert meta["match_type"] == "test_execution"

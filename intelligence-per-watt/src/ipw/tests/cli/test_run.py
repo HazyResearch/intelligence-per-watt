@@ -8,7 +8,7 @@ import pytest
 from click.testing import CliRunner
 
 from ipw.cli import cli
-from ipw.cli.run import _is_cloud_model
+from ipw.cli.run import _default_mcp_tool_spec_for_dataset, _is_cloud_model
 
 
 class TestIsCloudModel:
@@ -116,3 +116,20 @@ class TestRunCmd:
         result = runner.invoke(cli, ["run", "--help"])
         assert result.exit_code == 0
         assert "--agent-kwargs" in result.output
+
+    def test_default_deepresearch_tools_include_search_and_bash(self) -> None:
+        tools = _default_mcp_tool_spec_for_dataset("browsecomp")
+
+        assert tools is not None
+        assert "web_search" in tools
+        assert "bash" in tools
+
+    def test_default_coding_tools_include_file_write(self) -> None:
+        tools = _default_mcp_tool_spec_for_dataset("swebench")
+
+        assert tools is not None
+        assert "file_write" in tools
+        assert "code_interpreter" in tools
+
+    def test_chat_datasets_do_not_get_default_tools(self) -> None:
+        assert _default_mcp_tool_spec_for_dataset("wildchat") is None

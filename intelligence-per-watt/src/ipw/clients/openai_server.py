@@ -81,8 +81,8 @@ class OpenAIServerClient(InferenceClient):
             raise RuntimeError(f"OpenAI server request failed: {exc}") from exc
 
         content_parts: list[str] = []
-        prompt_tokens = 0
-        completion_tokens = 0
+        prompt_tokens: int | None = None
+        completion_tokens: int | None = None
         ttft_ms: float | None = None
         token_times: list[float] = []
 
@@ -113,13 +113,18 @@ class OpenAIServerClient(InferenceClient):
             if usage:
                 prompt_tokens = usage.get("prompt_tokens", prompt_tokens)
                 completion_tokens = usage.get("completion_tokens", completion_tokens)
+        total_tokens = (
+            prompt_tokens + completion_tokens
+            if prompt_tokens is not None and completion_tokens is not None
+            else None
+        )
 
         return Response(
             content="".join(content_parts),
             usage=ChatUsage(
                 prompt_tokens=prompt_tokens,
                 completion_tokens=completion_tokens,
-                total_tokens=prompt_tokens + completion_tokens,
+                total_tokens=total_tokens,
             ),
             time_to_first_token_ms=ttft_ms or 0.0,
             token_timestamps=token_times or None,

@@ -260,26 +260,27 @@ class ProfilerRunner:
         usage = response.usage
         total_seconds = max(end_time - start_time, 0.0)
 
-        # Defensive: ensure token counts are valid integers
-        prompt_tokens = usage.prompt_tokens if usage.prompt_tokens is not None else 0
-        completion_tokens = (
-            usage.completion_tokens if usage.completion_tokens is not None else 0
+        prompt_tokens = usage.prompt_tokens
+        completion_tokens = usage.completion_tokens
+        total_tokens = (
+            prompt_tokens + completion_tokens
+            if prompt_tokens is not None and completion_tokens is not None
+            else None
         )
-        total_tokens = prompt_tokens + completion_tokens
 
         per_token_ms = None
         throughput_tokens = None
-        if completion_tokens > 0 and total_seconds > 0:
+        if completion_tokens is not None and completion_tokens > 0 and total_seconds > 0:
             per_token_ms = (total_seconds * 1000.0) / completion_tokens
             throughput_tokens = completion_tokens / total_seconds
 
         # --- Tier 1.1: Per-token energy normalization ---
         if energy_metrics.per_query_joules is not None:
-            if completion_tokens > 0:
+            if completion_tokens is not None and completion_tokens > 0:
                 energy_metrics.energy_per_output_token_joules = (
                     energy_metrics.per_query_joules / completion_tokens
                 )
-            if total_tokens > 0:
+            if total_tokens is not None and total_tokens > 0:
                 energy_metrics.energy_per_total_token_joules = (
                     energy_metrics.per_query_joules / total_tokens
                 )
@@ -307,9 +308,12 @@ class ProfilerRunner:
             latency_metrics.itl_std_ms = statistics.stdev(itls) if len(itls) > 1 else 0.0
 
         # --- Tier 1.3: FLOPs estimation ---
-        total_flops, flops_per_token = estimate_flops(
-            self._config.model, prompt_tokens, completion_tokens
-        )
+        total_flops = 0.0
+        flops_per_token = 0.0
+        if prompt_tokens is not None and completion_tokens is not None:
+            total_flops, flops_per_token = estimate_flops(
+                self._config.model, prompt_tokens, completion_tokens
+            )
         compute_metrics = ComputeMetrics()
         if total_flops > 0:
             compute_metrics.total_flops = int(total_flops)
@@ -410,8 +414,8 @@ class ProfilerRunner:
         response: Response,
         samples: Sequence[TelemetrySample],
         telemetry_readings: Sequence[TelemetryReading],
-        prompt_tokens: int,
-        completion_tokens: int,
+        prompt_tokens: int | None,
+        completion_tokens: int | None,
     ) -> PhaseMetrics:
         """Split telemetry at TTFT boundary to populate prefill/decode phase metrics."""
         if (
@@ -453,11 +457,11 @@ class ProfilerRunner:
 
         # Per-token energy
         prefill_energy_per_input = None
-        if prefill_energy is not None and prompt_tokens > 0:
+        if prefill_energy is not None and prompt_tokens is not None and prompt_tokens > 0:
             prefill_energy_per_input = prefill_energy / prompt_tokens
 
         decode_energy_per_output = None
-        if decode_energy is not None and completion_tokens > 0:
+        if decode_energy is not None and completion_tokens is not None and completion_tokens > 0:
             decode_energy_per_output = decode_energy / completion_tokens
 
         return PhaseMetrics(

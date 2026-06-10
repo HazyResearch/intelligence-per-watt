@@ -13,9 +13,9 @@ class TurnTrace:
     """Per-turn telemetry data."""
 
     turn_index: int
-    input_tokens: int = 0
-    output_tokens: int = 0
-    tool_result_tokens: int = 0
+    input_tokens: Optional[int] = 0
+    output_tokens: Optional[int] = 0
+    tool_result_tokens: Optional[int] = 0
     tools_called: List[str] = field(default_factory=list)
     tool_latencies_s: Dict[str, float] = field(default_factory=dict)
     wall_clock_s: float = 0.0
@@ -83,18 +83,24 @@ class QueryTrace:
     query_mbu_avg_pct: Optional[float] = None
     query_mbu_max_pct: Optional[float] = None
     is_resolved: Optional[bool] = None
+    unscorable_reason: Optional[str] = None
+    score_metadata: Dict[str, Any] = field(default_factory=dict)
 
     @property
     def num_turns(self) -> int:
         return len(self.turns)
 
     @property
-    def total_input_tokens(self) -> int:
-        return sum(t.input_tokens for t in self.turns)
+    def total_input_tokens(self) -> Optional[int]:
+        if any(t.input_tokens is None for t in self.turns):
+            return None
+        return sum(t.input_tokens or 0 for t in self.turns)
 
     @property
-    def total_output_tokens(self) -> int:
-        return sum(t.output_tokens for t in self.turns)
+    def total_output_tokens(self) -> Optional[int]:
+        if any(t.output_tokens is None for t in self.turns):
+            return None
+        return sum(t.output_tokens or 0 for t in self.turns)
 
     @property
     def tool_call_count(self) -> int:
@@ -106,17 +112,21 @@ class QueryTrace:
 
     @property
     def total_gpu_energy_joules(self) -> Optional[float]:
+        if self.query_gpu_energy_joules is not None:
+            return self.query_gpu_energy_joules
         values = [t.gpu_energy_joules for t in self.turns if t.gpu_energy_joules is not None]
         if values:
             return sum(values)
-        return self.query_gpu_energy_joules
+        return None
 
     @property
     def total_cpu_energy_joules(self) -> Optional[float]:
+        if self.query_cpu_energy_joules is not None:
+            return self.query_cpu_energy_joules
         values = [t.cpu_energy_joules for t in self.turns if t.cpu_energy_joules is not None]
         if values:
             return sum(values)
-        return self.query_cpu_energy_joules
+        return None
 
     @property
     def total_cost_usd(self) -> Optional[float]:
@@ -124,8 +134,10 @@ class QueryTrace:
         return sum(values) if values else None
 
     @property
-    def total_tokens(self) -> int:
+    def total_tokens(self) -> Optional[int]:
         """Total tokens (input + output) across all turns."""
+        if self.total_input_tokens is None or self.total_output_tokens is None:
+            return None
         return self.total_input_tokens + self.total_output_tokens
 
     @property
@@ -147,16 +159,18 @@ class QueryTrace:
     @property
     def throughput_tokens_per_sec(self) -> Optional[float]:
         """Output tokens per second; None if zero tokens or zero time."""
-        if self.total_output_tokens > 0 and self.total_wall_clock_s > 0:
-            return self.total_output_tokens / self.total_wall_clock_s
+        output_tokens = self.total_output_tokens
+        if output_tokens is not None and output_tokens > 0 and self.total_wall_clock_s > 0:
+            return output_tokens / self.total_wall_clock_s
         return None
 
     @property
     def energy_per_token_joules(self) -> Optional[float]:
         """GPU energy per output token; None if no energy data or zero tokens."""
         gpu_energy = self.total_gpu_energy_joules
-        if gpu_energy is not None and gpu_energy > 0 and self.total_output_tokens > 0:
-            return gpu_energy / self.total_output_tokens
+        output_tokens = self.total_output_tokens
+        if gpu_energy is not None and gpu_energy > 0 and output_tokens is not None and output_tokens > 0:
+            return gpu_energy / output_tokens
         return None
 
     def to_dict(self) -> Dict[str, Any]:
@@ -166,6 +180,12 @@ class QueryTrace:
             "query_text": self.query_text,
             "response_text": self.response_text,
             "turns": [t.to_dict() for t in self.turns],
+            "num_turns": self.num_turns,
+            "total_input_tokens": self.total_input_tokens,
+            "total_output_tokens": self.total_output_tokens,
+            "total_tokens": self.total_tokens,
+            "tool_call_count": self.tool_call_count,
+            "total_tool_calls": self.total_tool_calls,
             "total_wall_clock_s": self.total_wall_clock_s,
             "completed": self.completed,
             "timed_out": self.timed_out,
@@ -175,7 +195,12 @@ class QueryTrace:
             "query_cpu_power_avg_watts": self.query_cpu_power_avg_watts,
             "query_mbu_avg_pct": self.query_mbu_avg_pct,
             "query_mbu_max_pct": self.query_mbu_max_pct,
+            "throughput_tokens_per_sec": self.throughput_tokens_per_sec,
+            "energy_per_output_token_joules": self.energy_per_token_joules,
+            "total_cost_usd": self.total_cost_usd,
             "is_resolved": self.is_resolved,
+            "unscorable_reason": self.unscorable_reason,
+            "score_metadata": dict(self.score_metadata),
         }
 
     @classmethod
@@ -196,6 +221,8 @@ class QueryTrace:
             query_mbu_avg_pct=d.get("query_mbu_avg_pct"),
             query_mbu_max_pct=d.get("query_mbu_max_pct"),
             is_resolved=d.get("is_resolved"),
+            unscorable_reason=d.get("unscorable_reason"),
+            score_metadata=d.get("score_metadata") or {},
         )
 
     def save_jsonl(self, path: Path) -> None:
@@ -249,6 +276,8 @@ class QueryTrace:
                 "completed": trace.completed,
                 "timed_out": trace.timed_out,
                 "is_resolved": trace.is_resolved,
+                "unscorable_reason": trace.unscorable_reason,
+                "score_metadata_json": json.dumps(trace.score_metadata),
                 "trace_json": json.dumps(trace.to_dict()),
             })
         return Dataset.from_list(rows)

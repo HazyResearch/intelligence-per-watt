@@ -91,8 +91,8 @@ class OllamaMCPServer(BaseMCPServer):
 
         # Consume stream and collect response
         content_chunks: list[str] = []
-        prompt_tokens = 0
-        completion_tokens = 0
+        prompt_tokens: int | None = None
+        completion_tokens: int | None = None
         ttft_ms: Optional[float] = None
 
         for chunk in stream:
@@ -104,17 +104,24 @@ class OllamaMCPServer(BaseMCPServer):
 
             # Final chunk contains token counts
             if getattr(chunk, "done", False):
-                prompt_tokens = int(chunk.prompt_eval_count or prompt_tokens)
-                completion_tokens = int(chunk.eval_count or completion_tokens)
+                if getattr(chunk, "prompt_eval_count", None) is not None:
+                    prompt_tokens = int(chunk.prompt_eval_count)
+                if getattr(chunk, "eval_count", None) is not None:
+                    completion_tokens = int(chunk.eval_count)
 
         content = "".join(content_chunks)
+        total_tokens = (
+            prompt_tokens + completion_tokens
+            if prompt_tokens is not None and completion_tokens is not None
+            else None
+        )
 
         return MCPToolResult(
             content=content,
             usage={
                 "prompt_tokens": prompt_tokens,
                 "completion_tokens": completion_tokens,
-                "total_tokens": prompt_tokens + completion_tokens,
+                "total_tokens": total_tokens,
             },
             cost_usd=0.0,  # Local model, no API cost
             ttft_seconds=(ttft_ms / 1000.0) if ttft_ms else None,

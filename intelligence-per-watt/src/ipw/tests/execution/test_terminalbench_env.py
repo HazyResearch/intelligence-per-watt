@@ -108,6 +108,43 @@ class TestTerminalBenchTaskEnv:
             assert "session" not in metadata
             assert "container" not in metadata
 
+    def test_container_name_includes_gpu_identity(self) -> None:
+        """Parallel TerminalBench runs need distinct compose project names."""
+        metadata = self._make_metadata()
+        metadata["model"] = "google/gemma-4-31B-it"
+        mock_spin_up, _, _ = self._setup_spin_up_mock()
+
+        mock_modules = _ensure_terminal_bench_mocks()
+        mock_modules["terminal_bench.terminal.terminal"].spin_up_terminal = mock_spin_up
+
+        with patch.dict(sys.modules, mock_modules), patch.dict(
+            "os.environ", {"IPW_GPU_DEVICE_ID": "3"}
+        ):
+            env = TerminalBenchTaskEnv(metadata)
+            env.__enter__()
+
+            kwargs = mock_spin_up.call_args.kwargs
+            assert kwargs["client_container_name"].endswith("-gemma-4-31b-it-3")
+
+            env.__exit__(None, None, None)
+
+    def test_exit_records_cleanup_error_without_raising(self) -> None:
+        """Cleanup failures should not discard an otherwise useful trace."""
+        metadata = self._make_metadata()
+        mock_spin_up, _, _ = self._setup_spin_up_mock()
+        mock_spin_up.return_value.__exit__.side_effect = RuntimeError("missing container")
+
+        mock_modules = _ensure_terminal_bench_mocks()
+        mock_modules["terminal_bench.terminal.terminal"].spin_up_terminal = mock_spin_up
+
+        with patch.dict(sys.modules, mock_modules):
+            env = TerminalBenchTaskEnv(metadata)
+            env.__enter__()
+
+            env.__exit__(None, None, None)
+
+            assert metadata["test_results"]["cleanup_error"] == "missing container"
+
     def test_missing_task_raises_value_error(self) -> None:
         """Verify __enter__ raises if 'task' is missing from metadata."""
         mock_modules = _ensure_terminal_bench_mocks()

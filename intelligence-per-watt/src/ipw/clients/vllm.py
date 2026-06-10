@@ -204,7 +204,7 @@ class VLLMClient(InferenceClient):
 
         start_time = time.perf_counter()
         prompt_tokens: int | None = None
-        completion_tokens = 0
+        completion_tokens: int | None = None
         ttft_ms: float | None = None
         content_parts: list[str] = []
         token_times: list[float] = []
@@ -234,11 +234,11 @@ class VLLMClient(InferenceClient):
                     if delta_token_ids is None:
                         delta_token_ids = getattr(completion, "token_ids_delta", None)
                     if delta_token_ids is not None:
-                        completion_tokens += len(delta_token_ids)
+                        completion_tokens = (completion_tokens or 0) + len(delta_token_ids)
                     else:
                         token_ids = getattr(completion, "token_ids", None)
                         if token_ids:
-                            completion_tokens += len(token_ids)
+                            completion_tokens = (completion_tokens or 0) + len(token_ids)
                             if ttft_ms is None:
                                 ttft_ms = (time.perf_counter() - start_time) * 1000.0
 
@@ -263,9 +263,13 @@ class VLLMClient(InferenceClient):
             raise RuntimeError(f"vLLM offline generation failed: {exc}") from exc
 
         usage = ChatUsage(
-            prompt_tokens=prompt_tokens or 0,
+            prompt_tokens=prompt_tokens,
             completion_tokens=completion_tokens,
-            total_tokens=(prompt_tokens or 0) + completion_tokens,
+            total_tokens=(
+                prompt_tokens + completion_tokens
+                if prompt_tokens is not None and completion_tokens is not None
+                else None
+            ),
         )
         content = "".join(content_parts)
         return Response(
