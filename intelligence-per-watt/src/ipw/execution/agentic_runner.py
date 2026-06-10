@@ -19,7 +19,7 @@ from typing import Any, Callable, Optional
 
 from tqdm.auto import tqdm
 
-from ..agents.base import BaseAgent
+from ..agents.base import BaseAgent, ToolUsingAgent
 from ..core.types import AgentRunResult, DatasetRecord
 from ..datasets.base import DatasetProvider
 from ..execution.telemetry_session import TelemetrySample, TelemetrySession
@@ -38,7 +38,10 @@ from ..execution.types import (
     ProfilingRecord,
     TokenMetrics,
 )
+from ..telemetry.energy_attribution import EnergyAttribution
 from ..telemetry.events import EventRecorder, EventType
+from .executor import Executor
+from .preflight import run_preflight
 
 LOGGER = logging.getLogger(__name__)
 
@@ -157,7 +160,19 @@ class AgenticRunner:
         concurrency: int = 1,
         agent_factory: Optional[Callable[..., BaseAgent]] = None,
         query_timeout: Optional[float] = None,
+        max_attempts: int = 3,
+        max_turns: int = 10,
+        require_dedicated_hardware: bool = False,
     ) -> None:
+        """Initialise the agentic runner.
+
+        ``max_attempts`` is the **attempt count** passed directly to
+        ``Executor(max_attempts_per_turn=max_attempts)``.  A value of 1 means
+        no retry; 3 (the default) allows two retries after the first attempt.
+        A caller using *retries* semantics (extra attempts beyond the first)
+        should convert ``retries + 1`` to the attempt count before passing it
+        here.
+        """
         self._agent = agent
         self._dataset = dataset
         self._telemetry = telemetry_session
@@ -169,7 +184,49 @@ class AgenticRunner:
         self._concurrency = max(1, concurrency)
         self._agent_factory = agent_factory
         self._query_timeout = query_timeout
+        self._max_attempts = max_attempts
+        self._max_turns = max_turns
+        self._require_dedicated_hardware = require_dedicated_hardware
         self._results_lock = threading.Lock()
+        self._preflight_done: bool = False
+        self._preflight_baseline_dirty: bool = False
+        self._energy_attribution: Optional[EnergyAttribution] = None
+        self._attach_energy_attribution()
+
+    def _attach_energy_attribution(self) -> None:
+        """Attach the shadow EnergyAttribution subscriber to the recorder bus.
+
+        The subscriber observes TOOL_CALL_*/LM_INFERENCE_* events as they flow
+        through the bus and emits ENERGY_ATTRIBUTED events for downstream
+        consumers to read.
+        """
+        if self._telemetry is None:
+            return
+        if self._energy_attribution is not None:
+            return
+        self._energy_attribution = EnergyAttribution(
+            bus=self._event_recorder.bus,
+            session=self._telemetry,
+            is_cloud_fn=lambda evt: bool(evt.payload.get("is_cloud", False)),
+            shared_device_warning_fn=lambda: self._preflight_baseline_dirty,
+        )
+
+    def _run_preflight_if_needed(self, *, strict: bool = False) -> None:
+        """Run hardware preflight once per runner lifetime.
+
+        Whole-device energy measurement inflates per-query attribution proportionally
+        to other GPU/CPU workloads. Preflight samples baseline utilization once;
+        the resulting `_preflight_baseline_dirty` flag propagates to subsequent
+        TurnTrace/QueryTrace records as `shared_device_warning`.
+        """
+        if self._preflight_done:
+            return
+        result = run_preflight(strict=strict)
+        self._preflight_done = True
+        self._preflight_baseline_dirty = result.shared_device_baseline_dirty
+        if self._preflight_baseline_dirty:
+            for msg in result.warnings:
+                LOGGER.warning("Preflight: %s", msg)
 
     async def run(
         self,
@@ -193,6 +250,7 @@ class AgenticRunner:
             if max_queries is not None
             else self._dataset.size()
         )
+        self._run_preflight_if_needed(strict=self._require_dedicated_hardware)
         model = self._config.get("model", "unknown")
 
         # Collect the records we'll process
@@ -612,6 +670,73 @@ class AgenticRunner:
             self._run_single_query(index, record, model, agent, event_recorder)
         )
 
+    async def _run_with_executor(
+        self,
+        index: int,
+        record: "DatasetRecord",
+        model: str,
+        agent: "ToolUsingAgent",
+        event_recorder: "EventRecorder",
+    ) -> "QueryTrace":
+        """Native-agent dispatch path — delegates the turn loop to Executor.
+
+        Seeds the task via agent.set_task() (subclasses must define it),
+        runs Executor.execute(), and constructs a QueryTrace from the result.
+        Per-turn telemetry population is left to EventBus subscribers
+        (EnergyAttribution runs here; richer per-turn TurnTrace population can be
+        layered on later).
+
+        A TemporaryDirectory is created per query and set on every agent tool via
+        set_workspace() before executor.execute() runs. This keeps agent-driven
+        side effects isolated from the project root and from other concurrent
+        queries. The tempdir is cleaned up automatically on context exit; tools
+        are cleared (set_workspace(None)) in a finally block to prevent stale
+        path leakage across query reuse.
+        """
+        import tempfile
+
+        assert isinstance(agent, ToolUsingAgent)
+
+        query_id = f"q{index:04d}"
+        workload_type = record.dataset_metadata.get("workload_type", "agentic")
+
+        event_recorder.clear()
+        task_text = record.problem
+        if hasattr(agent, "set_task"):
+            agent.set_task(task_text)
+
+        # Per-query temp workspace: every agent-driven tool invocation defaults
+        # its cwd here, keeping side effects out of the project root and the
+        # runner's worktree. Cleaned up automatically on context exit.
+        with tempfile.TemporaryDirectory(prefix=f"ipw_q{index:04d}_") as workspace:
+            for tool in getattr(agent, "tools", []):
+                if hasattr(tool, "set_workspace"):
+                    tool.set_workspace(workspace)
+
+            try:
+                executor = Executor(
+                    bus=event_recorder.bus,
+                    max_attempts_per_turn=self._max_attempts,
+                )
+                result = await executor.execute(
+                    agent, task_id=query_id,
+                    max_turns=self._max_turns,
+                    agent_name=agent.__class__.__name__,
+                )
+            finally:
+                # Clear workspace so tool reuse across queries doesn't leak
+                # the now-deleted tempdir path.
+                for tool in getattr(agent, "tools", []):
+                    if hasattr(tool, "set_workspace"):
+                        tool.set_workspace(None)
+
+        return QueryTrace(
+            query_id=query_id, workload_type=workload_type,
+            query_text=task_text, response_text=result.final_answer or "",
+            completed=result.status == "success",
+            timed_out=False, n_retries=result.n_retries,
+        )
+
     async def _run_single_query(
         self,
         index: int,
@@ -625,6 +750,9 @@ class AgenticRunner:
         event_recorder = (
             event_recorder if event_recorder is not None else self._event_recorder
         )
+
+        if isinstance(agent, ToolUsingAgent):
+            return await self._run_with_executor(index, record, model, agent, event_recorder)
 
         query_id = f"q{index:04d}"
         workload_type = record.dataset_metadata.get("workload_type", "agentic")

@@ -26,6 +26,12 @@ class TurnTrace:
     gpu_power_avg_watts: Optional[float] = None
     cpu_power_avg_watts: Optional[float] = None
     cost_usd: Optional[float] = None
+    dram_energy_joules: Optional[float] = None
+    peak_watts: Optional[float] = None
+    reasoning_tokens: Optional[int] = None
+    cached_tokens: Optional[int] = None
+    has_parallel_tools: bool = False
+    shared_device_warning: bool = False
 
     def to_dict(self) -> Dict[str, Any]:
         return {
@@ -42,6 +48,12 @@ class TurnTrace:
             "gpu_power_avg_watts": self.gpu_power_avg_watts,
             "cpu_power_avg_watts": self.cpu_power_avg_watts,
             "cost_usd": self.cost_usd,
+            "dram_energy_joules": self.dram_energy_joules,
+            "peak_watts": self.peak_watts,
+            "reasoning_tokens": self.reasoning_tokens,
+            "cached_tokens": self.cached_tokens,
+            "has_parallel_tools": self.has_parallel_tools,
+            "shared_device_warning": self.shared_device_warning,
         }
 
     @classmethod
@@ -60,6 +72,12 @@ class TurnTrace:
             gpu_power_avg_watts=d.get("gpu_power_avg_watts"),
             cpu_power_avg_watts=d.get("cpu_power_avg_watts"),
             cost_usd=d.get("cost_usd"),
+            dram_energy_joules=d.get("dram_energy_joules"),
+            peak_watts=d.get("peak_watts"),
+            reasoning_tokens=d.get("reasoning_tokens"),
+            cached_tokens=d.get("cached_tokens"),
+            has_parallel_tools=d.get("has_parallel_tools", False),
+            shared_device_warning=d.get("shared_device_warning", False),
         )
 
 
@@ -85,6 +103,13 @@ class QueryTrace:
     is_resolved: Optional[bool] = None
     unscorable_reason: Optional[str] = None
     score_metadata: Dict[str, Any] = field(default_factory=dict)
+    # True by default; runner sets False for cloud LMs where GPU telemetry is unavailable
+    lm_energy_measurable: bool = True
+    shared_device_warning: bool = False
+    # evaluators may return float, bool, or a dict; float is the common case — cast explicitly when needed
+    accuracy_score: Optional[float] = None
+    accuracy_metadata: Dict[str, Any] = field(default_factory=dict)
+    n_retries: int = 0
 
     @property
     def num_turns(self) -> int:
@@ -201,6 +226,11 @@ class QueryTrace:
             "is_resolved": self.is_resolved,
             "unscorable_reason": self.unscorable_reason,
             "score_metadata": dict(self.score_metadata),
+            "lm_energy_measurable": self.lm_energy_measurable,
+            "shared_device_warning": self.shared_device_warning,
+            "accuracy_score": self.accuracy_score,
+            "accuracy_metadata": dict(self.accuracy_metadata),
+            "n_retries": self.n_retries,
         }
 
     @classmethod
@@ -223,6 +253,11 @@ class QueryTrace:
             is_resolved=d.get("is_resolved"),
             unscorable_reason=d.get("unscorable_reason"),
             score_metadata=d.get("score_metadata") or {},
+            lm_energy_measurable=d.get("lm_energy_measurable", True),
+            shared_device_warning=d.get("shared_device_warning", False),
+            accuracy_score=d.get("accuracy_score"),
+            accuracy_metadata=d.get("accuracy_metadata", {}),
+            n_retries=d.get("n_retries", 0),
         )
 
     def save_jsonl(self, path: Path) -> None:

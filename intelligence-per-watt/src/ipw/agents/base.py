@@ -9,7 +9,9 @@ from typing import TYPE_CHECKING, Any, MutableMapping, Optional
 
 if TYPE_CHECKING:
     from ipw.agents.mcp.base import BaseMCPServer
+    from ipw.execution.executor import ExecutorContext, TurnOutput
     from ipw.telemetry.events import EventRecorder
+    from ipw.tools.base import ToolCallMode
 
 
 class BaseAgent:
@@ -100,3 +102,24 @@ class BaseAgent:
             NotImplementedError: Subclasses must implement this method.
         """
         raise NotImplementedError("Subclasses must implement the run method")
+
+
+class ToolUsingAgent(BaseAgent):
+    """Base class for native agents driven by the Executor.
+
+    Subclasses implement `async def step(context) -> TurnOutput`. The Executor
+    owns the turn loop, retry, parallel tool dispatch, and bus telemetry.
+
+    The legacy `BaseAgent.run()` API is preserved for wrapper agents (OpenHands,
+    Terminus). Native agents should be invoked through the Executor — not via
+    run() — for the full semantics.
+    """
+
+    # Subclasses override these class-level attributes.
+    tool_mode: "ToolCallMode | None" = None
+    tools: list = []
+
+    async def step(self, context: "ExecutorContext") -> "TurnOutput":
+        raise NotImplementedError(
+            "ToolUsingAgent subclasses must implement step(context) -> TurnOutput"
+        )
