@@ -37,7 +37,8 @@ class OllamaClient(InferenceClient):
             raise RuntimeError(f"Ollama error: {exc}") from exc
 
         content: list[str] = []
-        prompt_tokens = completion_tokens = 0
+        prompt_tokens: int | None = None
+        completion_tokens: int | None = None
         ttft_ms: float | None = None
         token_times: list[float] = []
 
@@ -49,15 +50,22 @@ class OllamaClient(InferenceClient):
                     ttft_ms = (token_times[0] - start) * 1000
                 content.append(text)
             if getattr(chunk, "done", False):
-                prompt_tokens = int(chunk.prompt_eval_count or prompt_tokens)
-                completion_tokens = int(chunk.eval_count or completion_tokens)
+                if getattr(chunk, "prompt_eval_count", None) is not None:
+                    prompt_tokens = int(chunk.prompt_eval_count)
+                if getattr(chunk, "eval_count", None) is not None:
+                    completion_tokens = int(chunk.eval_count)
+        total_tokens = (
+            prompt_tokens + completion_tokens
+            if prompt_tokens is not None and completion_tokens is not None
+            else None
+        )
 
         return Response(
             content="".join(content),
             usage=ChatUsage(
                 prompt_tokens=prompt_tokens,
                 completion_tokens=completion_tokens,
-                total_tokens=prompt_tokens + completion_tokens,
+                total_tokens=total_tokens,
             ),
             time_to_first_token_ms=ttft_ms or 0.0,
             token_timestamps=token_times or None,

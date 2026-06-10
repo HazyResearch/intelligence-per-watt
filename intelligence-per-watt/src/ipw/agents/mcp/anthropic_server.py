@@ -85,8 +85,8 @@ class AnthropicMCPServer(BaseMCPServer):
         # Consume stream and collect response
         content_chunks: list[str] = []
         ttft_ms: Optional[float] = None
-        input_tokens = 0
-        output_tokens = 0
+        input_tokens: int | None = None
+        output_tokens: int | None = None
 
         with stream as event_stream:
             for event in event_stream:
@@ -105,16 +105,25 @@ class AnthropicMCPServer(BaseMCPServer):
                         output_tokens = event.usage.output_tokens
 
         content = "".join(content_chunks)
+        total_tokens = (
+            input_tokens + output_tokens
+            if input_tokens is not None and output_tokens is not None
+            else None
+        )
 
         # Calculate cost
-        cost_usd = calculate_cost("anthropic", self.model_name, input_tokens, output_tokens)
+        cost_usd = (
+            calculate_cost("anthropic", self.model_name, input_tokens, output_tokens)
+            if input_tokens is not None and output_tokens is not None
+            else None
+        )
 
         return MCPToolResult(
             content=content,
             usage={
                 "prompt_tokens": input_tokens,
                 "completion_tokens": output_tokens,
-                "total_tokens": input_tokens + output_tokens,
+                "total_tokens": total_tokens,
             },
             cost_usd=cost_usd,
             ttft_seconds=(ttft_ms / 1000.0) if ttft_ms else None,

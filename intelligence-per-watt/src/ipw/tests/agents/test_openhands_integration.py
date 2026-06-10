@@ -139,12 +139,64 @@ class TestOpenHandsIntegration:
         recorder = EventRecorder()
         model = MagicMock()
         agent = OpenHands(model=model, event_recorder=recorder)
+
+        def _run_once() -> None:
+            agent._instrumented_model.completion(messages=[])
+
+        conv_mock.run.side_effect = _run_once
         agent.run("test")
 
         events = recorder.get_events()
         event_types = [e.event_type for e in events]
         assert EventType.LM_INFERENCE_START in event_types
         assert EventType.LM_INFERENCE_END in event_types
+
+    def test_lm_events_recorded_per_openhands_model_call(
+        self, _mock_openhands: dict
+    ) -> None:
+        from ipw.agents.openhands import OpenHands
+
+        _mock_openhands["get_agent_final_response"].return_value = "done"
+        conv_mock = MagicMock()
+        _mock_openhands["LocalConversation"].return_value = conv_mock
+
+        recorder = EventRecorder()
+        model = MagicMock()
+        usage = MagicMock()
+        usage.prompt_tokens = 0
+        usage.completion_tokens = 0
+        model.metrics.accumulated_token_usage = usage
+        model.metrics.accumulated_cost = 0.0
+
+        def _completion(*args, **kwargs):
+            usage.prompt_tokens += 10
+            usage.completion_tokens += 4
+            return "ok"
+
+        model.completion.side_effect = _completion
+        agent = OpenHands(model=model, event_recorder=recorder)
+
+        def _run_twice() -> None:
+            agent._instrumented_model.completion(messages=[])
+            agent._instrumented_model.completion(messages=[])
+
+        conv_mock.run.side_effect = _run_twice
+        agent.run("test")
+
+        events = recorder.get_events()
+        lm_starts = [
+            event for event in events
+            if event.event_type == EventType.LM_INFERENCE_START
+        ]
+        lm_ends = [
+            event for event in events
+            if event.event_type == EventType.LM_INFERENCE_END
+        ]
+
+        assert len(lm_starts) == 2
+        assert len(lm_ends) == 2
+        assert [event.metadata["prompt_tokens"] for event in lm_ends] == [10, 10]
+        assert [event.metadata["completion_tokens"] for event in lm_ends] == [4, 4]
 
     def test_conversation_closed_after_run(self, _mock_openhands: dict) -> None:
         from ipw.agents.openhands import OpenHands
@@ -204,6 +256,7 @@ class TestReadOpenhandsTrajectory:
         assert stats["output_tokens"] == 800
         assert stats["cost"] == 0.05
         assert stats["num_turns"] == 7
+        assert stats["token_source"] == "openhands_trajectory"
 
     def test_reads_metrics_from_trajectory_file(self, _mock_openhands: dict) -> None:
         """When /agent-logs is a file (not directory), read it directly."""
@@ -235,6 +288,7 @@ class TestReadOpenhandsTrajectory:
         assert stats["output_tokens"] == 400
         assert stats["cost"] == 0.0
         assert stats["num_turns"] == 5
+        assert stats["token_source"] == "openhands_trajectory"
 
     def test_returns_zeros_when_no_files(self, _mock_openhands: dict) -> None:
         from ipw.agents.openhands import _read_openhands_trajectory
@@ -252,10 +306,50 @@ class TestReadOpenhandsTrajectory:
         session.container.exec_run.side_effect = [test_result, find_result]
 
         stats = _read_openhands_trajectory(session)
-        assert stats["input_tokens"] == 0
-        assert stats["output_tokens"] == 0
-        assert stats["cost"] == 0.0
+        assert stats["input_tokens"] is None
+        assert stats["output_tokens"] is None
+        assert stats["cost"] is None
         assert stats["num_turns"] == 0
+        assert stats["token_source"] == "missing"
+
+    def test_reads_conversation_stats_when_no_trajectory(
+        self, _mock_openhands: dict
+    ) -> None:
+        from ipw.agents.openhands import _read_openhands_trajectory
+
+        session = MagicMock()
+
+        test_result = MagicMock()
+        test_result.exit_code = 1
+
+        find_result = MagicMock()
+        find_result.exit_code = 1
+        find_result.output = b""
+
+        stats_result = MagicMock()
+        stats_result.exit_code = 0
+        stats_result.output = json.dumps(
+            {
+                "input_tokens": 1234,
+                "output_tokens": 321,
+                "cost": 0.02,
+                "num_turns": 4,
+            }
+        ).encode()
+
+        session.container.exec_run.side_effect = [
+            test_result,
+            find_result,
+            stats_result,
+        ]
+
+        stats = _read_openhands_trajectory(session)
+
+        assert stats["input_tokens"] == 1234
+        assert stats["output_tokens"] == 321
+        assert stats["cost"] == 0.02
+        assert stats["num_turns"] == 4
+        assert stats["token_source"] == "openhands_conversation_stats"
 
     def test_returns_zeros_when_cat_fails(self, _mock_openhands: dict) -> None:
         from ipw.agents.openhands import _read_openhands_trajectory
@@ -277,8 +371,9 @@ class TestReadOpenhandsTrajectory:
         session.container.exec_run.side_effect = [test_result, find_result, cat_result]
 
         stats = _read_openhands_trajectory(session)
-        assert stats["input_tokens"] == 0
-        assert stats["output_tokens"] == 0
+        assert stats["input_tokens"] is None
+        assert stats["output_tokens"] is None
+        assert stats["token_source"] == "missing"
 
     def test_returns_zeros_on_exception(self, _mock_openhands: dict) -> None:
         from ipw.agents.openhands import _read_openhands_trajectory
@@ -287,9 +382,10 @@ class TestReadOpenhandsTrajectory:
         session.container.exec_run.side_effect = RuntimeError("docker error")
 
         stats = _read_openhands_trajectory(session)
-        assert stats["input_tokens"] == 0
-        assert stats["output_tokens"] == 0
-        assert stats["cost"] == 0.0
+        assert stats["input_tokens"] is None
+        assert stats["output_tokens"] is None
+        assert stats["cost"] is None
+        assert stats["token_source"] == "missing"
 
     def test_picks_last_trajectory_file(self, _mock_openhands: dict) -> None:
         from ipw.agents.openhands import _read_openhands_trajectory
@@ -325,3 +421,85 @@ class TestReadOpenhandsTrajectory:
         session.container.exec_run.assert_called_with(
             ["cat", "/agent-logs/traj_002.json"]
         )
+
+    def test_reads_nested_llm_metrics_from_trajectory(
+        self, _mock_openhands: dict
+    ) -> None:
+        from ipw.agents.openhands import _read_openhands_trajectory
+
+        trajectory = [
+            {
+                "observation": "agent_state",
+                "extras": {
+                    "llm_metrics": {
+                        "accumulated_cost": 0.03,
+                        "accumulated_token_usage": {
+                            "prompt_tokens": 2100,
+                            "completion_tokens": 345,
+                        },
+                        "token_usages": [
+                            {"prompt_tokens": 1000, "completion_tokens": 100},
+                            {"prompt_tokens": 1100, "completion_tokens": 245},
+                        ],
+                    }
+                },
+            }
+        ]
+
+        session = MagicMock()
+        test_result = MagicMock(exit_code=1)
+        find_result = MagicMock(
+            exit_code=0,
+            output=b"/agent-logs/traj.json\n",
+        )
+        cat_result = MagicMock(
+            exit_code=0,
+            output=json.dumps(trajectory).encode(),
+        )
+        session.container.exec_run.side_effect = [
+            test_result,
+            find_result,
+            cat_result,
+        ]
+
+        stats = _read_openhands_trajectory(session)
+
+        assert stats["input_tokens"] == 2100
+        assert stats["output_tokens"] == 345
+        assert stats["cost"] == 0.03
+        assert stats["num_turns"] == 2
+        assert stats["token_source"] == "openhands_trajectory"
+
+    def test_rejects_event_log_token_estimates_when_stats_are_zero(
+        self, _mock_openhands: dict
+    ) -> None:
+        from ipw.agents.openhands import _read_openhands_trajectory
+
+        session = MagicMock()
+        test_result = MagicMock(exit_code=1)
+        find_result = MagicMock(exit_code=0, output=b"/agent-logs/traj.json\n")
+        cat_result = MagicMock(exit_code=0, output=json.dumps([{"event": "done"}]).encode())
+        stats_result = MagicMock(
+            exit_code=0,
+            output=json.dumps(
+                {
+                    "input_tokens": 0,
+                    "output_tokens": 0,
+                    "cost": 0.0,
+                    "num_turns": 0,
+                }
+            ).encode(),
+        )
+        session.container.exec_run.side_effect = [
+            test_result,
+            find_result,
+            cat_result,
+            stats_result,
+        ]
+
+        stats = _read_openhands_trajectory(session)
+
+        assert stats["input_tokens"] is None
+        assert stats["output_tokens"] is None
+        assert stats["num_turns"] == 0
+        assert stats["token_source"] == "missing"

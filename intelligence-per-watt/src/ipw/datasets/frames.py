@@ -100,13 +100,13 @@ class FRAMESDataset(DatasetProvider):
 
     def _load_raw_rows(self) -> Sequence[MutableMapping[str, object]]:
         dataset = load_dataset(self._hf_path, split=self._split)
+        if self._max_samples is not None:
+            dataset = dataset.select(range(min(self._max_samples, len(dataset))))
         rows: Sequence[MutableMapping[str, object]]
         if hasattr(dataset, "to_list"):
             rows = dataset.to_list()
         else:
             rows = list(dataset)
-        if self._max_samples is not None:
-            rows = rows[: self._max_samples]
         normalized: list[MutableMapping[str, object]] = []
         for row in rows:
             if isinstance(row, MutableMapping):

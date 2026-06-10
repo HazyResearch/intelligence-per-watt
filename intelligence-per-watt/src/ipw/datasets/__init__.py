@@ -8,12 +8,19 @@ from .base import DatasetProvider
 
 def ensure_registered() -> None:
     """Import built-in dataset providers to populate the registry."""
+    import ipw.evaluation  # noqa: F401  # register evaluation handlers used by datasets
+
     from . import (  # noqa: F401
+        arena_hard_auto,
+        browsecomp,
+        deepresearchbench,
         frames,
         gaia,
         gpqa,
         hle,
         ipw,
+        livecodebench,
+        liveresearchbench,
         math500,
         mmlu_pro,
         natural_reasoning,

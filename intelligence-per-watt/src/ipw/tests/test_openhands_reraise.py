@@ -114,3 +114,48 @@ class TestTerminalbenchReRaise:
 
         assert result is not None
         assert result.content == ""  # capture_pane failed, so empty
+        assert result.input_tokens is None
+        assert result.output_tokens is None
+        assert result.metadata["token_source"] == "missing"
+        assert result.metadata["openhands_version"] == "0.59.0"
+        assert mock_tb_module.OpenHandsAgent.call_args.kwargs["version"] == "0.59.0"
+
+    def test_terminalbench_does_not_parse_terminal_output_as_tokens(self):
+        """Terminal transcript text is not a substitute for OpenHands LLM metrics."""
+        agent = _make_openhands_agent()
+
+        session = MagicMock()
+        session.capture_pane.return_value = "input_tokens: 10 output_tokens: 9999"
+        session.container = MagicMock()
+        # No /agent-logs file and no trajectory JSON files.
+        test_result = MagicMock(exit_code=1, output=b"")
+        find_result = MagicMock(exit_code=1, output=b"")
+        stats_result = MagicMock(exit_code=1, output=b"")
+        session.container.exec_run.side_effect = [test_result, find_result, stats_result]
+        terminal = MagicMock()
+        task = SimpleNamespace(instruction="do something")
+        metadata = {
+            "session": session,
+            "terminal": terminal,
+            "task": task,
+            "task_id": "test-no-trajectory",
+        }
+        agent.set_task_metadata(metadata)
+
+        mock_tb_module = MagicMock()
+        mock_tb_agent = MagicMock()
+        mock_tb_agent.perform_task.return_value = None
+        mock_tb_module.OpenHandsAgent.return_value = mock_tb_agent
+
+        with patch.dict("sys.modules", {
+            "terminal_bench": MagicMock(),
+            "terminal_bench.agents": MagicMock(),
+            "terminal_bench.agents.installed_agents": MagicMock(),
+            "terminal_bench.agents.installed_agents.openhands": MagicMock(),
+            "terminal_bench.agents.installed_agents.openhands.openhands_agent": mock_tb_module,
+        }):
+            result = agent.run("test input")
+
+        assert result.input_tokens is None
+        assert result.output_tokens is None
+        assert result.metadata["token_source"] == "missing"

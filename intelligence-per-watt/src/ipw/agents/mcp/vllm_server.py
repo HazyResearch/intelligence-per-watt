@@ -18,6 +18,7 @@ from ipw.agents.mcp.base import BaseMCPServer, MCPToolResult
 
 # Module-level counter for retry warnings (to reduce noise)
 _retry_warn_count = 0
+_REQUEST_TIMEOUT_SECONDS = 240.0
 
 
 class VLLMMCPServer(BaseMCPServer):
@@ -164,7 +165,7 @@ class VLLMMCPServer(BaseMCPServer):
         }
 
         try:
-            with httpx.Client(timeout=240.0) as client:
+            with httpx.Client(timeout=_REQUEST_TIMEOUT_SECONDS) as client:
                 response = client.post(
                     f"{self.vllm_url}/v1/chat/completions",
                     headers=headers,
@@ -211,8 +212,11 @@ class VLLMMCPServer(BaseMCPServer):
             )
         except httpx.ReadTimeout:
             return MCPToolResult(
-                content="Error: vLLM request timed out after 240s. "
-                        "The model may be overloaded or the response is too long.",
+                content=(
+                    "Error: vLLM request timed out after "
+                    f"{_REQUEST_TIMEOUT_SECONDS}s. "
+                    "The model may be overloaded or the response is too long."
+                ),
                 usage={},
                 cost_usd=0.0,
                 metadata={"error": "timeout"},
@@ -230,11 +234,9 @@ class VLLMMCPServer(BaseMCPServer):
                     validation_limit = int(match.group(1))
                     actual_input_tokens = int(input_match.group(1)) if input_match else None
 
-                    if actual_input_tokens:
-                        capped_max_tokens = max(1, int(validation_limit - actual_input_tokens - 100))
-                    else:
-                        estimated_prompt_tokens = len(prompt.split()) * 1.3
-                        capped_max_tokens = max(1, int(validation_limit - estimated_prompt_tokens - 100))
+                    if actual_input_tokens is None:
+                        raise
+                    capped_max_tokens = max(1, int(validation_limit - actual_input_tokens - 100))
 
                     if capped_max_tokens < max_tokens and capped_max_tokens > 0:
                         _retry_warn_count += 1
@@ -250,7 +252,7 @@ class VLLMMCPServer(BaseMCPServer):
 
                         payload["max_tokens"] = capped_max_tokens
                         try:
-                            with httpx.Client(timeout=240.0) as client:
+                            with httpx.Client(timeout=_REQUEST_TIMEOUT_SECONDS) as client:
                                 retry_response = client.post(
                                     f"{self.vllm_url}/v1/chat/completions",
                                     headers=headers,

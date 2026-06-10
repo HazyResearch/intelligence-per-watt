@@ -155,7 +155,7 @@ class ToolRegistry:
         self.register(ToolSpec(
             name="code_interpreter",
             category=ToolCategory.CODE,
-            description="Execute Python code in sandbox. Returns stdout/stderr. 30s timeout.",
+            description="Execute Python code in sandbox. Returns stdout/stderr. Long-running commands are governed by the run timeout.",
             estimated_latency_ms=1000,
             estimated_cost_usd=0.00001,
             capabilities=["code_execution", "python", "computation"],

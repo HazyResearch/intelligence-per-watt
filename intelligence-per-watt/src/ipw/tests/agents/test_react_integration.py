@@ -79,6 +79,22 @@ class TestReactIntegration:
         assert result.input_tokens == 100
         assert result.output_tokens == 50
 
+    def test_missing_token_metrics_are_marked_missing(self, _mock_agno: dict) -> None:
+        from ipw.agents.react import React
+
+        mock_result = MagicMock()
+        mock_result.content = "Fallback answer"
+        mock_result.metrics = None
+        _mock_agno["Agent"].return_value.run.return_value = mock_result
+
+        model = MagicMock()
+        agent = React(model=model)
+        result = agent.run("Question")
+
+        assert result.input_tokens is None
+        assert result.output_tokens is None
+        assert result.metadata["token_source"] == "missing"
+
     def test_tool_instrumentation_emits_events(self, _mock_agno: dict) -> None:
         from ipw.agents.react import React
 
@@ -114,6 +130,42 @@ class TestReactIntegration:
         assert tool_events[0].event_type == EventType.TOOL_CALL_START
         assert tool_events[0].metadata["tool"] == "my_tool"
         assert tool_events[1].event_type == EventType.TOOL_CALL_END
+
+    def test_mcp_tools_do_not_set_tool_call_limit_by_default(self, _mock_agno: dict) -> None:
+        from ipw.agents.react import React
+
+        model = MagicMock()
+        tool = MagicMock()
+        tool.execute.return_value.content = "ok"
+
+        React(model=model, mcp_tools={"calculator": tool})
+
+        _, kwargs = _mock_agno["Agent"].call_args
+        assert "tool_call_limit" not in kwargs
+
+    def test_max_turns_sets_tool_call_limit(self, _mock_agno: dict) -> None:
+        from ipw.agents.react import React
+
+        model = MagicMock()
+        tool = MagicMock()
+        tool.execute.return_value.content = "ok"
+
+        React(model=model, mcp_tools={"calculator": tool}, max_turns=7)
+
+        _, kwargs = _mock_agno["Agent"].call_args
+        assert kwargs["tool_call_limit"] == 7
+
+    def test_explicit_tool_call_limit_is_preserved(self, _mock_agno: dict) -> None:
+        from ipw.agents.react import React
+
+        model = MagicMock()
+        tool = MagicMock()
+        tool.execute.return_value.content = "ok"
+
+        React(model=model, mcp_tools={"calculator": tool}, tool_call_limit=7)
+
+        _, kwargs = _mock_agno["Agent"].call_args
+        assert kwargs["tool_call_limit"] == 7
 
     def test_lm_inference_events_recorded(self, _mock_agno: dict) -> None:
         from ipw.agents.react import React

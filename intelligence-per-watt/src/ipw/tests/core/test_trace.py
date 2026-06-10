@@ -147,15 +147,15 @@ class TestQueryTrace:
         )
         assert trace.total_gpu_energy_joules == 42.0
 
-    def test_query_level_gpu_energy_not_used_when_turns_have_energy(self) -> None:
-        """Per-turn energy takes precedence over query-level energy."""
+    def test_query_level_gpu_energy_used_when_turns_have_energy(self) -> None:
+        """Query-level energy is authoritative when available."""
         trace = QueryTrace(
             query_id="q0",
             workload_type="test",
             turns=[TurnTrace(turn_index=0, gpu_energy_joules=10.0)],
             query_gpu_energy_joules=42.0,
         )
-        assert trace.total_gpu_energy_joules == 10.0
+        assert trace.total_gpu_energy_joules == 42.0
 
     def test_total_cpu_energy_joules_from_turns(self) -> None:
         trace = QueryTrace(

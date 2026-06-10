@@ -125,12 +125,12 @@ class GAIADataset(DatasetProvider):
         )
 
         rows: Sequence[MutableMapping[str, object]]
+        if self._max_samples is not None:
+            dataset = dataset.select(range(min(self._max_samples, len(dataset))))
         if hasattr(dataset, "to_list"):
             rows = dataset.to_list()
         else:
             rows = list(dataset)
-        if self._max_samples is not None:
-            rows = rows[: self._max_samples]
 
         files_location = dataset_location / "2023" / self._split
 

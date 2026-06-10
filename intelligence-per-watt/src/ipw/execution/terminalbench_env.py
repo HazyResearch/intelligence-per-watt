@@ -9,12 +9,19 @@ agent can work with ``--dataset terminalbench-native``.
 from __future__ import annotations
 
 import logging
+import os
+import re
 import tempfile
 from pathlib import Path
 from types import TracebackType
 from typing import Any, MutableMapping, Optional, Type
 
 LOGGER = logging.getLogger(__name__)
+
+
+def _slug_part(value: object, *, max_len: int = 30) -> str:
+    slug = re.sub(r"[^a-zA-Z0-9_-]", "-", str(value)).strip("-").lower()
+    return slug[:max_len]
 
 
 class TerminalBenchTaskEnv:
@@ -66,8 +73,20 @@ class TerminalBenchTaskEnv:
         client_image_name = f"{docker_image_prefix}__client"
         # Include model slug in container name so parallel runs don't collide
         model_raw = self._metadata.get("model", "")
-        model_slug = model_raw.split("/")[-1][:30] if model_raw else ""
-        name_parts = ["ipw", task_id] + ([model_slug] if model_slug else [])
+        model_slug = _slug_part(model_raw.split("/")[-1]) if model_raw else ""
+        run_slug = _slug_part(
+            self._metadata.get("run_id")
+            or os.getenv("IPW_TB_RUN_ID")
+            or os.getenv("IPW_GPU_DEVICE_ID")
+            or os.getenv("CUDA_VISIBLE_DEVICES")
+            or "",
+            max_len=20,
+        )
+        name_parts = ["ipw", task_id]
+        if model_slug:
+            name_parts.append(model_slug)
+        if run_slug:
+            name_parts.append(run_slug)
         client_container_name = "-".join(name_parts).replace(".", "-").lower()
 
         # TB's docker-compose.yaml references T_BENCH_TASK_LOGS_PATH for a
@@ -109,12 +128,22 @@ class TerminalBenchTaskEnv:
         self._metadata.pop("container", None)
 
         if self._terminal_cm is not None:
-            self._terminal_cm.__exit__(exc_type, exc_val, exc_tb)
+            try:
+                self._terminal_cm.__exit__(exc_type, exc_val, exc_tb)
+            except Exception as exc:
+                LOGGER.warning("TerminalBench cleanup failed: %s", exc)
+                self._metadata.setdefault("test_results", {})["cleanup_error"] = str(exc)
             self._terminal_cm = None
             self._terminal = None
 
         if self._logs_tmpdir is not None:
-            self._logs_tmpdir.cleanup()
+            try:
+                self._logs_tmpdir.cleanup()
+            except Exception as exc:
+                LOGGER.warning("TerminalBench log cleanup failed: %s", exc)
+                self._metadata.setdefault("test_results", {})[
+                    "log_cleanup_error"
+                ] = str(exc)
             self._logs_tmpdir = None
 
     # ------------------------------------------------------------------

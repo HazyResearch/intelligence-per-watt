@@ -187,12 +187,16 @@ class OpenRouterMCPServer(BaseMCPServer):
             completion_tokens = usage.completion_tokens
             total_tokens = usage.total_tokens
         else:
-            prompt_tokens = int(len(prompt.split()) * 1.3)
-            completion_tokens = int(len(content.split()) * 1.3)
-            total_tokens = prompt_tokens + completion_tokens
+            prompt_tokens = None
+            completion_tokens = None
+            total_tokens = None
 
         # Calculate cost based on token usage
-        cost_usd = self._calculate_cost(prompt_tokens, completion_tokens)
+        cost_usd = (
+            self._calculate_cost(prompt_tokens, completion_tokens)
+            if prompt_tokens is not None and completion_tokens is not None
+            else None
+        )
 
         return MCPToolResult(
             content=content,

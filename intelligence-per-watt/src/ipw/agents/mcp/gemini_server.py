@@ -107,25 +107,31 @@ class GeminiMCPServer(BaseMCPServer):
         # Extract content
         content = response.text if hasattr(response, 'text') else str(response)
 
-        # Extract token counts from usage_metadata
-        prompt_tokens = 0
-        completion_tokens = 0
-        total_tokens = 0
+        # Extract token counts from usage_metadata. Do not estimate tokens when
+        # the provider omits usage; leave token fields null so traces do not
+        # imply measured usage.
+        prompt_tokens = None
+        completion_tokens = None
+        total_tokens = None
 
         if hasattr(response, 'usage_metadata') and response.usage_metadata:
             usage_meta = response.usage_metadata
-            prompt_tokens = getattr(usage_meta, 'prompt_token_count', 0) or 0
-            completion_tokens = getattr(usage_meta, 'candidates_token_count', 0) or 0
-            total_tokens = getattr(usage_meta, 'total_token_count', 0) or (prompt_tokens + completion_tokens)
-
-        # Fallback: estimate from content length if no usage metadata
-        if total_tokens == 0:
-            prompt_tokens = len(prompt.split()) * 2
-            completion_tokens = len(content.split()) * 2
-            total_tokens = prompt_tokens + completion_tokens
+            prompt_tokens = getattr(usage_meta, 'prompt_token_count', None)
+            completion_tokens = getattr(usage_meta, 'candidates_token_count', None)
+            total_tokens = getattr(usage_meta, 'total_token_count', None)
+            if (
+                total_tokens is None
+                and prompt_tokens is not None
+                and completion_tokens is not None
+            ):
+                total_tokens = prompt_tokens + completion_tokens
 
         # Calculate cost
-        cost_usd = calculate_cost("gemini", self.model_name, prompt_tokens, completion_tokens)
+        cost_usd = (
+            calculate_cost("gemini", self.model_name, prompt_tokens, completion_tokens)
+            if prompt_tokens is not None and completion_tokens is not None
+            else None
+        )
 
         return MCPToolResult(
             content=content,

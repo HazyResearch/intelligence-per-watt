@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import inspect
 import json
 import logging
 import os
@@ -10,6 +11,7 @@ import subprocess
 from typing import TYPE_CHECKING, Any, Dict, List, MutableMapping, Optional, Sequence
 
 from ipw.agents.base import BaseAgent
+from ipw.agents.openai_usage_proxy import OpenAIUsageProxy
 from ipw.core.registry import AgentRegistry
 from ipw.core.types import AgentRunResult
 
@@ -20,6 +22,169 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 _docker_host_ip: str | None = None
+
+
+def _usage_counts(model: Any) -> tuple[int | None, int | None, float | None]:
+    """Return accumulated prompt/output tokens and cost from an OpenHands LLM."""
+    input_tokens: int | None = None
+    output_tokens: int | None = None
+    cost_usd: float | None = None
+    try:
+        metrics = model.metrics
+        if metrics.accumulated_token_usage is not None:
+            prompt_tokens = metrics.accumulated_token_usage.prompt_tokens
+            completion_tokens = metrics.accumulated_token_usage.completion_tokens
+            if isinstance(prompt_tokens, (int, float)):
+                input_tokens = int(prompt_tokens)
+            if isinstance(completion_tokens, (int, float)):
+                output_tokens = int(completion_tokens)
+        accumulated_cost = metrics.accumulated_cost
+        if isinstance(accumulated_cost, (int, float)):
+            cost_usd = float(accumulated_cost)
+    except Exception:
+        pass
+    return input_tokens, output_tokens, cost_usd
+
+
+_CALL_METHODS = {
+    "call",
+    "chat",
+    "completion",
+    "acompletion",
+    "complete",
+    "acomplete",
+    "invoke",
+    "ainvoke",
+}
+
+
+_MCP_TOOL_TYPES: tuple[type, type, type, type] | None = None
+
+
+def _get_mcp_tool_types() -> tuple[type, type, type, type]:
+    """Create stable OpenHands MCP tool classes without requiring OpenHands at import."""
+    global _MCP_TOOL_TYPES
+    if _MCP_TOOL_TYPES is not None:
+        return _MCP_TOOL_TYPES
+
+    from openhands.sdk.tool.schema import Action, Observation
+    from openhands.sdk.tool.tool import ToolDefinition, ToolExecutor
+
+    class IPWMCPAction(Action):
+        query: Optional[str] = None
+        command: Optional[str] = None
+        path: Optional[str] = None
+        content: Optional[str] = None
+        mode: Optional[str] = None
+        old_str: Optional[str] = None
+        new_str: Optional[str] = None
+        timeout: Optional[int] = None
+        working_dir: Optional[str] = None
+
+    class IPWMCPObservation(Observation):
+        pass
+
+    class MCPToolExecutor(ToolExecutor):
+        def __init__(self, mcp_server: "BaseMCPServer") -> None:
+            self._server = mcp_server
+
+        def __call__(self, action: IPWMCPAction, conversation: Any = None) -> IPWMCPObservation:
+            payload = action.model_dump(exclude_none=True)
+            prompt = (
+                payload.pop("query", None)
+                or payload.pop("command", None)
+                or payload.pop("path", None)
+                or payload.pop("content", None)
+                or ""
+            )
+            result = self._server.execute(str(prompt), **payload)
+            content = result.content if hasattr(result, "content") else str(result)
+            return IPWMCPObservation.from_text(text=content)
+
+    class MCPToolDefinition(ToolDefinition[IPWMCPAction, IPWMCPObservation]):
+        @classmethod
+        def create(cls, *args: Any, **kwargs: Any) -> Sequence["MCPToolDefinition"]:
+            return []
+
+    for cls in (IPWMCPAction, IPWMCPObservation, MCPToolExecutor, MCPToolDefinition):
+        cls.__module__ = __name__
+        cls.__qualname__ = cls.__name__
+        globals()[cls.__name__] = cls
+
+    _MCP_TOOL_TYPES = (IPWMCPAction, IPWMCPObservation, MCPToolExecutor, MCPToolDefinition)
+    return _MCP_TOOL_TYPES
+
+
+def _instrument_openhands_llm(
+    model: Any,
+    recorder: Optional["EventRecorder"],
+) -> Any:
+    """Record every OpenHands LLM call while preserving the LLM instance type."""
+    if recorder is None or getattr(model, "_ipw_instrumented", False) is True:
+        return model
+
+    def _record_event(event_type: str, **metadata: Any) -> None:
+        recorder.record(event_type, **metadata)
+
+    def _record_lm_end(
+        pre_input: int | None,
+        pre_output: int | None,
+        pre_cost: float | None,
+    ) -> None:
+        post_input, post_output, post_cost = _usage_counts(model)
+        metadata: dict[str, Any] = {"model": str(model)}
+        input_delta = (
+            post_input - pre_input
+            if post_input is not None and pre_input is not None
+            else None
+        )
+        output_delta = (
+            post_output - pre_output
+            if post_output is not None and pre_output is not None
+            else None
+        )
+        cost_delta = (
+            post_cost - pre_cost
+            if post_cost is not None and pre_cost is not None
+            else None
+        )
+        if input_delta is not None and input_delta > 0:
+            metadata["prompt_tokens"] = input_delta
+        if output_delta is not None and output_delta > 0:
+            metadata["completion_tokens"] = output_delta
+        if cost_delta:
+            metadata["cost_usd"] = cost_delta
+        _record_event("lm_inference_end", **metadata)
+
+    def _wrap_call(func: Any) -> Any:
+        if inspect.iscoroutinefunction(func):
+            async def _async_wrapped(*args: Any, **kwargs: Any) -> Any:
+                pre_input, pre_output, pre_cost = _usage_counts(model)
+                _record_event("lm_inference_start", model=str(model))
+                try:
+                    return await func(*args, **kwargs)
+                finally:
+                    _record_lm_end(pre_input, pre_output, pre_cost)
+
+            return _async_wrapped
+
+        def _wrapped(*args: Any, **kwargs: Any) -> Any:
+            pre_input, pre_output, pre_cost = _usage_counts(model)
+            _record_event("lm_inference_start", model=str(model))
+            try:
+                return func(*args, **kwargs)
+            finally:
+                _record_lm_end(pre_input, pre_output, pre_cost)
+
+        return _wrapped
+
+    for name in _CALL_METHODS:
+        attr = getattr(model, name, None)
+        if callable(attr):
+            object.__setattr__(model, name, _wrap_call(attr))
+
+    object.__setattr__(model, "_ipw_instrumented", True)
+    return model
 
 
 def _get_docker_host_ip() -> str:
@@ -65,33 +230,21 @@ def _register_mcp_tools(mcp_tools: Dict[str, "BaseMCPServer"]) -> list:
         List of Tool specs that can be passed to Agent(tools=...).
     """
     from openhands.sdk import Tool, register_tool
-    from openhands.sdk.tool.schema import Action, Observation
-    from openhands.sdk.tool.tool import ToolAnnotations, ToolDefinition, ToolExecutor
+    from openhands.sdk.tool.tool import ToolAnnotations, ToolDefinition
 
-    class IPWMCPAction(Action):
-        query: str
-
-    class IPWMCPObservation(Observation):
-        pass
-
-    class MCPToolExecutor(ToolExecutor):
-        def __init__(self, mcp_server: "BaseMCPServer") -> None:
-            self._server = mcp_server
-
-        def __call__(self, action: IPWMCPAction, conversation: Any = None) -> IPWMCPObservation:
-            result = self._server.execute(action.query)
-            content = result.content if hasattr(result, "content") else str(result)
-            return IPWMCPObservation.from_text(text=content)
-
-    class _MCPToolDef(ToolDefinition[IPWMCPAction, IPWMCPObservation]):
-        @classmethod
-        def create(cls, *args: Any, **kwargs: Any) -> Sequence["_MCPToolDef"]:
-            return []
+    (
+        IPWMCPAction,
+        IPWMCPObservation,
+        MCPToolExecutor,
+        MCPToolDefinition,
+    ) = _get_mcp_tool_types()
 
     tool_specs: list = []
 
     for name, server in mcp_tools.items():
-        oh_name = f"mcp_{name}"
+        oh_name = getattr(server, "openhands_name", None) or (
+            name if name in {"bash", "str_replace_editor"} else f"mcp_{name}"
+        )
 
         spec = getattr(server, "_spec", None)
         description = (
@@ -104,7 +257,7 @@ def _register_mcp_tools(mcp_tools: Dict[str, "BaseMCPServer"]) -> list:
 
         def _make_factory(_oh_name: str, _desc: str, _executor: MCPToolExecutor):
             def factory(conv_state: Any = None, **kwargs: Any) -> Sequence[ToolDefinition]:
-                tool_def = _MCPToolDef(
+                tool_def = MCPToolDefinition(
                     description=_desc,
                     action_type=IPWMCPAction,
                     observation_type=IPWMCPObservation,
@@ -133,13 +286,15 @@ def _parse_openhands_stats(output: str) -> dict[str, Any]:
     - ``Metrics: {...}`` JSON blob
 
     Returns a dict with keys: input_tokens, output_tokens, cost, num_turns.
-    Missing fields default to 0.
+    Missing token fields stay ``None``; this parser never estimates a prompt /
+    completion split from a total-only token count.
     """
     result: dict[str, Any] = {
-        "input_tokens": 0,
-        "output_tokens": 0,
-        "cost": 0.0,
+        "input_tokens": None,
+        "output_tokens": None,
+        "cost": None,
         "num_turns": 0,
+        "token_source": "missing",
     }
 
     if not output:
@@ -154,9 +309,12 @@ def _parse_openhands_stats(output: str) -> dict[str, Any]:
             import json
 
             metrics = json.loads(metrics_match.group(1))
-            result["input_tokens"] = int(metrics.get("accumulated_input_tokens", 0))
-            result["output_tokens"] = int(metrics.get("accumulated_output_tokens", 0))
-            result["cost"] = float(metrics.get("accumulated_cost", 0.0))
+            if metrics.get("accumulated_input_tokens") is not None:
+                result["input_tokens"] = int(metrics["accumulated_input_tokens"])
+            if metrics.get("accumulated_output_tokens") is not None:
+                result["output_tokens"] = int(metrics["accumulated_output_tokens"])
+            if metrics.get("accumulated_cost") is not None:
+                result["cost"] = float(metrics["accumulated_cost"])
             result["num_turns"] = int(metrics.get("num_turns", 0))
             return result
         except (json.JSONDecodeError, ValueError, TypeError):
@@ -176,18 +334,12 @@ def _parse_openhands_stats(output: str) -> dict[str, Any]:
     for pattern, key in [
         (r"input_tokens\s*[:=]\s*(\d+)", "input_tokens"),
         (r"output_tokens\s*[:=]\s*(\d+)", "output_tokens"),
-        (r"[Tt]otal\s+tokens\s*[:=]\s*(\d+)", "_total_tokens"),
     ]:
         m = re.search(pattern, output)
         if m:
             try:
                 val = int(m.group(1))
-                if key == "_total_tokens" and result["input_tokens"] == 0:
-                    # Rough split when only total is available
-                    result["input_tokens"] = int(val * 0.7)
-                    result["output_tokens"] = val - result["input_tokens"]
-                else:
-                    result[key] = val
+                result[key] = val
             except ValueError:
                 pass
 
@@ -216,11 +368,135 @@ def _read_openhands_trajectory(session: Any) -> dict[str, Any]:
     Returns a dict with keys: input_tokens, output_tokens, cost, num_turns.
     """
     result: dict[str, Any] = {
-        "input_tokens": 0,
-        "output_tokens": 0,
-        "cost": 0.0,
+        "input_tokens": None,
+        "output_tokens": None,
+        "cost": None,
         "num_turns": 0,
+        "token_source": "missing",
     }
+
+    def _read_conversation_stats() -> dict[str, Any]:
+        script = r"""
+import base64
+import glob
+import json
+import pickle
+
+paths = sorted(glob.glob('/root/.openhands/sessions/*/conversation_stats.pkl'))
+if not paths:
+    print(json.dumps({}))
+    raise SystemExit(0)
+
+with open(paths[-1], 'r') as f:
+    encoded = f.read()
+metrics_by_service = pickle.loads(base64.b64decode(encoded))
+
+prompt = 0
+completion = 0
+cost = 0.0
+turns = 0
+for metrics in metrics_by_service.values():
+    usage = getattr(metrics, 'accumulated_token_usage', None)
+    if usage is not None:
+        prompt += int(getattr(usage, 'prompt_tokens', 0) or 0)
+        completion += int(getattr(usage, 'completion_tokens', 0) or 0)
+    cost += float(getattr(metrics, 'accumulated_cost', 0.0) or 0.0)
+    token_usages = getattr(metrics, 'token_usages', None) or []
+    turns += len(token_usages)
+
+print(json.dumps({
+    'input_tokens': prompt,
+    'output_tokens': completion,
+    'cost': cost,
+    'num_turns': turns,
+}))
+"""
+        cmd = ["/opt/openhands-venv/bin/python", "-c", script]
+        stats = session.container.exec_run(cmd)
+        if stats.exit_code != 0 or not stats.output.strip():
+            return result
+        parsed = json.loads(stats.output.decode())
+        input_tokens = int(parsed.get("input_tokens") or 0)
+        output_tokens = int(parsed.get("output_tokens") or 0)
+        if input_tokens == 0 and output_tokens == 0:
+            return result
+        return {
+            "input_tokens": input_tokens,
+            "output_tokens": output_tokens,
+            "cost": float(parsed.get("cost") or 0.0),
+            "num_turns": int(parsed.get("num_turns") or 0),
+            "token_source": "openhands_conversation_stats",
+        }
+
+    def _recursive_token_metrics(value: Any) -> dict[str, Any]:
+        accumulated: list[dict[str, Any]] = []
+        calls: list[dict[str, Any]] = []
+
+        def visit(node: Any) -> None:
+            if isinstance(node, dict):
+                usage = node.get("accumulated_token_usage")
+                if isinstance(usage, dict):
+                    accumulated.append(
+                        {
+                            "input_tokens": int(usage.get("prompt_tokens") or 0),
+                            "output_tokens": int(usage.get("completion_tokens") or 0),
+                            "cost": float(node.get("accumulated_cost") or 0.0),
+                            "num_turns": len(node.get("token_usages") or []),
+                        }
+                    )
+                token_usages = node.get("token_usages")
+                if isinstance(token_usages, list):
+                    for usage_item in token_usages:
+                        if isinstance(usage_item, dict):
+                            calls.append(
+                                {
+                                    "prompt_tokens": int(
+                                        usage_item.get("prompt_tokens") or 0
+                                    ),
+                                    "completion_tokens": int(
+                                        usage_item.get("completion_tokens") or 0
+                                    ),
+                                }
+                            )
+                elif (
+                    "prompt_tokens" in node
+                    or "completion_tokens" in node
+                ):
+                    calls.append(
+                        {
+                            "prompt_tokens": int(node.get("prompt_tokens") or 0),
+                            "completion_tokens": int(
+                                node.get("completion_tokens") or 0
+                            ),
+                        }
+                    )
+                for child in node.values():
+                    visit(child)
+            elif isinstance(node, list):
+                for child in node:
+                    visit(child)
+
+        visit(value)
+        best = max(
+            accumulated,
+            key=lambda item: item["input_tokens"] + item["output_tokens"],
+            default=None,
+        )
+        if best and (best["input_tokens"] or best["output_tokens"]):
+            best["token_source"] = "openhands_trajectory"
+            return best
+        input_tokens = sum(item["prompt_tokens"] for item in calls)
+        output_tokens = sum(item["completion_tokens"] for item in calls)
+        if input_tokens or output_tokens:
+            return {
+                "input_tokens": input_tokens,
+                "output_tokens": output_tokens,
+                "cost": 0.0,
+                "num_turns": len(calls),
+                "token_source": "openhands_trajectory",
+            }
+        return result
+
     try:
         # OpenHands saves trajectory to SAVE_TRAJECTORY_PATH.  If the path is
         # a directory, it writes <session_id>.json inside; otherwise it writes
@@ -241,6 +517,9 @@ def _read_openhands_trajectory(session: Any) -> dict[str, Any]:
                 logger.warning("No trajectory files found in %s (exit=%d, output=%r)",
                                traj_path, find.exit_code,
                                find.output[:200] if find.output else b"")
+                stats_result = _read_conversation_stats()
+                if stats_result["token_source"] != "missing":
+                    return stats_result
                 return result
             files = find.output.decode().strip().split("\n")
             logger.info("Found %d trajectory file(s) in %s: %s",
@@ -269,6 +548,9 @@ def _read_openhands_trajectory(session: Any) -> dict[str, Any]:
                         metrics = event["metrics"]
                         break
                     extras = event.get("extras", {})
+                    if isinstance(extras, dict) and "llm_metrics" in extras:
+                        metrics = extras["llm_metrics"]
+                        break
                     if isinstance(extras, dict) and "metrics" in extras:
                         metrics = extras["metrics"]
                         break
@@ -313,12 +595,37 @@ def _read_openhands_trajectory(session: Any) -> dict[str, Any]:
             result["output_tokens"] = int(output_tok)
             result["cost"] = float(cost)
             result["num_turns"] = int(turns)
+            result["token_source"] = "openhands_trajectory"
             logger.info("Extracted from trajectory: in=%d out=%d cost=%.4f turns=%d",
                         result["input_tokens"], result["output_tokens"],
                         result["cost"], result["num_turns"])
         else:
-            desc = f"list[{len(trajectory)}]" if isinstance(trajectory, list) else str(type(trajectory))
-            logger.warning("No 'metrics' found in trajectory (%s)", desc)
+            recursive_result = _recursive_token_metrics(trajectory)
+            if recursive_result["token_source"] != "missing":
+                result.update(recursive_result)
+                logger.info(
+                    "Extracted recursive trajectory metrics: in=%d out=%d turns=%d",
+                    result["input_tokens"],
+                    result["output_tokens"],
+                    result["num_turns"],
+                )
+            else:
+                stats_result = _read_conversation_stats()
+                if stats_result["token_source"] != "missing":
+                    result.update(stats_result)
+                    logger.info(
+                        "Extracted fallback conversation metrics: in=%d out=%d turns=%d",
+                        result["input_tokens"],
+                        result["output_tokens"],
+                        result["num_turns"],
+                    )
+                else:
+                    desc = (
+                        f"list[{len(trajectory)}]"
+                        if isinstance(trajectory, list)
+                        else str(type(trajectory))
+                    )
+                    logger.warning("No actual token metrics found in trajectory (%s)", desc)
     except Exception:
         logger.warning("Failed to read OH trajectory", exc_info=True)
     return result
@@ -327,6 +634,8 @@ def _read_openhands_trajectory(session: Any) -> dict[str, Any]:
 @AgentRegistry.register("openhands")
 class OpenHands(BaseAgent):
     """OpenHands agent using the OpenHands SDK with energy telemetry."""
+
+    DEFAULT_MAX_TURNS = 20
 
     DEFAULT_INSTRUCTIONS = (
         "You are a helpful assistant that can answer questions "
@@ -339,7 +648,7 @@ class OpenHands(BaseAgent):
         tools: list | None = None,
         mcp_tools: Optional[Dict[str, "BaseMCPServer"]] = None,
         event_recorder: Optional["EventRecorder"] = None,
-        max_turns: int = 20,
+        max_turns: int = DEFAULT_MAX_TURNS,
         **kwargs: Any,
     ) -> None:
         """Initialize the OpenHands agent.
@@ -349,7 +658,7 @@ class OpenHands(BaseAgent):
             tools: List of OpenHands Tool specs.
             mcp_tools: Optional dict mapping tool name to BaseMCPServer instance.
             event_recorder: Optional EventRecorder for per-action energy telemetry.
-            max_turns: Maximum iterations per run (default 20).
+            max_turns: Maximum iterations per run.
             **kwargs: Additional keyword arguments passed to the Agent constructor.
         """
         super().__init__(event_recorder=event_recorder)
@@ -372,7 +681,9 @@ class OpenHands(BaseAgent):
             )
 
         self.model = model
+        self._instrumented_model = _instrument_openhands_llm(model, event_recorder)
         self.tools = tools
+        self._mcp_tools = mcp_tools or {}
         self._pending_tool: Optional[str] = None
         self._tool_names_used: List[str] = []
         self._num_turns: int = 0
@@ -390,12 +701,12 @@ class OpenHands(BaseAgent):
 
         # Context condenser
         condenser = LLMSummarizingCondenser(
-            llm=model,
+            llm=self._instrumented_model,
             max_tokens=24000,
             keep_first=2,
         )
 
-        agent_kwargs = {"llm": model, "condenser": condenser}
+        agent_kwargs = {"llm": self._instrumented_model, "condenser": condenser}
 
         if tools:
             agent_kwargs["tools"] = tools
@@ -430,6 +741,13 @@ class OpenHands(BaseAgent):
     def set_workspace(self, workspace_path: str) -> None:
         """Set the workspace directory for the next agent run."""
         self._workspace = workspace_path
+        for server in self._mcp_tools.values():
+            if hasattr(server, "working_dir"):
+                server.working_dir = workspace_path
+            if getattr(server, "_ipw_dynamic_allowed_dirs", False) and hasattr(
+                server, "allowed_dirs"
+            ):
+                server.allowed_dirs = [workspace_path]
 
     def _create_conversation(self) -> Any:
         """Create a fresh LocalConversation for the next run."""
@@ -493,31 +811,22 @@ class OpenHands(BaseAgent):
         self.conversation = self._create_conversation()
 
         # Snapshot LLM token metrics before this run to compute per-query delta
-        _pre_input = 0
-        _pre_output = 0
-        _pre_cost = 0.0
-        try:
-            _m = self.model.metrics
-            if _m.accumulated_token_usage is not None:
-                _pre_input = _m.accumulated_token_usage.prompt_tokens or 0
-                _pre_output = _m.accumulated_token_usage.completion_tokens or 0
-            _pre_cost = _m.accumulated_cost or 0.0
-        except Exception:
-            pass
+        _pre_input, _pre_output, _pre_cost = _usage_counts(self.model)
 
-        self._record_event("lm_inference_start", model=str(self.model))
         try:
             self.conversation.send_message(input)
             self.conversation.run()
 
             result = get_agent_final_response(self.conversation.state.events)
             if not result:
-                # Agent hit the turn cap without calling FinishTool.
-                logger.info("No FinishTool call detected, sending synthesis nudge (2 turns)")
+                # If the SDK did not emit a finish event, ask for a final answer
+                # without lowering the iteration budget. Query/client timeouts are
+                # the operational guardrail for long-running model behavior.
+                logger.info("No FinishTool call detected, sending final-answer nudge")
                 saved_limit = self.conversation.max_iteration_per_run
-                self.conversation.max_iteration_per_run = 2
+                self.conversation.max_iteration_per_run = saved_limit + 1
                 self.conversation.send_message(
-                    "You have run out of turns. Please provide your final answer now. "
+                    "Please provide your final answer now. "
                     "Use the finish tool to submit your answer."
                 )
                 self.conversation.run()
@@ -532,17 +841,28 @@ class OpenHands(BaseAgent):
             self.current_result = ""
 
             # Extract per-query token usage as delta from pre-run snapshot
-            input_tokens = 0
-            output_tokens = 0
-            cost_usd = 0.0
-            try:
-                metrics = self.model.metrics
-                if metrics.accumulated_token_usage is not None:
-                    input_tokens = (metrics.accumulated_token_usage.prompt_tokens or 0) - _pre_input
-                    output_tokens = (metrics.accumulated_token_usage.completion_tokens or 0) - _pre_output
-                cost_usd = (metrics.accumulated_cost or 0.0) - _pre_cost
-            except Exception:
-                pass
+            post_input, post_output, post_cost = _usage_counts(self.model)
+            input_tokens = (
+                post_input - _pre_input
+                if post_input is not None and _pre_input is not None
+                else None
+            )
+            output_tokens = (
+                post_output - _pre_output
+                if post_output is not None and _pre_output is not None
+                else None
+            )
+            cost_usd = (
+                post_cost - _pre_cost
+                if post_cost is not None and _pre_cost is not None
+                else None
+            )
+            token_source = (
+                "openhands_litellm_metrics"
+                if (input_tokens is not None and input_tokens > 0)
+                or (output_tokens is not None and output_tokens > 0)
+                else "missing"
+            )
 
             return AgentRunResult(
                 content=result,
@@ -553,9 +873,9 @@ class OpenHands(BaseAgent):
                 input_tokens=input_tokens,
                 output_tokens=output_tokens,
                 cost_usd=cost_usd,
+                metadata={"token_source": token_source},
             )
         finally:
-            self._record_event("lm_inference_end", model=str(self.model))
             try:
                 self.conversation.close()
             except Exception as e:
@@ -581,6 +901,10 @@ class OpenHands(BaseAgent):
         _terminal = self._task_metadata["terminal"]  # noqa: F841
         task = self._task_metadata["task"]
         task_id = self._task_metadata.get("task_id", "unknown")
+        openhands_version = os.environ.get(
+            "IPW_TERMINALBENCH_OPENHANDS_VERSION",
+            "0.59.0",
+        )
 
         # TB's OpenHandsAgent reads LLM_MODEL, LLM_BASE_URL, LLM_API_KEY from
         # os.environ (via its _env property) and writes them into a setup-env.sh
@@ -600,17 +924,59 @@ class OpenHands(BaseAgent):
             llm_base_url = os.environ.get("LLM_BASE_URL", "")
         if not llm_base_url:
             llm_base_url = os.environ.get("IPW_CLIENT_BASE_URL", "")
+        usage_proxy: OpenAIUsageProxy | None = None
+        proxy_stats: dict[str, Any] = {}
+
         if llm_base_url:
+            original_llm_base_url = llm_base_url
+            try:
+                usage_proxy = OpenAIUsageProxy(
+                    original_llm_base_url,
+                    model=model_str,
+                    event_callback=self._record_event,
+                )
+                usage_proxy.start()
+                llm_base_url = usage_proxy.base_url_for_client(_get_docker_host_ip())
+            except Exception:
+                logger.warning(
+                    "Failed to start OpenAI usage proxy for TerminalBench OpenHands",
+                    exc_info=True,
+                )
+                usage_proxy = None
+
+        if llm_base_url and usage_proxy is None:
             # Translate localhost/127.0.0.1 to the Docker bridge gateway IP so
             # containers can reach the host-side vLLM server.
             docker_ip = _get_docker_host_ip()
             llm_base_url = llm_base_url.replace("localhost", docker_ip)
             llm_base_url = llm_base_url.replace("127.0.0.1", docker_ip)
+
+        if llm_base_url:
             os.environ["LLM_BASE_URL"] = llm_base_url
+            # TerminalBench's installed OpenHands wrapper forwards LLM_* and
+            # also forwards OPENHANDS_* after stripping the prefix. Different
+            # OpenHands/litellm versions honor different base-url names, so set
+            # the non-secret aliases to the same local/proxy endpoint.
+            os.environ["OPENHANDS_LLM_BASE_URL"] = llm_base_url
+            os.environ["OPENHANDS_OPENAI_BASE_URL"] = llm_base_url
+            os.environ["OPENHANDS_OPENAI_API_BASE"] = llm_base_url
+            os.environ["OPENHANDS_LITELLM_API_BASE"] = llm_base_url
+            os.environ.setdefault("OPENHANDS_LLM_TIMEOUT", "120")
+            os.environ.setdefault("OPENHANDS_TIMEOUT", "120")
+            os.environ.setdefault("OPENHANDS_LLM_NUM_RETRIES", "10")
+            os.environ.setdefault("OPENHANDS_NUM_RETRIES", "10")
         else:
             # Cloud model path: remove stale LLM_BASE_URL so litellm routes
             # to the provider's API endpoint directly.
             os.environ.pop("LLM_BASE_URL", None)
+            os.environ.pop("OPENHANDS_LLM_BASE_URL", None)
+            os.environ.pop("OPENHANDS_OPENAI_BASE_URL", None)
+            os.environ.pop("OPENHANDS_OPENAI_API_BASE", None)
+            os.environ.pop("OPENHANDS_LITELLM_API_BASE", None)
+            os.environ.pop("OPENHANDS_LLM_TIMEOUT", None)
+            os.environ.pop("OPENHANDS_TIMEOUT", None)
+            os.environ.pop("OPENHANDS_LLM_NUM_RETRIES", None)
+            os.environ.pop("OPENHANDS_NUM_RETRIES", None)
 
         # Ensure the model string has a litellm provider prefix
         _KNOWN_PREFIXES = (
@@ -644,15 +1010,20 @@ class OpenHands(BaseAgent):
         )
 
         terminal_output = ""
-        extracted_input_tokens = 0
-        extracted_output_tokens = 0
-        extracted_cost: float = 0.0
+        extracted_input_tokens: int | None = None
+        extracted_output_tokens: int | None = None
+        extracted_cost: float | None = None
         extracted_num_turns = 0
 
         _agent_exc: Exception | None = None
-        self._record_event("lm_inference_start", model=model_str)
+        records_lm_calls = usage_proxy is not None
+        if not records_lm_calls:
+            self._record_event("lm_inference_start", model=model_str)
         try:
-            tb_agent = TBOpenHandsAgent(model_name=model_str)
+            tb_agent = TBOpenHandsAgent(
+                model_name=model_str,
+                version=openhands_version,
+            )
 
             logger.info(
                 "Running OpenHands (TB installed agent) on task %s", task_id
@@ -669,19 +1040,27 @@ class OpenHands(BaseAgent):
 
             # Primary: read trajectory file from container
             stats = _read_openhands_trajectory(session)
-            # Fallback: parse terminal output if trajectory returned nothing
-            if stats["input_tokens"] == 0 and stats["output_tokens"] == 0:
-                stats = _parse_openhands_stats(terminal_output)
-            extracted_input_tokens = stats.get("input_tokens", 0)
-            extracted_output_tokens = stats.get("output_tokens", 0)
-            extracted_cost = stats.get("cost", 0.0)
+            if usage_proxy is not None:
+                proxy_stats = usage_proxy.snapshot()
+                if proxy_stats.get("token_source") == "openai_api_usage":
+                    stats = proxy_stats
+            extracted_input_tokens = stats.get("input_tokens")
+            extracted_output_tokens = stats.get("output_tokens")
+            extracted_cost = stats.get("cost")
             extracted_num_turns = stats.get("num_turns", 0)
+            token_source = stats.get("token_source", "missing")
 
         except Exception as exc:
             logger.exception("OpenHands TB agent failed on task %s", task_id)
             _agent_exc = exc
         finally:
-            self._record_event("lm_inference_end", model=model_str)
+            if not records_lm_calls:
+                self._record_event("lm_inference_end", model=model_str)
+            if usage_proxy is not None:
+                try:
+                    proxy_stats = usage_proxy.snapshot()
+                finally:
+                    usage_proxy.stop()
 
         if _agent_exc is not None:
             raise _agent_exc
@@ -692,5 +1071,10 @@ class OpenHands(BaseAgent):
             output_tokens=extracted_output_tokens,
             num_turns=extracted_num_turns,
             cost_usd=extracted_cost,
-            metadata={"task_id": task_id},
+            metadata={
+                "task_id": task_id,
+                "token_source": token_source,
+                "openhands_version": openhands_version,
+                "usage_proxy": proxy_stats,
+            },
         )
