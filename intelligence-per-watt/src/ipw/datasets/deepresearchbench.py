@@ -41,6 +41,10 @@ class DeepResearchBenchDataset(DatasetProvider):
     dataset_name = "DeepResearch Bench"
     evaluation_method = "deepresearchbench"
 
+    eval_client: str | None = None
+    eval_base_url: str | None = None
+    eval_model: str | None = None
+
     def __init__(
         self,
         *,

@@ -140,6 +140,42 @@ class TestBrowseCompDataset:
         assert "What is hidden?" in record.problem
         assert record.answer == "the answer"
 
+    @patch("ipw.datasets.browsecomp.EvaluationRegistry.create")
+    @patch("ipw.datasets.browsecomp.ClientRegistry.create")
+    def test_score_uses_default_eval_config(
+        self,
+        mock_client_create: MagicMock,
+        mock_eval_create: MagicMock,
+        tmp_path: Path,
+    ) -> None:
+        path = tmp_path / "browsecomp.csv"
+        with path.open("w", encoding="utf-8", newline="") as f:
+            writer = csv.DictWriter(f, fieldnames=["canary", "problem", "answer"])
+            writer.writeheader()
+            writer.writerow(
+                {
+                    "canary": "pw",
+                    "problem": _encrypt("What is hidden?", "pw"),
+                    "answer": _encrypt("the answer", "pw"),
+                }
+            )
+        handler = MagicMock()
+        handler.evaluate.return_value = (True, {"match_type": "judge"})
+        mock_client_create.return_value = object()
+        mock_eval_create.return_value = handler
+
+        dataset = BrowseCompDataset(csv_path=str(path))
+        record = list(dataset.iter_records())[0]
+        ok, meta = dataset.score(record, "candidate answer")
+
+        assert ok is True
+        assert meta["match_type"] == "judge"
+        mock_client_create.assert_called_once_with(
+            "openai",
+            base_url="https://api.openai.com/v1",
+            model="gpt-5-nano-2025-08-07",
+        )
+
 
 class TestResearchDatasets:
     def test_deepresearchbench_local_jsonl(self, tmp_path: Path) -> None:
@@ -154,6 +190,9 @@ class TestResearchDatasets:
         record = list(dataset.iter_records())[0]
         assert "Research batteries" in record.problem
         assert record.answer == "Reference report"
+        assert dataset.eval_client is None
+        assert dataset.eval_base_url is None
+        assert dataset.eval_model is None
 
     def test_liveresearchbench_local_repo_shape(self, tmp_path: Path) -> None:
         from ipw.datasets.liveresearchbench import LiveResearchBenchDataset
@@ -168,3 +207,6 @@ class TestResearchDatasets:
         record = list(dataset.iter_records())[0]
         assert "Research AI" in record.problem
         assert record.answer == "__research_report_rubric_judge__"
+        assert dataset.eval_client is None
+        assert dataset.eval_base_url is None
+        assert dataset.eval_model is None

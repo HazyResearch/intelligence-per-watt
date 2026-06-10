@@ -47,6 +47,10 @@ class BrowseCompDataset(DatasetProvider):
     dataset_name = "BrowseComp"
     evaluation_method = "browsecomp"
 
+    eval_client: str | None = None
+    eval_base_url: str | None = None
+    eval_model: str | None = None
+
     def __init__(
         self,
         *,

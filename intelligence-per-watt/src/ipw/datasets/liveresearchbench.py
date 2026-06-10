@@ -52,6 +52,10 @@ class LiveResearchBenchDataset(DatasetProvider):
     dataset_name = "LiveResearchBench"
     evaluation_method = "liveresearchbench"
 
+    eval_client: str | None = None
+    eval_base_url: str | None = None
+    eval_model: str | None = None
+
     def __init__(
         self,
         *,
