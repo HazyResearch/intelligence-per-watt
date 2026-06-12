@@ -1,4 +1,5 @@
 from .base import EvaluationHandler
+from .browsecomp import BrowseCompHandler
 from .frames import FRAMESHandler
 from .gaia import GAIAHandler
 from .gdpval import GdpvalHandler
@@ -8,6 +9,7 @@ from .math500 import Math500Handler
 from .mcq import BaseMCQHandler
 from .mmlu_pro import MMLUProHandler
 from .natural_reasoning import NaturalReasoningHandler
+from .research_report import ResearchReportHandler
 from .simpleqa import SimpleQAHandler
 from .swebench import SWEBenchHandler
 from .swefficiency import SWEfficiencyHandler
@@ -17,6 +19,7 @@ from .wildchat import WildChatHandler
 
 __all__ = [
     "EvaluationHandler",
+    "BrowseCompHandler",
     "FRAMESHandler",
     "GAIAHandler",
     "GdpvalHandler",
@@ -27,6 +30,7 @@ __all__ = [
     "BaseMCQHandler",
     "MMLUProHandler",
     "NaturalReasoningHandler",
+    "ResearchReportHandler",
     "SimpleQAHandler",
     "SWEBenchHandler",
     "SWEfficiencyHandler",

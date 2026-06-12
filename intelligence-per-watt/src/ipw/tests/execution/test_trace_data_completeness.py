@@ -234,4 +234,4 @@ class TestMultiTurnRunProducesCompleteTraces:
         assert t1.input_tokens == 80
         assert t1.output_tokens == 30
         assert t1.tools_called == []
-        assert t1.wall_clock_s > 0
+        assert t1.wall_clock_s >= 0

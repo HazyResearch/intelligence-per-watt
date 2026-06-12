@@ -3,10 +3,12 @@
 from __future__ import annotations
 
 import asyncio
+import json
 from unittest.mock import MagicMock
 
 import pytest
 
+from ipw.agents.base import BaseAgent
 from ipw.core.types import AgentRunResult, DatasetRecord, TelemetryReading
 from ipw.execution.agentic_runner import (
     AgenticRunner,
@@ -15,7 +17,7 @@ from ipw.execution.agentic_runner import (
 )
 from ipw.execution.telemetry_session import TelemetrySample
 from ipw.execution.trace import QueryTrace
-from ipw.telemetry.events import EventRecorder
+from ipw.telemetry.events import EventRecorder, EventType
 
 
 class TestAgenticRunner:
@@ -52,7 +54,9 @@ class TestAgenticRunner:
             dataset=dataset,
             telemetry_session=None,
             config={"model": "test-model"},
-            event_recorder=event_recorder or EventRecorder(),
+            event_recorder=(
+                event_recorder if event_recorder is not None else EventRecorder()
+            ),
         )
 
     def test_run_returns_traces(self) -> None:
@@ -117,6 +121,61 @@ class TestAgenticRunner:
         traces = asyncio.run(runner.run(max_queries=3))
         assert len(traces) == 3
 
+    def test_start_index_keeps_max_queries_as_count(self) -> None:
+        agent = MagicMock()
+        agent.run.return_value = AgentRunResult(content="ok")
+
+        dataset = MagicMock()
+        records = [
+            DatasetRecord(problem=f"Q{i}", answer=f"A{i}", subject="s")
+            for i in range(10)
+        ]
+        dataset.__iter__ = MagicMock(return_value=iter(records))
+        dataset.size.return_value = 10
+
+        runner = self._make_runner(agent=agent, dataset=dataset)
+        traces = asyncio.run(runner.run(max_queries=3, start_index=4))
+
+        assert [trace.query_id for trace in traces] == ["q0004", "q0005", "q0006"]
+        assert [trace.query_text for trace in traces] == ["Q4", "Q5", "Q6"]
+
+    def test_subset_manifest_records_query_hashes(self, tmp_path) -> None:
+        agent = MagicMock()
+        agent.run.return_value = AgentRunResult(content="ok")
+
+        dataset = MagicMock()
+        records = [
+            DatasetRecord(
+                problem=f"Q{i}",
+                answer=f"A{i}",
+                subject="s",
+                dataset_metadata={"task_id": f"task-{i}"},
+            )
+            for i in range(3)
+        ]
+        dataset.__iter__ = MagicMock(return_value=iter(records))
+        dataset.size.return_value = 3
+
+        runner = AgenticRunner(
+            agent=agent,
+            dataset=dataset,
+            telemetry_session=None,
+            config={"model": "test-model", "dataset": "test-dataset", "agent": "test-agent"},
+            event_recorder=EventRecorder(),
+            run_dir=tmp_path,
+        )
+
+        traces = asyncio.run(runner.run(max_queries=2))
+        manifest = json.loads((tmp_path / "subset_manifest.json").read_text())
+
+        assert len(traces) == 2
+        assert manifest["subset_size"] == 2
+        assert len(manifest["records"]) == 2
+        assert manifest["records"][0]["query_id"] == "q0000"
+        assert manifest["records"][0]["stable_ids"] == {"task_id": "task-0"}
+        assert manifest["records"][0]["query_hash"]
+        assert runner._config["subset"]["subset_hash"] == manifest["subset_hash"]
+
     def test_multi_turn_trace_building(self) -> None:
         """Verify _build_turn_traces correctly parses events into turns."""
         from ipw.telemetry.events import AgentEvent, EventType
@@ -160,6 +219,49 @@ class TestAgenticRunner:
         assert turns[0].output_tokens == 20
         assert turns[1].input_tokens == 30
         assert turns[1].output_tokens == 10
+
+    def test_tool_after_lm_end_attaches_to_previous_turn(self) -> None:
+        """Terminal-style tools run after the LLM response that requested them."""
+        from ipw.telemetry.events import AgentEvent, EventType
+
+        runner = self._make_runner()
+        now = 1000.0
+
+        events = [
+            AgentEvent(event_type=EventType.LM_INFERENCE_START, timestamp=now),
+            AgentEvent(
+                event_type=EventType.LM_INFERENCE_END,
+                timestamp=now + 1.0,
+                metadata={"prompt_tokens": 50, "completion_tokens": 20},
+            ),
+            AgentEvent(
+                event_type=EventType.TOOL_CALL_START,
+                timestamp=now + 1.1,
+                metadata={"tool": "terminal"},
+            ),
+            AgentEvent(
+                event_type=EventType.TOOL_CALL_END,
+                timestamp=now + 2.0,
+                metadata={"tool": "terminal"},
+            ),
+            AgentEvent(
+                event_type=EventType.LM_INFERENCE_START,
+                timestamp=now + 2.1,
+            ),
+            AgentEvent(
+                event_type=EventType.LM_INFERENCE_END,
+                timestamp=now + 3.0,
+                metadata={"prompt_tokens": 30, "completion_tokens": 10},
+            ),
+        ]
+
+        turns = runner._build_turn_traces(events, readings=[])
+
+        assert len(turns) == 2
+        assert turns[0].tools_called == ["terminal"]
+        assert turns[0].tool_latencies_s["terminal"] == pytest.approx(0.9)
+        assert turns[0].wall_clock_s == pytest.approx(2.0)
+        assert turns[1].tools_called == []
 
     def test_event_recorder_integration_with_runner(self) -> None:
         """Verify events recorded during agent.run() flow into traces.
@@ -227,6 +329,19 @@ class TestAgenticRunner:
         dataset.__iter__ = MagicMock(return_value=iter(records))
         dataset.size.return_value = 1
         dataset.create_task_env.return_value = mock_env
+        mock_env.run_tests.side_effect = lambda: records[0].dataset_metadata.update(
+            {
+                "is_resolved": True,
+                "test_results": {"parser_results": {"test_one": "passed"}},
+            }
+        )
+        dataset.score.return_value = (
+            True,
+            {
+                "match_type": "test_script",
+                "test_results": {"parser_results": {"test_one": "passed"}},
+            },
+        )
 
         runner = AgenticRunner(
             agent=agent,
@@ -241,6 +356,9 @@ class TestAgenticRunner:
         mock_env.__enter__.assert_called_once()
         mock_env.__exit__.assert_called_once()
         mock_env.run_tests.assert_called_once()
+        dataset.score.assert_called_once()
+        assert traces[0].is_resolved is True
+        assert traces[0].score_metadata["match_type"] == "test_script"
 
     def test_task_env_none_uses_nullcontext(self) -> None:
         """When create_task_env returns None, agent.run() still works."""
@@ -302,6 +420,51 @@ class TestAgenticRunner:
 
         assert len(traces) == 4
         assert all(t.completed for t in traces)
+
+    def test_concurrent_factory_agent_events_flow_into_trace(self) -> None:
+        """Concurrent agents and runner must share the same EventRecorder."""
+
+        class RecordingAgent(BaseAgent):
+            def run(self, input: str, **kwargs) -> AgentRunResult:
+                self._record_event(EventType.LM_INFERENCE_START)
+                self._record_event(
+                    EventType.LM_INFERENCE_END,
+                    prompt_tokens=11,
+                    completion_tokens=7,
+                )
+                return AgentRunResult(content=f"ok: {input}")
+
+        dataset = MagicMock()
+        records = [
+            DatasetRecord(
+                problem=f"Q{i}",
+                answer=f"A{i}",
+                subject="s",
+                dataset_metadata={"dataset_name": "test"},
+            )
+            for i in range(2)
+        ]
+        dataset.__iter__ = MagicMock(return_value=iter(records))
+        dataset.size.return_value = 2
+        dataset.create_task_env.return_value = None
+
+        def make_agent(recorder: EventRecorder) -> BaseAgent:
+            return RecordingAgent(event_recorder=recorder)
+
+        runner = AgenticRunner(
+            agent=RecordingAgent(event_recorder=EventRecorder()),
+            dataset=dataset,
+            config={"model": "test-model"},
+            concurrency=2,
+            agent_factory=make_agent,
+        )
+
+        traces = asyncio.run(runner.run())
+
+        assert len(traces) == 2
+        assert all(trace.num_turns == 1 for trace in traces)
+        assert all(trace.turns[0].input_tokens == 11 for trace in traces)
+        assert all(trace.turns[0].output_tokens == 7 for trace in traces)
 
     def test_concurrent_uses_agent_factory(self) -> None:
         """Verify agent_factory is called for each concurrent task."""
@@ -987,6 +1150,351 @@ class TestAgenticRunner:
         record = runner.records[0]
         metrics = record.model_metrics["local-model"]
         assert metrics.cost.total_cost_usd == 0.0
+
+    def test_mbu_extracted_from_telemetry(self) -> None:
+        """MBU avg and max are extracted from telemetry readings."""
+        agent = MagicMock()
+        agent.run.return_value = AgentRunResult(content="ok")
+
+        dataset = MagicMock()
+        records = [
+            DatasetRecord(
+                problem="Q1", answer="A1", subject="s",
+                dataset_metadata={"dataset_name": "test"},
+            )
+        ]
+        dataset.__iter__ = MagicMock(return_value=iter(records))
+        dataset.size.return_value = 1
+        dataset.create_task_env.return_value = None
+
+        telemetry = MagicMock()
+        telemetry.readings.return_value = []
+        telemetry.window.return_value = iter([
+            TelemetrySample(
+                timestamp=1000.0,
+                reading=TelemetryReading(
+                    power_watts=200.0,
+                    gpu_memory_bandwidth_utilization_pct=40.0,
+                ),
+            ),
+            TelemetrySample(
+                timestamp=1000.5,
+                reading=TelemetryReading(
+                    power_watts=210.0,
+                    gpu_memory_bandwidth_utilization_pct=60.0,
+                ),
+            ),
+            TelemetrySample(
+                timestamp=1001.0,
+                reading=TelemetryReading(
+                    power_watts=220.0,
+                    gpu_memory_bandwidth_utilization_pct=80.0,
+                ),
+            ),
+        ])
+
+        runner = AgenticRunner(
+            agent=agent,
+            dataset=dataset,
+            telemetry_session=telemetry,
+            config={"model": "test-model"},
+        )
+        traces = asyncio.run(runner.run())
+
+        assert len(traces) == 1
+        trace = traces[0]
+        assert trace.query_mbu_avg_pct == pytest.approx(60.0)
+        assert trace.query_mbu_max_pct == pytest.approx(80.0)
+
+    def test_mbu_filters_negative_values(self) -> None:
+        """MBU extraction filters out -1 (unavailable) values."""
+        agent = MagicMock()
+        agent.run.return_value = AgentRunResult(content="ok")
+
+        dataset = MagicMock()
+        records = [
+            DatasetRecord(
+                problem="Q1", answer="A1", subject="s",
+                dataset_metadata={"dataset_name": "test"},
+            )
+        ]
+        dataset.__iter__ = MagicMock(return_value=iter(records))
+        dataset.size.return_value = 1
+        dataset.create_task_env.return_value = None
+
+        telemetry = MagicMock()
+        telemetry.readings.return_value = []
+        telemetry.window.return_value = iter([
+            TelemetrySample(
+                timestamp=1000.0,
+                reading=TelemetryReading(
+                    power_watts=200.0,
+                    gpu_memory_bandwidth_utilization_pct=-1.0,
+                ),
+            ),
+            TelemetrySample(
+                timestamp=1000.5,
+                reading=TelemetryReading(
+                    power_watts=210.0,
+                    gpu_memory_bandwidth_utilization_pct=50.0,
+                ),
+            ),
+            TelemetrySample(
+                timestamp=1001.0,
+                reading=TelemetryReading(
+                    power_watts=220.0,
+                    gpu_memory_bandwidth_utilization_pct=70.0,
+                ),
+            ),
+        ])
+
+        runner = AgenticRunner(
+            agent=agent,
+            dataset=dataset,
+            telemetry_session=telemetry,
+            config={"model": "test-model"},
+        )
+        traces = asyncio.run(runner.run())
+
+        trace = traces[0]
+        # -1 should be filtered out; avg of (50, 70) = 60, max = 70
+        assert trace.query_mbu_avg_pct == pytest.approx(60.0)
+        assert trace.query_mbu_max_pct == pytest.approx(70.0)
+
+    def test_mbu_none_when_no_telemetry(self) -> None:
+        """MBU fields are None when there is no telemetry session."""
+        runner = self._make_runner()
+        traces = asyncio.run(runner.run())
+
+        assert len(traces) == 1
+        assert traces[0].query_mbu_avg_pct is None
+        assert traces[0].query_mbu_max_pct is None
+
+    def test_mbu_none_when_all_values_unavailable(self) -> None:
+        """MBU fields are None when all readings have -1 (unavailable)."""
+        agent = MagicMock()
+        agent.run.return_value = AgentRunResult(content="ok")
+
+        dataset = MagicMock()
+        records = [
+            DatasetRecord(
+                problem="Q1", answer="A1", subject="s",
+                dataset_metadata={"dataset_name": "test"},
+            )
+        ]
+        dataset.__iter__ = MagicMock(return_value=iter(records))
+        dataset.size.return_value = 1
+        dataset.create_task_env.return_value = None
+
+        telemetry = MagicMock()
+        telemetry.readings.return_value = []
+        telemetry.window.return_value = iter([
+            TelemetrySample(
+                timestamp=1000.0,
+                reading=TelemetryReading(
+                    power_watts=200.0,
+                    gpu_memory_bandwidth_utilization_pct=-1.0,
+                ),
+            ),
+            TelemetrySample(
+                timestamp=1001.0,
+                reading=TelemetryReading(
+                    power_watts=220.0,
+                    gpu_memory_bandwidth_utilization_pct=-1.0,
+                ),
+            ),
+        ])
+
+        runner = AgenticRunner(
+            agent=agent,
+            dataset=dataset,
+            telemetry_session=telemetry,
+            config={"model": "test-model"},
+        )
+        traces = asyncio.run(runner.run())
+
+        trace = traces[0]
+        assert trace.query_mbu_avg_pct is None
+        assert trace.query_mbu_max_pct is None
+
+    def test_mbu_none_when_field_missing_from_readings(self) -> None:
+        """MBU fields are None when readings don't have the MBU field at all."""
+        agent = MagicMock()
+        agent.run.return_value = AgentRunResult(content="ok")
+
+        dataset = MagicMock()
+        records = [
+            DatasetRecord(
+                problem="Q1", answer="A1", subject="s",
+                dataset_metadata={"dataset_name": "test"},
+            )
+        ]
+        dataset.__iter__ = MagicMock(return_value=iter(records))
+        dataset.size.return_value = 1
+        dataset.create_task_env.return_value = None
+
+        telemetry = MagicMock()
+        telemetry.readings.return_value = []
+        telemetry.window.return_value = iter([
+            TelemetrySample(
+                timestamp=1000.0,
+                reading=TelemetryReading(power_watts=200.0),
+            ),
+            TelemetrySample(
+                timestamp=1001.0,
+                reading=TelemetryReading(power_watts=220.0),
+            ),
+        ])
+
+        runner = AgenticRunner(
+            agent=agent,
+            dataset=dataset,
+            telemetry_session=telemetry,
+            config={"model": "test-model"},
+        )
+        traces = asyncio.run(runner.run())
+
+        trace = traces[0]
+        assert trace.query_mbu_avg_pct is None
+        assert trace.query_mbu_max_pct is None
+
+    def test_is_resolved_populated_when_dataset_has_score(self) -> None:
+        """When a dataset provides a score() method, AgenticRunner calls it
+        and the resulting is_resolved value appears on the QueryTrace."""
+        agent = MagicMock()
+        agent.run.return_value = AgentRunResult(content="42")
+
+        dataset = MagicMock()
+        records = [
+            DatasetRecord(
+                problem="What is 6*7?",
+                answer="42",
+                subject="math",
+                dataset_metadata={"dataset_name": "test"},
+            )
+        ]
+        dataset.__iter__ = MagicMock(return_value=iter(records))
+        dataset.size.return_value = 1
+        # create_task_env returns None so the elif-score branch is taken
+        dataset.create_task_env.return_value = None
+        # score() returns (True, {}) indicating a correct answer
+        dataset.score.return_value = (True, {})
+
+        runner = AgenticRunner(
+            agent=agent,
+            dataset=dataset,
+            config={"model": "test-model"},
+        )
+        traces = asyncio.run(runner.run())
+
+        assert len(traces) == 1
+        assert traces[0].is_resolved is True
+        dataset.score.assert_called_once()
+
+    def test_is_resolved_false_when_score_returns_false(self) -> None:
+        """When dataset.score() returns False, is_resolved is False on the trace."""
+        agent = MagicMock()
+        agent.run.return_value = AgentRunResult(content="wrong answer")
+
+        dataset = MagicMock()
+        records = [
+            DatasetRecord(
+                problem="What is 6*7?",
+                answer="42",
+                subject="math",
+                dataset_metadata={"dataset_name": "test"},
+            )
+        ]
+        dataset.__iter__ = MagicMock(return_value=iter(records))
+        dataset.size.return_value = 1
+        dataset.create_task_env.return_value = None
+        dataset.score.return_value = (False, {})
+
+        runner = AgenticRunner(
+            agent=agent,
+            dataset=dataset,
+            config={"model": "test-model"},
+        )
+        traces = asyncio.run(runner.run())
+
+        assert len(traces) == 1
+        assert traces[0].is_resolved is False
+
+    def test_is_resolved_none_when_no_score_method(self) -> None:
+        """When dataset has no score() method, is_resolved remains None."""
+        agent = MagicMock()
+        agent.run.return_value = AgentRunResult(content="answer")
+
+        dataset = MagicMock()
+        records = [
+            DatasetRecord(
+                problem="Q", answer="A", subject="s",
+                dataset_metadata={"dataset_name": "test"},
+            )
+        ]
+        dataset.__iter__ = MagicMock(return_value=iter(records))
+        dataset.size.return_value = 1
+        dataset.create_task_env.return_value = None
+        # Remove the auto-generated score attribute so hasattr returns False
+        del dataset.score
+
+        runner = AgenticRunner(
+            agent=agent,
+            dataset=dataset,
+            config={"model": "test-model"},
+        )
+        traces = asyncio.run(runner.run())
+
+        assert len(traces) == 1
+        assert traces[0].is_resolved is None
+
+    def test_mbu_zero_value_included(self) -> None:
+        """MBU value of 0.0 is valid and should be included (not filtered)."""
+        agent = MagicMock()
+        agent.run.return_value = AgentRunResult(content="ok")
+
+        dataset = MagicMock()
+        records = [
+            DatasetRecord(
+                problem="Q1", answer="A1", subject="s",
+                dataset_metadata={"dataset_name": "test"},
+            )
+        ]
+        dataset.__iter__ = MagicMock(return_value=iter(records))
+        dataset.size.return_value = 1
+        dataset.create_task_env.return_value = None
+
+        telemetry = MagicMock()
+        telemetry.readings.return_value = []
+        telemetry.window.return_value = iter([
+            TelemetrySample(
+                timestamp=1000.0,
+                reading=TelemetryReading(
+                    power_watts=200.0,
+                    gpu_memory_bandwidth_utilization_pct=0.0,
+                ),
+            ),
+            TelemetrySample(
+                timestamp=1001.0,
+                reading=TelemetryReading(
+                    power_watts=220.0,
+                    gpu_memory_bandwidth_utilization_pct=100.0,
+                ),
+            ),
+        ])
+
+        runner = AgenticRunner(
+            agent=agent,
+            dataset=dataset,
+            telemetry_session=telemetry,
+            config={"model": "test-model"},
+        )
+        traces = asyncio.run(runner.run())
+
+        trace = traces[0]
+        # 0.0 is valid (>= 0); avg of (0, 100) = 50, max = 100
+        assert trace.query_mbu_avg_pct == pytest.approx(50.0)
+        assert trace.query_mbu_max_pct == pytest.approx(100.0)
 
 
 class TestEnergyHelpers:

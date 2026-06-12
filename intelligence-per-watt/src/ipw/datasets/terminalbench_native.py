@@ -74,11 +74,12 @@ class TerminalBenchNativeDataset(DatasetProvider):
 
         from terminal_bench.dataset import Dataset as TBDataset
 
+        self._n_tasks = n_tasks
         if path is not None:
-            self._tb_dataset = TBDataset(path=Path(path), task_ids=task_ids, n_tasks=n_tasks)
+            self._tb_dataset = TBDataset(path=Path(path), task_ids=task_ids, n_tasks=None)
         else:
             self._tb_dataset = TBDataset(
-                name=name, version=version, task_ids=task_ids, n_tasks=n_tasks
+                name=name, version=version, task_ids=task_ids, n_tasks=None
             )
         self._records: tuple[DatasetRecord, ...] = tuple(self._build_records())
 
@@ -140,8 +141,14 @@ class TerminalBenchNativeDataset(DatasetProvider):
 
         records: list[DatasetRecord] = []
 
+        # TB Dataset.tasks may be derived from a set upstream. Sort before
+        # applying n_tasks so every harness/model sees the same task subset.
+        task_dirs = sorted(self._tb_dataset.tasks, key=lambda path: path.name)
+        if self._n_tasks is not None:
+            task_dirs = task_dirs[: self._n_tasks]
+
         # TB Dataset.tasks is a list[Path] of task directories
-        for task_dir in self._tb_dataset.tasks:
+        for task_dir in task_dirs:
             try:
                 task_paths = TaskPaths(task_dir)
                 task = Task.from_yaml(task_paths.task_config_path)

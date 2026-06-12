@@ -90,6 +90,8 @@ class WildChatDataset(DatasetProvider):
             record = self._convert_row(raw, idx)
             if record is not None:
                 records.append(record)
+                if self._max_samples is not None and len(records) >= self._max_samples:
+                    break
         return records
 
     def _load_raw_rows(self) -> Sequence[MutableMapping[str, object]]:
@@ -99,8 +101,6 @@ class WildChatDataset(DatasetProvider):
             rows = dataset.to_list()
         else:
             rows = list(dataset)
-        if self._max_samples is not None:
-            rows = rows[: self._max_samples]
         normalized: list[MutableMapping[str, object]] = []
         for row in rows:
             if isinstance(row, MutableMapping):

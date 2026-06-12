@@ -1,153 +1,143 @@
 # Installation
 
-## Prerequisites
+## Requirements
 
-Before installing Intelligence Per Watt, ensure you have:
+| Requirement | Version | Purpose |
+|-------------|---------|---------|
+| Python | >= 3.13 | Runtime |
+| [uv](https://docs.astral.sh/uv/) | latest | Package management |
+| [Rust](https://www.rust-lang.org/tools/install) | stable | Building the energy monitor |
+| [protoc](https://protobuf.dev/installation/) | >= 3.0 | Protocol Buffer compiler for gRPC |
 
-- **Python >= 3.13** -- managed with [uv](https://docs.astral.sh/uv/)
-- **Rust compiler** -- for building the energy monitor ([install](https://www.rust-lang.org/tools/install))
-- **Protocol Buffer compiler** (`protoc`) -- for gRPC proto compilation ([install](https://protobuf.dev/installation/))
-- **An inference runtime** -- [Ollama](https://ollama.ai/) or [vLLM](https://docs.vllm.ai/) for local models, or an OpenAI-compatible API
+## Install
 
-See [Prerequisites](prerequisites.md) for platform-specific details.
+=== "Quick Setup"
 
-## Quick Setup (Automated)
+    ```bash
+    git clone https://github.com/HazyResearch/intelligence-per-watt.git
+    cd intelligence-per-watt
+    bash intelligence-per-watt/scripts/setup.sh   # (1)!
+    source .venv/bin/activate
+    ```
 
-An automated setup script handles virtual environment creation, package installation, and energy monitor build:
+    1. Auto-installs `uv`, creates a Python 3.13 venv, installs the package, and builds the energy monitor. Pass extras as arguments: `bash intelligence-per-watt/scripts/setup.sh ollama react`
 
-```bash
-git clone https://github.com/HazyResearch/intelligence-per-watt.git
-cd intelligence-per-watt
-bash intelligence-per-watt/scripts/setup.sh
-source .venv/bin/activate
-```
+=== "Manual"
 
-The script auto-installs `uv` if missing, creates a Python 3.13 virtual environment, installs the package, and builds the energy monitor (if Rust and protoc are available). Pass extras as arguments:
+    ```bash
+    git clone https://github.com/HazyResearch/intelligence-per-watt.git
+    cd intelligence-per-watt
+    uv venv && source .venv/bin/activate
+    uv run scripts/build_energy_monitor.py
+    uv pip install -e intelligence-per-watt
+    ```
 
-```bash
-bash intelligence-per-watt/scripts/setup.sh ollama react
-```
+=== "From Source"
 
-## Manual Setup
+    ```bash
+    git clone https://github.com/HazyResearch/intelligence-per-watt.git
+    cd intelligence-per-watt
+    uv venv && source .venv/bin/activate
+    cd energy-monitor && cargo build --release && cd ..
+    uv pip install -e intelligence-per-watt
+    ```
 
-Clone the repository and set up the Python environment step by step:
+### Extras
 
-```bash
-git clone https://github.com/HazyResearch/intelligence-per-watt.git
-cd intelligence-per-watt
-
-# Create and activate virtual environment
-uv venv
-source .venv/bin/activate
-
-# Build the Rust energy monitor and stage the binary
-uv run scripts/build_energy_monitor.py
-
-# Install the base package
-uv pip install -e intelligence-per-watt
-```
-
-The base install includes the CLI (`ipw`), core profiling engine, telemetry collector, and analysis tools. Inference clients and agent harnesses are installed separately as extras.
-
-## Extras
-
-IPW uses optional dependencies to keep the base install lightweight. Install each extra you need:
-
-### Inference Clients
+Install only what you need:
 
 ```bash
-# Ollama client
-uv pip install -e 'intelligence-per-watt[ollama]'
-
-# vLLM offline client
-uv pip install -e 'intelligence-per-watt[vllm]'
+uv pip install -e 'intelligence-per-watt[ollama]'     # Ollama client
+uv pip install -e 'intelligence-per-watt[vllm]'       # vLLM offline client
+uv pip install -e 'intelligence-per-watt[react]'      # ReAct agent (Agno)
+uv pip install -e 'intelligence-per-watt[openhands]'   # OpenHands agent
+uv pip install -e 'intelligence-per-watt[terminus]'    # Terminus agent
+uv pip install -e 'intelligence-per-watt[agents]'     # All agents
+uv pip install -e 'intelligence-per-watt[tavily]'     # Tavily web search
+uv pip install -e 'intelligence-per-watt[flops]'      # FLOPs estimation
+uv pip install -e 'intelligence-per-watt[all]'        # Everything
 ```
 
-The OpenAI client (used for LLM judge evaluation) ships with the base install.
+## Platform Setup
 
-### Agent Harnesses
+=== "NVIDIA"
 
-```bash
-# ReAct agent (Agno framework)
-uv pip install -e 'intelligence-per-watt[react]'
+    Requires NVIDIA driver >= 525 (NVML ships with it).
 
-# OpenHands agent (SDK)
-uv pip install -e 'intelligence-per-watt[openhands]'
+    Telemetry: GPU power, energy, temperature, memory, utilization, tensor core utilization (Ampere+). Optional CPU energy via RAPL.
 
-# Terminus agent (Docker + tmux terminal agent)
-uv pip install -e 'intelligence-per-watt[terminus]'
+    ```bash
+    # Enable RAPL CPU energy (optional, as root)
+    chmod o+r /sys/class/powercap/intel-rapl/intel-rapl:0/energy_uj
+    ```
 
-# All agents at once
-uv pip install -e 'intelligence-per-watt[agents]'
-```
+=== "AMD"
 
-### Additional Features
+    Requires ROCm >= 5.0 with `rocm-smi` accessible.
 
-```bash
-# Tavily web search tool for agents
-uv pip install -e 'intelligence-per-watt[tavily]'
+    Telemetry: GPU power, energy, temperature, memory, utilization. Optional CPU energy via RAPL.
 
-# FLOPs estimation via calflops
-uv pip install -e 'intelligence-per-watt[flops]'
+=== "Apple Silicon"
 
-# Documentation site dependencies
-uv pip install -e 'intelligence-per-watt[docs]'
+    Requires macOS 13+ on M1/M2/M3/M4 with `sudo` access.
 
-# Everything (all clients, agents, and tools)
-uv pip install -e 'intelligence-per-watt[all]'
-```
+    Telemetry: GPU, CPU, and ANE power/energy via `powermetrics`. CPU memory usage.
 
-## Building the Energy Monitor
+    !!! note
+        No GPU memory or utilization reporting (Apple Unified Memory). Requires password or passwordless sudo for `powermetrics`.
 
-The energy monitor is a Rust gRPC service that must be compiled for your platform. The build script handles compilation and stages the binary into the Python package:
+=== "Linux CPU-only"
 
-```bash
-uv run scripts/build_energy_monitor.py
-```
+    Falls back to RAPL for CPU energy, or a null collector (memory only) if RAPL is unavailable.
 
-This compiles the Rust binary from `energy-monitor/` and places it at `intelligence-per-watt/src/ipw/telemetry/bin/<platform>/energy-monitor`.
+    ```bash
+    # Load RAPL kernel module if needed
+    sudo modprobe intel_rapl_common
+    ```
 
-To verify the energy monitor works on your system:
+## Inference Runtime
 
-```bash
-uv run scripts/test_energy_monitor.py [--interval 2.0]
-```
+=== "Ollama"
+
+    ```bash
+    curl -fsSL https://ollama.ai/install.sh | sh
+    ollama pull llama3.2:1b
+    ollama serve
+    ```
+
+=== "vLLM"
+
+    ```bash
+    pip install vllm  # Requires NVIDIA GPU
+    vllm serve meta-llama/Llama-3.1-8B-Instruct --port 8000
+    ```
+
+=== "OpenAI API"
+
+    No local setup needed -- set your API key:
+
+    ```bash
+    export OPENAI_API_KEY=sk-...
+    ```
 
 ## Environment Variables
 
-Create a `.env` file in the project root for API keys:
+Create a `.env` file in the project root (loaded automatically via `python-dotenv`):
 
 ```bash
-# Required for LLM judge evaluation (accuracy scoring)
-IPW_EVAL_API_KEY=sk-...
-# Or use the OpenAI key directly
+# Required for LLM judge evaluation
 OPENAI_API_KEY=sk-...
 
-# Optional: Anthropic API key (for Anthropic-hosted models)
-ANTHROPIC_API_KEY=sk-ant-...
-
-# Optional: Tavily API key (for web search tools in agents)
-TAVILY_API_KEY=tvly-...
+# Optional
+ANTHROPIC_API_KEY=sk-ant-...   # Anthropic models
+TAVILY_API_KEY=tvly-...        # Web search in agents
 ```
 
-IPW loads `.env` automatically via `python-dotenv`.
-
-## Verifying the Installation
-
-After installation, verify everything is working:
+## Verify Installation
 
 ```bash
-# Check the CLI is available
-ipw --help
-
-# List available components
-ipw list all
-
-# Run the test suite (all tests should pass)
-pytest intelligence-per-watt
-
-# Test energy monitoring on your hardware
-uv run scripts/test_energy_monitor.py
+ipw --help                              # CLI available
+ipw list all                            # Registered components
+uv run scripts/test_energy_monitor.py   # Hardware telemetry
+pytest intelligence-per-watt            # Test suite
 ```
-
-If `pytest` reports failures, check that your Python version is >= 3.13 and all dependencies are installed. Platform-specific integration tests (NVIDIA, AMD, Apple) are automatically skipped on unsupported hardware.

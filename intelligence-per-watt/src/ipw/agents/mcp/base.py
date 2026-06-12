@@ -46,7 +46,7 @@ class MCPToolResult:
     content: str
     """Response text from tool/model"""
 
-    usage: Dict[str, int] = field(default_factory=dict)
+    usage: Dict[str, Optional[int]] = field(default_factory=dict)
     """Token counts: prompt_tokens, completion_tokens, total_tokens"""
 
     cost_usd: Optional[float] = None

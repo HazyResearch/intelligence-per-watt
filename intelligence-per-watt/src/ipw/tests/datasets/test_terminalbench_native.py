@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import sys
+import types
 from unittest.mock import MagicMock, patch
 
 from ipw.core.types import DatasetRecord
@@ -102,6 +104,66 @@ class TestTerminalBenchNativeDataset:
                 )
                 is_correct, details = ds.score(record, "output")
                 assert is_correct is False
+
+    def test_init_sorts_tasks_before_limiting(self, tmp_path, monkeypatch) -> None:
+        """n_tasks should select a deterministic sorted task prefix."""
+        task_dirs = []
+        for name in ["z-task", "a-task", "m-task"]:
+            task_dir = tmp_path / name
+            task_dir.mkdir()
+            task_dirs.append(task_dir)
+
+        created_kwargs = {}
+
+        class FakeTBDataset:
+            def __init__(self, **kwargs):
+                created_kwargs.update(kwargs)
+                self.tasks = task_dirs
+
+        class FakeTaskPaths:
+            def __init__(self, task_dir):
+                self.task_config_path = task_dir / "task.yaml"
+                self.run_tests_path = task_dir / "run-tests.sh"
+                self.test_dir = task_dir / "tests"
+
+        class FakeTask:
+            @staticmethod
+            def from_yaml(path):
+                return types.SimpleNamespace(
+                    instruction=path.parent.name,
+                    max_agent_timeout_sec=60,
+                    max_test_timeout_sec=60,
+                    parser_name="pytest",
+                    category="cat",
+                    difficulty=types.SimpleNamespace(value="easy"),
+                    run_tests_in_same_shell=False,
+                    disable_asciinema=True,
+                )
+
+        terminal_bench = types.ModuleType("terminal_bench")
+        dataset_mod = types.ModuleType("terminal_bench.dataset")
+        dataset_mod.Dataset = FakeTBDataset
+        handlers_mod = types.ModuleType("terminal_bench.handlers")
+        trial_mod = types.ModuleType("terminal_bench.handlers.trial_handler")
+        trial_mod.Task = FakeTask
+        trial_mod.TaskPaths = FakeTaskPaths
+
+        monkeypatch.setitem(sys.modules, "terminal_bench", terminal_bench)
+        monkeypatch.setitem(sys.modules, "terminal_bench.dataset", dataset_mod)
+        monkeypatch.setitem(sys.modules, "terminal_bench.handlers", handlers_mod)
+        monkeypatch.setitem(
+            sys.modules, "terminal_bench.handlers.trial_handler", trial_mod
+        )
+
+        from ipw.datasets.terminalbench_native import TerminalBenchNativeDataset
+
+        ds = TerminalBenchNativeDataset(path=str(tmp_path), n_tasks=2)
+
+        assert created_kwargs["n_tasks"] is None
+        assert [record.dataset_metadata["task_id"] for record in ds.iter_records()] == [
+            "a-task",
+            "m-task",
+        ]
 
 
 class TestTerminalBenchNativeEvalHandler:

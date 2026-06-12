@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import click
 
-from ipw.core.registry import AnalysisRegistry, ClientRegistry, DatasetRegistry, VisualizationRegistry
+from ipw.core.registry import AgentRegistry, AnalysisRegistry, ClientRegistry, DatasetRegistry, VisualizationRegistry
 
 from ._console import error, info
 
@@ -60,6 +60,32 @@ def list_datasets() -> None:
         info(f"  {dataset_id}")
 
 
+@list_cmd.command("agents", help="List available agent harnesses")
+def list_agents() -> None:
+    """List all registered agent harnesses."""
+    from ipw.agents import dspy_rlm as _dspy_rlm  # noqa: F401
+    from ipw.agents import forgecode as _forgecode  # noqa: F401
+    from ipw.agents import react as _react  # noqa: F401
+
+    try:
+        from ipw.agents import openhands as _openhands  # noqa: F401
+    except ImportError:
+        pass
+    try:
+        from ipw.agents import terminus as _terminus  # noqa: F401
+        from ipw.agents import terminus_tb as _terminus_tb  # noqa: F401
+    except ImportError:
+        pass
+
+    items = AgentRegistry.items()
+    if not items:
+        error("No agents registered")
+        return
+    info("Agents:")
+    for agent_id, agent_cls in items:
+        info(f"  {agent_id}")
+
+
 @list_cmd.command("analyses", help="List available analysis providers")
 def list_analyses() -> None:
     """List all registered analysis providers."""
@@ -104,6 +130,8 @@ def list_all() -> None:
     ctx.invoke(list_clients)
     info("")
     ctx.invoke(list_datasets)
+    info("")
+    ctx.invoke(list_agents)
     info("")
     ctx.invoke(list_analyses)
     info("")

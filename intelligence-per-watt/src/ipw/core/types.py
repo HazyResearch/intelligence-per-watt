@@ -12,9 +12,9 @@ if TYPE_CHECKING:
 class ChatUsage:
     """Token accounting for a chat exchange."""
 
-    prompt_tokens: int
-    completion_tokens: int
-    total_tokens: int
+    prompt_tokens: int | None
+    completion_tokens: int | None
+    total_tokens: int | None
 
 
 @dataclass(slots=True)
@@ -119,9 +119,9 @@ class AgentRunResult:
     tool_calls_succeeded: int = 0
     tool_names_used: list[str] = field(default_factory=list)
     num_turns: int = 0
-    input_tokens: int = 0
-    output_tokens: int = 0
-    cost_usd: float = 0.0
+    input_tokens: int | None = None
+    output_tokens: int | None = None
+    cost_usd: float | None = None
     trace: "QueryTrace | None" = None
     metadata: dict[str, Any] = field(default_factory=dict)
 

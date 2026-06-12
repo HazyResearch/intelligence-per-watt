@@ -147,15 +147,15 @@ class TestQueryTrace:
         )
         assert trace.total_gpu_energy_joules == 42.0
 
-    def test_query_level_gpu_energy_not_used_when_turns_have_energy(self) -> None:
-        """Per-turn energy takes precedence over query-level energy."""
+    def test_query_level_gpu_energy_used_when_turns_have_energy(self) -> None:
+        """Query-level energy is authoritative when available."""
         trace = QueryTrace(
             query_id="q0",
             workload_type="test",
             turns=[TurnTrace(turn_index=0, gpu_energy_joules=10.0)],
             query_gpu_energy_joules=42.0,
         )
-        assert trace.total_gpu_energy_joules == 10.0
+        assert trace.total_gpu_energy_joules == 42.0
 
     def test_total_cpu_energy_joules_from_turns(self) -> None:
         trace = QueryTrace(
@@ -416,6 +416,33 @@ class TestQueryTrace:
             turns=[TurnTrace(turn_index=0, gpu_energy_joules=10.0)],
         )
         assert trace.energy_per_token_joules is None
+
+    def test_mbu_fields_default_none(self) -> None:
+        trace = QueryTrace(query_id="q0", workload_type="test")
+        assert trace.query_mbu_avg_pct is None
+        assert trace.query_mbu_max_pct is None
+
+    def test_mbu_fields_in_to_dict(self) -> None:
+        trace = QueryTrace(
+            query_id="q0",
+            workload_type="test",
+            query_mbu_avg_pct=45.5,
+            query_mbu_max_pct=78.2,
+        )
+        d = trace.to_dict()
+        assert d["query_mbu_avg_pct"] == 45.5
+        assert d["query_mbu_max_pct"] == 78.2
+
+    def test_mbu_fields_roundtrip(self) -> None:
+        trace = QueryTrace(
+            query_id="q0",
+            workload_type="test",
+            query_mbu_avg_pct=33.3,
+            query_mbu_max_pct=99.9,
+        )
+        restored = QueryTrace.from_dict(trace.to_dict())
+        assert restored.query_mbu_avg_pct == pytest.approx(33.3)
+        assert restored.query_mbu_max_pct == pytest.approx(99.9)
 
     def test_to_hf_dataset(self) -> None:
         try:

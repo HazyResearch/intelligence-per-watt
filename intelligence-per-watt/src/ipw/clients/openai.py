@@ -144,10 +144,20 @@ class OpenAIClient(InferenceClient):
             raise RuntimeError("OpenAIClient received non-JSON response") from exc
 
         choices = data.get("choices") or []
+        usage = data.get("usage") or {}
+        prompt_tokens = usage.get("prompt_tokens")
+        completion_tokens = usage.get("completion_tokens")
+        total_tokens = usage.get("total_tokens")
+        if (
+            total_tokens is None
+            and prompt_tokens is not None
+            and completion_tokens is not None
+        ):
+            total_tokens = int(prompt_tokens) + int(completion_tokens)
         if not choices:
             return Response(
                 content="",
-                usage=ChatUsage(0, 0, 0),
+                usage=ChatUsage(prompt_tokens, completion_tokens, total_tokens),
                 time_to_first_token_ms=0.0,
             )
 
@@ -157,7 +167,7 @@ class OpenAIClient(InferenceClient):
 
         return Response(
             content=content,
-            usage=ChatUsage(0, 0, 0),
+            usage=ChatUsage(prompt_tokens, completion_tokens, total_tokens),
             time_to_first_token_ms=0.0,
         )
 

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 from contextlib import contextmanager
 from typing import Iterable, Optional, Tuple
 
@@ -13,16 +14,30 @@ from .launcher import DEFAULT_TARGET, ensure_monitor, normalize_target, wait_for
 from .proto import get_stub_bundle
 
 
+def _default_target_for_visible_gpu() -> str:
+    """Use a stable per-H100 monitor port when a run is GPU-pinned."""
+
+    visible = os.getenv("CUDA_VISIBLE_DEVICES", "").strip()
+    if "," in visible:
+        return DEFAULT_TARGET
+    try:
+        gpu_index = int(visible)
+    except ValueError:
+        return DEFAULT_TARGET
+    return f"127.0.0.1:{50053 + gpu_index}"
+
+
 class EnergyMonitorCollector:
     collector_name = "Energy Monitor"
 
     def __init__(
         self,
-        target: str = DEFAULT_TARGET,
+        target: str | None = None,
         *,
         channel_options: Optional[Tuple[Tuple[str, str], ...]] = None,
         timeout: float = 5.0,
     ) -> None:
+        target = target or os.getenv("IPW_ENERGY_MONITOR_TARGET") or _default_target_for_visible_gpu()
         self._target = normalize_target(target or DEFAULT_TARGET)
         self._channel_options = channel_options or ()
         self._timeout = timeout
@@ -35,7 +50,8 @@ class EnergyMonitorCollector:
 
     @classmethod
     def is_available(cls) -> bool:
-        return wait_for_ready(DEFAULT_TARGET, timeout=1.0)
+        target = os.getenv("IPW_ENERGY_MONITOR_TARGET") or _default_target_for_visible_gpu()
+        return wait_for_ready(target, timeout=1.0)
 
     def stream_readings(self) -> Iterable[TelemetryReading]:
         channel = grpc.insecure_channel(self._target, options=self._channel_options)
@@ -102,6 +118,9 @@ class EnergyMonitorCollector:
             ),
             cpu_energy_joules=_safe_float(
                 getattr(message, "cpu_energy_joules", None)
+            ),
+            gpu_memory_bandwidth_utilization_pct=_safe_float(
+                getattr(message, "gpu_memory_bandwidth_utilization_pct", None)
             ),
             platform=getattr(message, "platform", None),
             timestamp_nanos=getattr(message, "timestamp_nanos", None),

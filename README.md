@@ -3,7 +3,7 @@
 </p>
 
 <p align="center">
-  <b>Benchmarking intelligence efficiency for LLM inference systems.</b>
+  <b>Benchmarking Intelligence Efficiency of LM Inference.</b>
 </p>
 
 <p align="center">
@@ -29,15 +29,9 @@ Intelligence Per Watt measures **accuracy alongside energy** for any LLM inferen
 - **protoc** -- Protocol Buffer compiler ([install](https://grpc.io/docs/protoc-installation/))
 - **An inference runtime** -- [Ollama](https://ollama.ai/), [vLLM](https://docs.vllm.ai/), or an OpenAI-compatible API
 
-See [Prerequisites](https://hazyresearch.stanford.edu/intelligence-per-watt/getting-started/prerequisites/) for platform-specific setup (NVIDIA NVML, AMD ROCm, Apple Silicon, Linux RAPL).
+See [Prerequisites](https://hazyresearch.stanford.edu/intelligence-per-watt/getting-started/installation/) for platform-specific setup (NVIDIA NVML, AMD ROCm, Apple Silicon, Linux RAPL).
 
 ## Installation
-
-```bash
-pip install intelligence-per-watt
-```
-
-Or from source:
 
 ```bash
 git clone https://github.com/HazyResearch/intelligence-per-watt.git
@@ -123,7 +117,7 @@ All components self-register via the **registry pattern** (`@ClientRegistry.regi
 
 ## About
 
-[Intelligence Per Watt](https://www.intelligence-per-watt.ai/) is a research initiative studying the efficiency of on-device AI systems. The project is developed at [Hazy Research](https://hazyresearch.stanford.edu/) and the [Scaling Intelligence Lab](https://scalingintelligence.stanford.edu/) at [Stanford SAIL](https://ai.stanford.edu/).
+[Intelligence Per Watt](https://www.intelligence-per-watt.ai/) is a research initiative studying the intelligence efficiency of AI systems. The project is developed at [Hazy Research](https://hazyresearch.stanford.edu/) and the [Scaling Intelligence Lab](https://scalingintelligence.stanford.edu/) at [Stanford SAIL](https://ai.stanford.edu/).
 
 ## Sponsors
 
@@ -131,7 +125,10 @@ All components self-register via the **registry pattern** (`@ClientRegistry.regi
   <a href="https://www.laude.org/">Laude Institute</a> &bull;
   <a href="https://datascience.stanford.edu/marlowe">Stanford Marlowe</a> &bull;
   <a href="https://cloud.google.com/">Google Cloud Platform</a> &bull;
-  <a href="https://lambda.ai/">Lambda Labs</a>
+  <a href="https://lambda.ai/">Lambda Labs</a> &bull;
+  <a href="https://hai.stanford.edu/">Stanford HAI</a> &bull;
+  <a href="https://research.ibm.com/">IBM Research</a> &bull;
+  <a href="https://ollama.com/">Ollama</a>
 </p>
 
 ## Citation

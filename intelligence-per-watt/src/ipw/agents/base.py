@@ -2,12 +2,16 @@
 
 from __future__ import annotations
 
+import os
+import time
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, MutableMapping, Optional
 
 if TYPE_CHECKING:
     from ipw.agents.mcp.base import BaseMCPServer
+    from ipw.execution.executor import ExecutorContext, TurnOutput
     from ipw.telemetry.events import EventRecorder
+    from ipw.tools.base import ToolCallMode
 
 
 class BaseAgent:
@@ -29,6 +33,7 @@ class BaseAgent:
         self.mcp_tools = mcp_tools or {}
         self.event_recorder = event_recorder
         self._artifact_dir = artifact_dir
+        self._task_metadata: Optional[MutableMapping[str, Any]] = None
 
     @property
     def artifact_dir(self) -> Optional[Path]:
@@ -49,8 +54,39 @@ class BaseAgent:
         """Receive per-task metadata before ``run()``.
 
         Override in agents that need access to task-level information such as
-        a tmux session for TerminalBench environments.  Default is a no-op.
+        a tmux session for TerminalBench environments.
         """
+        self._task_metadata = metadata
+
+    def _terminal_session(self) -> Any | None:
+        if not self._task_metadata:
+            return None
+        return self._task_metadata.get("session")
+
+    def _execute_terminal_session_command(self, command: str) -> str:
+        """Send a command to a TerminalBench tmux session and return pane text."""
+        session = self._terminal_session()
+        if session is None:
+            raise RuntimeError("No TerminalBench session is available")
+
+        command_text = str(command).strip()
+        if not command_text:
+            return "Error: no terminal command provided"
+
+        try:
+            session.send_keys([command_text, "Enter"], block=False)
+        except TypeError:
+            session.send_keys(command_text, block=False)
+
+        settle_seconds = float(os.getenv("IPW_TERMINAL_TOOL_SETTLE_SECONDS", "1.0"))
+        if settle_seconds > 0:
+            time.sleep(settle_seconds)
+
+        output = session.capture_pane(capture_entire=True)
+        max_chars = int(os.getenv("IPW_TERMINAL_TOOL_MAX_CHARS", "2500"))
+        if max_chars and len(output) > max_chars:
+            return output[-max_chars:] + "\n... (terminal pane truncated to latest output)"
+        return output
 
     def run(self, input: str, **kwargs: Any) -> Any:
         """Run the agent.
@@ -66,3 +102,24 @@ class BaseAgent:
             NotImplementedError: Subclasses must implement this method.
         """
         raise NotImplementedError("Subclasses must implement the run method")
+
+
+class ToolUsingAgent(BaseAgent):
+    """Base class for native agents driven by the Executor.
+
+    Subclasses implement `async def step(context) -> TurnOutput`. The Executor
+    owns the turn loop, retry, parallel tool dispatch, and bus telemetry.
+
+    The legacy `BaseAgent.run()` API is preserved for wrapper agents (OpenHands,
+    Terminus). Native agents should be invoked through the Executor — not via
+    run() — for the full semantics.
+    """
+
+    # Subclasses override these class-level attributes.
+    tool_mode: "ToolCallMode | None" = None
+    tools: list = []
+
+    async def step(self, context: "ExecutorContext") -> "TurnOutput":
+        raise NotImplementedError(
+            "ToolUsingAgent subclasses must implement step(context) -> TurnOutput"
+        )

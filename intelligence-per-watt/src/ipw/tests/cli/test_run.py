@@ -8,6 +8,38 @@ import pytest
 from click.testing import CliRunner
 
 from ipw.cli import cli
+from ipw.cli.run import _default_mcp_tool_spec_for_dataset, _is_cloud_model
+
+
+class TestIsCloudModel:
+    """Test cloud model detection logic."""
+
+    def test_anthropic_prefix_is_cloud(self) -> None:
+        assert _is_cloud_model("anthropic/claude-opus-4-6", "http://localhost:8000") is True
+
+    def test_gemini_prefix_is_cloud(self) -> None:
+        assert _is_cloud_model("gemini/gemini-3.1-pro", "http://localhost:8000") is True
+
+    def test_openai_prefix_with_localhost_is_local(self) -> None:
+        # openai/ prefix + localhost = local vLLM server, not cloud OpenAI
+        assert _is_cloud_model("openai/gpt-oss-120b", "http://localhost:8000") is False
+
+    def test_openai_prefix_with_custom_url_is_cloud(self) -> None:
+        # openai/ prefix + non-local URL = cloud OpenAI
+        assert _is_cloud_model("openai/gpt-5.4", "http://my-server:8000") is True
+
+    def test_bare_model_with_localhost_is_local(self) -> None:
+        assert _is_cloud_model("llama3.2:1b", "http://localhost:8000") is False
+
+    def test_azure_prefix_is_cloud(self) -> None:
+        assert _is_cloud_model("azure/gpt-4", "http://localhost:8000") is True
+
+    def test_vertex_ai_prefix_is_cloud(self) -> None:
+        assert _is_cloud_model("vertex_ai/gemini-pro", "http://localhost:8000") is True
+
+    def test_openai_prefix_with_127_is_local(self) -> None:
+        # 127.0.0.1 = localhost = local server
+        assert _is_cloud_model("openai/gpt-5-mini", "http://127.0.0.1:8000") is False
 
 
 class TestRunCmd:
@@ -84,3 +116,20 @@ class TestRunCmd:
         result = runner.invoke(cli, ["run", "--help"])
         assert result.exit_code == 0
         assert "--agent-kwargs" in result.output
+
+    def test_default_deepresearch_tools_include_search_and_bash(self) -> None:
+        tools = _default_mcp_tool_spec_for_dataset("browsecomp")
+
+        assert tools is not None
+        assert "web_search" in tools
+        assert "bash" in tools
+
+    def test_default_coding_tools_include_file_write(self) -> None:
+        tools = _default_mcp_tool_spec_for_dataset("swebench")
+
+        assert tools is not None
+        assert "file_write" in tools
+        assert "code_interpreter" in tools
+
+    def test_chat_datasets_do_not_get_default_tools(self) -> None:
+        assert _default_mcp_tool_spec_for_dataset("wildchat") is None

@@ -1,6 +1,10 @@
 from __future__ import annotations
 
 import json
+import os
+import shlex
+import subprocess
+from pathlib import Path
 from typing import Any, Dict, Iterable, List, MutableMapping, Optional, Sequence, Tuple
 
 from datasets import load_dataset
@@ -8,7 +12,9 @@ from datasets import load_dataset
 from ..clients.base import InferenceClient
 from ..core.registry import DatasetRegistry
 from ..core.types import DatasetRecord
+from ._git_workspace import prepare_git_workspace
 from .base import DatasetProvider
+from .swebench import _apply_patch, _apply_patch_if_needed, _extract_patch, _git_diff, _run_cmd
 
 _DEFAULT_INPUT_PROMPT = """You are a software performance engineer. Your task is to optimize the code in the repository to improve performance.
 
@@ -43,6 +49,18 @@ def _parse_test_list(value: Any) -> List[str]:
             return parsed if isinstance(parsed, list) else [value]
         except json.JSONDecodeError:
             return [value] if value else []
+    return []
+
+
+def _test_command(metadata: MutableMapping[str, object]) -> list[str]:
+    explicit = str(
+        metadata.get("test_cmd") or os.getenv("IPW_SWEFFICIENCY_TEST_CMD") or ""
+    ).strip()
+    if explicit:
+        return ["bash", "-lc", explicit]
+    tests = list(metadata.get("covering_tests") or []) + list(metadata.get("pass_to_pass") or [])
+    if tests:
+        return ["python", "-m", "pytest", *[str(test) for test in tests]]
     return []
 
 
@@ -82,6 +100,9 @@ class SWEfficiencyDataset(DatasetProvider):
     def size(self) -> int:
         return len(self._records)
 
+    def prepare_workspace(self, record: DatasetRecord, workspace: Path) -> None:
+        prepare_git_workspace(record.dataset_metadata, workspace)
+
     def score(
         self,
         record: DatasetRecord,
@@ -89,16 +110,120 @@ class SWEfficiencyDataset(DatasetProvider):
         *,
         eval_client: Optional[InferenceClient] = None,
     ) -> Tuple[Optional[bool], Dict[str, object]]:
-        """Structural validation only — true correctness requires test execution."""
+        """Score by applying the produced optimization and running available tests."""
         if not response or not response.strip():
             return False, {"reason": "empty_response"}
-        has_patch = any(
-            m in response for m in ("diff --git", "---", "+++", "@@")
-        )
-        return None, {
-            "reason": "requires_test_execution",
-            "has_patch": has_patch,
-            "instance_id": record.dataset_metadata.get("instance_id", ""),
+        metadata = record.dataset_metadata
+        workspace_raw = metadata.get("workspace_path")
+        workspace = Path(str(workspace_raw)) if workspace_raw else None
+        if workspace is None or not workspace.exists():
+            return False, {
+                "reason": "workspace_unavailable",
+                "instance_id": metadata.get("instance_id", ""),
+            }
+
+        patch = _extract_patch(response)
+        existing_diff = _git_diff(workspace)
+        if not patch and not existing_diff.strip():
+            return False, {
+                "reason": "no_patch_or_workspace_diff",
+                "instance_id": metadata.get("instance_id", ""),
+            }
+
+        timeout_s = int(os.getenv("IPW_SWEFFICIENCY_TEST_TIMEOUT", "600"))
+        ok, detail = _apply_patch_if_needed(workspace, patch, timeout_s)
+        if not ok:
+            return False, {
+                "reason": "patch_apply_failed",
+                "instance_id": metadata.get("instance_id", ""),
+                "apply_output": detail,
+                "has_patch": bool(patch),
+            }
+
+        test_patch = str(metadata.get("test_patch") or "").strip()
+        test_patch_applied = False
+        test_patch_output = ""
+        if test_patch:
+            test_patch_ok, test_patch_output = _apply_patch(
+                workspace,
+                test_patch,
+                timeout_s,
+            )
+            if not test_patch_ok:
+                return False, {
+                    "reason": "test_patch_apply_failed",
+                    "instance_id": metadata.get("instance_id", ""),
+                    "apply_output": test_patch_output,
+                    "has_patch": bool(patch or existing_diff.strip()),
+                }
+            test_patch_applied = True
+
+        rebuild_cmd = str(metadata.get("rebuild_cmd") or "").strip()
+        rebuild_output = ""
+        if rebuild_cmd:
+            try:
+                rebuild_rc, rebuild_output = _run_cmd(
+                    ["bash", "-lc", rebuild_cmd],
+                    cwd=workspace,
+                    timeout_s=timeout_s,
+                )
+            except subprocess.TimeoutExpired as exc:
+                return False, {
+                    "reason": "rebuild_timeout",
+                    "instance_id": metadata.get("instance_id", ""),
+                    "timeout_s": timeout_s,
+                    "rebuild_output": (exc.stdout or "")[-4000:] if isinstance(exc.stdout, str) else "",
+                }
+            except Exception as exc:
+                return False, {
+                    "reason": "rebuild_error",
+                    "instance_id": metadata.get("instance_id", ""),
+                    "error": str(exc),
+                }
+            if rebuild_rc != 0:
+                return False, {
+                    "reason": "rebuild_failed",
+                    "instance_id": metadata.get("instance_id", ""),
+                    "rebuild_command": rebuild_cmd,
+                    "rebuild_output": rebuild_output,
+                    "has_patch": bool(patch or existing_diff.strip()),
+                }
+
+        cmd = _test_command(metadata)
+        if not cmd:
+            return False, {
+                "reason": "no_test_command",
+                "instance_id": metadata.get("instance_id", ""),
+                "has_patch": bool(patch or existing_diff.strip()),
+            }
+
+        try:
+            rc, output = _run_cmd(cmd, cwd=workspace, timeout_s=timeout_s)
+        except subprocess.TimeoutExpired as exc:
+            return False, {
+                "reason": "test_timeout",
+                "instance_id": metadata.get("instance_id", ""),
+                "timeout_s": timeout_s,
+                "test_output": (exc.stdout or "")[-4000:] if isinstance(exc.stdout, str) else "",
+            }
+        except Exception as exc:
+            return False, {
+                "reason": "test_execution_error",
+                "instance_id": metadata.get("instance_id", ""),
+                "error": str(exc),
+            }
+
+        return rc == 0, {
+            "match_type": "test_execution",
+            "instance_id": metadata.get("instance_id", ""),
+            "test_command": shlex.join(cmd),
+            "test_returncode": rc,
+            "test_output": output,
+            "rebuild_command": rebuild_cmd,
+            "rebuild_output": rebuild_output,
+            "has_patch": bool(patch or existing_diff.strip()),
+            "test_patch_applied": test_patch_applied,
+            "test_patch_output": test_patch_output,
         }
 
     # ------------------------------------------------------------------
@@ -112,6 +237,8 @@ class SWEfficiencyDataset(DatasetProvider):
             record = self._convert_row(raw)
             if record is not None:
                 records.append(record)
+                if self._max_samples is not None and len(records) >= self._max_samples:
+                    break
         return records
 
     def _load_raw_rows(self) -> Sequence[MutableMapping[str, object]]:
@@ -121,8 +248,6 @@ class SWEfficiencyDataset(DatasetProvider):
             rows = dataset.to_list()
         else:
             rows = list(dataset)
-        if self._max_samples is not None:
-            rows = rows[: self._max_samples]
         normalized: list[MutableMapping[str, object]] = []
         for row in rows:
             if isinstance(row, MutableMapping):

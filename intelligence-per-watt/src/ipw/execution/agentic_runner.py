@@ -4,11 +4,13 @@ from __future__ import annotations
 
 import asyncio
 import copy
+import hashlib
 import inspect
 import json
 import logging
 import math
 import re
+import signal
 import statistics
 import threading
 import time
@@ -17,7 +19,7 @@ from typing import Any, Callable, Optional
 
 from tqdm.auto import tqdm
 
-from ..agents.base import BaseAgent
+from ..agents.base import BaseAgent, ToolUsingAgent
 from ..core.types import AgentRunResult, DatasetRecord
 from ..datasets.base import DatasetProvider
 from ..execution.telemetry_session import TelemetrySample, TelemetrySession
@@ -36,9 +38,20 @@ from ..execution.types import (
     ProfilingRecord,
     TokenMetrics,
 )
+from ..telemetry.energy_attribution import EnergyAttribution
 from ..telemetry.events import EventRecorder, EventType
+from .executor import Executor
+from .preflight import run_preflight
 
 LOGGER = logging.getLogger(__name__)
+
+
+class _QueryTimeout(BaseException):
+    """Internal timeout sentinel that bypasses per-query Exception handling."""
+
+
+def _raise_query_timeout(_signum: int, _frame: Any) -> None:
+    raise _QueryTimeout()
 
 
 # ---------------------------------------------------------------------------
@@ -159,6 +172,20 @@ def _compute_power_avg(
     return statistics.mean(values) if values else None
 
 
+def _estimate_energy_from_power(
+    readings: list[TelemetrySample],
+    power_field: str,
+    duration_s: float,
+) -> float | None:
+    """Fallback: energy ≈ avg_power × duration when cumulative counters unavailable."""
+    if duration_s <= 0:
+        return None
+    avg_power = _compute_power_avg(readings, power_field)
+    if avg_power is not None and avg_power > 0:
+        return avg_power * duration_s
+    return None
+
+
 # ---------------------------------------------------------------------------
 # Patch extraction helpers
 # ---------------------------------------------------------------------------
@@ -213,9 +240,21 @@ class AgenticRunner:
         event_recorder: Optional[EventRecorder] = None,
         run_dir: Optional[Path] = None,
         concurrency: int = 1,
-        agent_factory: Optional[Callable[[], BaseAgent]] = None,
+        agent_factory: Optional[Callable[..., BaseAgent]] = None,
         query_timeout: Optional[float] = None,
+        max_attempts: int = 3,
+        max_turns: int = 10,
+        require_dedicated_hardware: bool = False,
     ) -> None:
+        """Initialise the agentic runner.
+
+        ``max_attempts`` is the **attempt count** passed directly to
+        ``Executor(max_attempts_per_turn=max_attempts)``.  A value of 1 means
+        no retry; 3 (the default) allows two retries after the first attempt.
+        A caller using *retries* semantics (extra attempts beyond the first)
+        should convert ``retries + 1`` to the attempt count before passing it
+        here.
+        """
         self._agent = agent
         self._dataset = dataset
         self._telemetry = telemetry_session
@@ -227,26 +266,87 @@ class AgenticRunner:
         self._concurrency = max(1, concurrency)
         self._agent_factory = agent_factory
         self._query_timeout = query_timeout
+        self._max_attempts = max_attempts
+        self._max_turns = max_turns
+        self._require_dedicated_hardware = require_dedicated_hardware
         self._results_lock = threading.Lock()
+        self._preflight_done: bool = False
+        self._preflight_baseline_dirty: bool = False
+        self._energy_attribution: Optional[EnergyAttribution] = None
+        self._attach_energy_attribution()
 
-    async def run(self, max_queries: Optional[int] = None) -> list[QueryTrace]:
+    def _attach_energy_attribution(self) -> None:
+        """Attach the shadow EnergyAttribution subscriber to the recorder bus.
+
+        The subscriber observes TOOL_CALL_*/LM_INFERENCE_* events as they flow
+        through the bus and emits ENERGY_ATTRIBUTED events for downstream
+        consumers to read.
+        """
+        if self._telemetry is None:
+            return
+        if self._energy_attribution is not None:
+            return
+        self._energy_attribution = EnergyAttribution(
+            bus=self._event_recorder.bus,
+            session=self._telemetry,
+            is_cloud_fn=lambda evt: bool(evt.payload.get("is_cloud", False)),
+            shared_device_warning_fn=lambda: self._preflight_baseline_dirty,
+        )
+
+    def _run_preflight_if_needed(self, *, strict: bool = False) -> None:
+        """Run hardware preflight once per runner lifetime.
+
+        Whole-device energy measurement inflates per-query attribution proportionally
+        to other GPU/CPU workloads. Preflight samples baseline utilization once;
+        the resulting `_preflight_baseline_dirty` flag propagates to subsequent
+        TurnTrace/QueryTrace records as `shared_device_warning`.
+        """
+        if self._preflight_done:
+            return
+        result = run_preflight(strict=strict)
+        self._preflight_done = True
+        self._preflight_baseline_dirty = result.shared_device_baseline_dirty
+        if self._preflight_baseline_dirty:
+            for msg in result.warnings:
+                LOGGER.warning("Preflight: %s", msg)
+
+    async def run(
+        self,
+        max_queries: Optional[int] = None,
+        *,
+        start_index: int = 0,
+    ) -> list[QueryTrace]:
         """Run the agent over the dataset, collecting traces and telemetry.
 
         Args:
-            max_queries: Maximum number of queries to process. None means all.
+            max_queries: Maximum number of records to process from start_index.
+                None means all.
+            start_index: First dataset record index to process.
 
         Returns:
             List of QueryTrace objects with energy-correlated telemetry.
         """
-        total = max_queries or self._dataset.size()
+        start_index = max(0, int(start_index))
+        end_index = (
+            start_index + max(0, int(max_queries))
+            if max_queries is not None
+            else self._dataset.size()
+        )
+        self._run_preflight_if_needed(strict=self._require_dedicated_hardware)
         model = self._config.get("model", "unknown")
 
         # Collect the records we'll process
         work_items: list[tuple[int, DatasetRecord]] = []
         for index, record in enumerate(self._dataset):
-            if index >= total:
+            if index < start_index:
+                continue
+            if end_index is not None and index >= end_index:
                 break
             work_items.append((index, record))
+
+        if self._run_dir:
+            self._write_subset_manifest(work_items, start_index, end_index)
+            self._initialize_incremental_outputs()
 
         if self._concurrency <= 1:
             return await self._run_sequential(work_items, model)
@@ -263,20 +363,42 @@ class AgenticRunner:
                 query_id = f"q{index:04d}"
                 start_time = time.time()
                 try:
-                    fut = self._run_single_query(
-                        index, record, model, self._agent, self._event_recorder
-                    )
-                    if self._query_timeout:
-                        trace = await asyncio.wait_for(fut, timeout=self._query_timeout)
+                    if (
+                        self._query_timeout
+                        and threading.current_thread() is threading.main_thread()
+                        and hasattr(signal, "setitimer")
+                    ):
+                        old_handler = signal.getsignal(signal.SIGALRM)
+                        signal.signal(signal.SIGALRM, _raise_query_timeout)
+                        signal.setitimer(signal.ITIMER_REAL, float(self._query_timeout))
+                        try:
+                            trace = await self._run_single_query(
+                                index, record, model, self._agent, self._event_recorder
+                            )
+                        finally:
+                            signal.setitimer(signal.ITIMER_REAL, 0)
+                            signal.signal(signal.SIGALRM, old_handler)
                     else:
-                        trace = await fut
-                except asyncio.TimeoutError:
+                        fut = self._run_single_query(
+                            index, record, model, self._agent, self._event_recorder
+                        )
+                        if self._query_timeout:
+                            trace = await asyncio.wait_for(fut, timeout=self._query_timeout)
+                        else:
+                            trace = await fut
+                except (asyncio.TimeoutError, _QueryTimeout):
                     elapsed = time.time() - start_time
                     LOGGER.warning(
                         "Query %s timed out after %.0fs (limit=%ss)",
                         query_id, elapsed, self._query_timeout,
                     )
-                    trace = self._timeout_trace(query_id, record, start_time, time.time())
+                    trace = self._build_timeout_trace(
+                        query_id=query_id,
+                        record=record,
+                        elapsed=elapsed,
+                        start_time=start_time,
+                        event_recorder=self._event_recorder,
+                    )
                 self._traces.append(trace)
 
                 # Log per-task latency
@@ -293,6 +415,7 @@ class AgenticRunner:
 
                 if self._run_dir:
                     self._save_query_artifacts(index, record, trace)
+                    self._flush_incremental_outputs(trace, self._traces)
 
                 if len(self._traces) % self._FLUSH_INTERVAL == 0:
                     LOGGER.debug(
@@ -332,12 +455,8 @@ class AgenticRunner:
 
         async def _process(slot: int, index: int, record: DatasetRecord) -> None:
             async with semaphore:
-                # Each concurrent task gets a fresh agent + event recorder
-                if self._agent_factory is not None:
-                    agent = self._agent_factory()
-                else:
-                    agent = copy.deepcopy(self._agent)
                 recorder = EventRecorder()
+                agent, recorder = self._create_concurrent_agent(recorder)
 
                 query_id = f"q{index:04d}"
                 start_time = time.time()
@@ -363,7 +482,13 @@ class AgenticRunner:
                         "Query %s timed out after %.0fs (limit=%ss)",
                         query_id, elapsed, self._query_timeout,
                     )
-                    trace = self._timeout_trace(query_id, record, start_time, time.time())
+                    trace = self._build_timeout_trace(
+                        query_id=query_id,
+                        record=record,
+                        elapsed=elapsed,
+                        start_time=start_time,
+                        event_recorder=recorder,
+                    )
 
                 # Log per-task latency
                 status = "TIMEOUT" if trace.timed_out else ("OK" if trace.completed else "FAIL")
@@ -381,6 +506,11 @@ class AgenticRunner:
 
                 with self._results_lock:
                     result_slots[slot] = (trace, profiling_record)
+                    if self._run_dir:
+                        partial_traces = [
+                            item[0] for item in result_slots if item is not None
+                        ]
+                        self._flush_incremental_outputs(trace, partial_traces)
                     progress.update(1)
 
         tasks = [
@@ -399,46 +529,223 @@ class AgenticRunner:
 
         return self._traces
 
-    def _timeout_trace(
+    def _create_concurrent_agent(
         self,
+        recorder: EventRecorder,
+    ) -> tuple[BaseAgent, EventRecorder]:
+        """Create a per-task agent and return the recorder it will write to."""
+        if self._agent_factory is not None:
+            agent = self._call_agent_factory(recorder)
+        else:
+            agent = copy.deepcopy(self._agent)
+            if hasattr(agent, "event_recorder"):
+                agent.event_recorder = recorder
+            return agent, recorder
+
+        agent_recorder = getattr(agent, "event_recorder", None)
+        if isinstance(agent_recorder, EventRecorder):
+            return agent, agent_recorder
+        if hasattr(agent, "event_recorder"):
+            agent.event_recorder = recorder
+        return agent, recorder
+
+    def _call_agent_factory(self, recorder: EventRecorder) -> BaseAgent:
+        assert self._agent_factory is not None
+        try:
+            signature = inspect.signature(self._agent_factory)
+        except (TypeError, ValueError):
+            return self._agent_factory(recorder)
+
+        accepts_positional = any(
+            param.kind
+            in (
+                param.POSITIONAL_ONLY,
+                param.POSITIONAL_OR_KEYWORD,
+                param.VAR_POSITIONAL,
+            )
+            for param in signature.parameters.values()
+        )
+        accepts_event_recorder = (
+            "event_recorder" in signature.parameters
+            or any(
+                param.kind == param.VAR_KEYWORD
+                for param in signature.parameters.values()
+            )
+        )
+        if accepts_event_recorder and not accepts_positional:
+            return self._agent_factory(event_recorder=recorder)
+        if accepts_positional:
+            return self._agent_factory(recorder)
+        return self._agent_factory()
+
+    def _build_timeout_trace(
+        self,
+        *,
         query_id: str,
         record: DatasetRecord,
+        elapsed: float,
         start_time: float,
-        end_time: float,
+        event_recorder: EventRecorder,
     ) -> QueryTrace:
-        """Build a timeout trace with prompt-window telemetry populated."""
-        workload_type = record.dataset_metadata.get("workload_type", "agentic")
+        """Create a metric-complete trace for a timed-out query."""
+        end_time = time.time()
         readings = (
             _collect_telemetry_window(self._telemetry, start_time, end_time)
             if self._telemetry
             else []
         )
-        elapsed = end_time - start_time
-        return QueryTrace(
+        turns = self._build_turn_traces(event_recorder.get_events(), readings)
+        if not turns:
+            turns = [
+                TurnTrace(
+                    turn_index=0,
+                    input_tokens=None,
+                    output_tokens=None,
+                    wall_clock_s=elapsed,
+                )
+            ]
+        elif sum((t.input_tokens or 0) + (t.output_tokens or 0) for t in turns) == 0:
+            turns[0].input_tokens = None
+            turns[0].output_tokens = None
+            turns[0].wall_clock_s = turns[0].wall_clock_s or elapsed
+
+        query_gpu_energy = _compute_energy_delta(
+            readings, "energy_joules", start_time, end_time
+        )
+        query_cpu_energy = _compute_energy_delta(
+            readings, "cpu_energy_joules", start_time, end_time
+        )
+        query_gpu_power_avg = _compute_power_avg(readings, "power_watts")
+        query_cpu_power_avg = _compute_power_avg(readings, "cpu_power_watts")
+        if query_gpu_energy is None and readings:
+            query_gpu_energy = _estimate_energy_from_power(readings, "power_watts", elapsed)
+        if query_cpu_energy is None and readings:
+            query_cpu_energy = _estimate_energy_from_power(readings, "cpu_power_watts", elapsed)
+
+        query_mbu_avg = None
+        query_mbu_max = None
+        if readings:
+            mbu_values = [
+                s.reading.gpu_memory_bandwidth_utilization_pct
+                for s in readings
+                if getattr(s.reading, "gpu_memory_bandwidth_utilization_pct", None) is not None
+                and s.reading.gpu_memory_bandwidth_utilization_pct >= 0
+            ]
+            if mbu_values:
+                query_mbu_avg = statistics.mean(mbu_values)
+                query_mbu_max = max(mbu_values)
+
+        workload_type = record.dataset_metadata.get("workload_type", "agentic")
+        trace = QueryTrace(
             query_id=query_id,
             workload_type=str(workload_type),
             query_text=record.problem,
             response_text=f"Query timed out after {elapsed:.0f}s",
+            turns=turns,
             total_wall_clock_s=elapsed,
             completed=False,
             timed_out=True,
+            query_gpu_energy_joules=query_gpu_energy,
+            query_cpu_energy_joules=query_cpu_energy,
+            query_gpu_power_avg_watts=query_gpu_power_avg,
+            query_cpu_power_avg_watts=query_cpu_power_avg,
+            query_mbu_avg_pct=query_mbu_avg,
+            query_mbu_max_pct=query_mbu_max,
             is_resolved=record.dataset_metadata.get("is_resolved"),
-            query_gpu_energy_joules=_compute_energy_delta(
-                readings,
-                "energy_joules",
-                start_time,
-                end_time,
-            ),
-            query_cpu_energy_joules=_compute_energy_delta(
-                readings,
-                "cpu_energy_joules",
-                start_time,
-                end_time,
-            ),
-            query_gpu_power_avg_watts=_compute_power_avg(readings, "power_watts"),
-            query_cpu_power_avg_watts=_compute_power_avg(readings, "cpu_power_watts"),
+            unscorable_reason="timeout",
+            score_metadata={"reason": "timeout", "timeout_s": self._query_timeout},
+        )
+        return self._correlate_energy(trace, readings)
+
+    def _initialize_incremental_outputs(self) -> None:
+        """Prepare per-query output files that are updated during the run."""
+        assert self._run_dir is not None
+        self._run_dir.mkdir(parents=True, exist_ok=True)
+        (self._run_dir / "traces.jsonl").write_text("", encoding="utf-8")
+
+    def _write_subset_manifest(
+        self,
+        work_items: list[tuple[int, DatasetRecord]],
+        start_index: int,
+        end_index: int | None,
+    ) -> None:
+        """Write a stable manifest for the exact dataset records in this run."""
+        assert self._run_dir is not None
+        self._run_dir.mkdir(parents=True, exist_ok=True)
+        records = [
+            self._subset_record_entry(index, record)
+            for index, record in work_items
+        ]
+        subset_hash = hashlib.sha256(
+            json.dumps(records, sort_keys=True, separators=(",", ":")).encode("utf-8")
+        ).hexdigest()
+        manifest = {
+            "schema_version": 1,
+            "dataset": self._config.get("dataset"),
+            "model": self._config.get("model"),
+            "agent": self._config.get("agent"),
+            "start_index": start_index,
+            "end_index": end_index,
+            "subset_size": len(records),
+            "subset_hash": subset_hash,
+            "records": records,
+        }
+        self._config["subset"] = {
+            "subset_hash": subset_hash,
+            "subset_size": len(records),
+            "start_index": start_index,
+            "end_index": end_index,
+        }
+        (self._run_dir / "subset_manifest.json").write_text(
+            json.dumps(manifest, indent=2, sort_keys=True),
+            encoding="utf-8",
         )
 
+    @staticmethod
+    def _subset_record_entry(index: int, record: DatasetRecord) -> dict[str, Any]:
+        metadata = record.dataset_metadata or {}
+        id_keys = (
+            "task_id",
+            "instance_id",
+            "question_id",
+            "uid",
+            "original_index",
+            "id",
+        )
+        stable_ids = {
+            key: str(metadata[key])
+            for key in id_keys
+            if metadata.get(key) is not None
+        }
+        query_hash = hashlib.sha256(record.problem.encode("utf-8")).hexdigest()
+        return {
+            "index": index,
+            "query_id": f"q{index:04d}",
+            "query_hash": query_hash,
+            "subject": record.subject,
+            "stable_ids": stable_ids,
+        }
+
+    def _flush_incremental_outputs(
+        self,
+        trace: QueryTrace,
+        traces_for_summary: list[QueryTrace],
+    ) -> None:
+        """Persist completed query trace data before the full run finishes."""
+        assert self._run_dir is not None
+        try:
+            with (self._run_dir / "traces.jsonl").open("a", encoding="utf-8") as f:
+                f.write(json.dumps(trace.to_dict()) + "\n")
+
+            from ..execution.exporters import export_summary_json
+
+            export_summary_json(
+                traces_for_summary,
+                self._config,
+                self._run_dir / "summary.json",
+            )
+        except Exception as exc:
+            LOGGER.warning("Failed to flush incremental trace output: %s", exc)
     def _run_single_query_sync(
         self,
         index: int,
@@ -452,6 +759,73 @@ class AgenticRunner:
             self._run_single_query(index, record, model, agent, event_recorder)
         )
 
+    async def _run_with_executor(
+        self,
+        index: int,
+        record: "DatasetRecord",
+        model: str,
+        agent: "ToolUsingAgent",
+        event_recorder: "EventRecorder",
+    ) -> "QueryTrace":
+        """Native-agent dispatch path — delegates the turn loop to Executor.
+
+        Seeds the task via agent.set_task() (subclasses must define it),
+        runs Executor.execute(), and constructs a QueryTrace from the result.
+        Per-turn telemetry population is left to EventBus subscribers
+        (EnergyAttribution runs here; richer per-turn TurnTrace population can be
+        layered on later).
+
+        A TemporaryDirectory is created per query and set on every agent tool via
+        set_workspace() before executor.execute() runs. This keeps agent-driven
+        side effects isolated from the project root and from other concurrent
+        queries. The tempdir is cleaned up automatically on context exit; tools
+        are cleared (set_workspace(None)) in a finally block to prevent stale
+        path leakage across query reuse.
+        """
+        import tempfile
+
+        assert isinstance(agent, ToolUsingAgent)
+
+        query_id = f"q{index:04d}"
+        workload_type = record.dataset_metadata.get("workload_type", "agentic")
+
+        event_recorder.clear()
+        task_text = record.problem
+        if hasattr(agent, "set_task"):
+            agent.set_task(task_text)
+
+        # Per-query temp workspace: every agent-driven tool invocation defaults
+        # its cwd here, keeping side effects out of the project root and the
+        # runner's worktree. Cleaned up automatically on context exit.
+        with tempfile.TemporaryDirectory(prefix=f"ipw_q{index:04d}_") as workspace:
+            for tool in getattr(agent, "tools", []):
+                if hasattr(tool, "set_workspace"):
+                    tool.set_workspace(workspace)
+
+            try:
+                executor = Executor(
+                    bus=event_recorder.bus,
+                    max_attempts_per_turn=self._max_attempts,
+                )
+                result = await executor.execute(
+                    agent, task_id=query_id,
+                    max_turns=self._max_turns,
+                    agent_name=agent.__class__.__name__,
+                )
+            finally:
+                # Clear workspace so tool reuse across queries doesn't leak
+                # the now-deleted tempdir path.
+                for tool in getattr(agent, "tools", []):
+                    if hasattr(tool, "set_workspace"):
+                        tool.set_workspace(None)
+
+        return QueryTrace(
+            query_id=query_id, workload_type=workload_type,
+            query_text=task_text, response_text=result.final_answer or "",
+            completed=result.status == "success",
+            timed_out=False, n_retries=result.n_retries,
+        )
+
     async def _run_single_query(
         self,
         index: int,
@@ -462,7 +836,12 @@ class AgenticRunner:
     ) -> QueryTrace:
         """Run a single query through the agent with telemetry capture."""
         agent = agent or self._agent
-        event_recorder = event_recorder or self._event_recorder
+        event_recorder = (
+            event_recorder if event_recorder is not None else self._event_recorder
+        )
+
+        if isinstance(agent, ToolUsingAgent):
+            return await self._run_with_executor(index, record, model, agent, event_recorder)
 
         query_id = f"q{index:04d}"
         workload_type = record.dataset_metadata.get("workload_type", "agentic")
@@ -488,10 +867,20 @@ class AgenticRunner:
                 self._run_dir / "artifacts" / f"q{index:04d}_{slug}" / "workspace"
             )
             workspace.mkdir(parents=True, exist_ok=True)
+            if hasattr(self._dataset, "prepare_workspace"):
+                try:
+                    self._dataset.prepare_workspace(record, workspace)
+                except Exception as exc:
+                    LOGGER.warning("Workspace setup failed for %s: %s", query_id, exc)
+                    record.dataset_metadata["workspace_prepared"] = False
+                    record.dataset_metadata["workspace_error"] = str(exc)
             agent.set_workspace(str(workspace))
 
         # Create per-task execution environment (e.g. Docker for TerminalBench)
         from contextlib import nullcontext
+
+        # Inject model into metadata so task envs can use unique container names
+        record.dataset_metadata.setdefault("model", model)
 
         task_env = self._dataset.create_task_env(record)
         ctx = task_env if task_env is not None else nullcontext()
@@ -506,29 +895,69 @@ class AgenticRunner:
                     result = await run_async(record.problem)
                 else:
                     result = agent.run(record.problem)
-                if result.metadata:
-                    record.dataset_metadata.setdefault("agent_result_metadata", result.metadata)
+                agent_metadata = dict(result.metadata or {})
+                if agent_metadata:
+                    record.dataset_metadata["agent_metadata"] = agent_metadata
+                    record.dataset_metadata.setdefault("agent_result_metadata", agent_metadata)
+                    token_source = agent_metadata.get("token_source")
+                    if token_source is not None:
+                        record.dataset_metadata["token_source"] = token_source
                     for key in (
                         "gdpval_outputs_dir",
                         "gdpval_submitted_files",
                     ):
-                        if key in result.metadata:
-                            record.dataset_metadata[key] = result.metadata[key]
+                        if key in agent_metadata:
+                            record.dataset_metadata[key] = agent_metadata[key]
 
                 prompt_end_time = time.time()
 
                 if task_env is not None:
                     judge_start_time = time.time()
-                    task_env.run_tests()
-                    judge_end_time = time.time()
+                    try:
+                        task_env.run_tests()
+                        if (
+                            "is_resolved" in record.dataset_metadata
+                            and hasattr(self._dataset, "score")
+                        ):
+                            try:
+                                is_correct, score_metadata = self._dataset.score(
+                                    record, result.content
+                                )
+                                score_metadata = score_metadata or {}
+                                record.dataset_metadata["is_resolved"] = is_correct
+                                if score_metadata:
+                                    record.dataset_metadata["score_metadata"] = score_metadata
+                                if is_correct is None:
+                                    reason = str(score_metadata.get("reason", "unscorable"))
+                                    record.dataset_metadata["unscorable_reason"] = reason
+                            except Exception as score_exc:
+                                LOGGER.warning("Scoring failed for %s: %s", query_id, score_exc)
+                                record.dataset_metadata["unscorable_reason"] = "scoring_error"
+                                record.dataset_metadata["score_metadata"] = {
+                                    "reason": "scoring_error",
+                                    "error": str(score_exc),
+                                }
+                    finally:
+                        judge_end_time = time.time()
                 elif hasattr(self._dataset, "score") and record.answer:
                     judge_start_time = time.time()
                     try:
                         is_correct, score_metadata = self._dataset.score(record, result.content)
+                        score_metadata = score_metadata or {}
                         record.dataset_metadata["is_resolved"] = is_correct
-                        record.dataset_metadata["evaluation_metadata"] = score_metadata
+                        if score_metadata:
+                            record.dataset_metadata["score_metadata"] = score_metadata
+                            record.dataset_metadata["evaluation_metadata"] = score_metadata
+                        if is_correct is None:
+                            reason = str(score_metadata.get("reason", "unscorable"))
+                            record.dataset_metadata["unscorable_reason"] = reason
                     except Exception as score_exc:
                         LOGGER.warning("Scoring failed for %s: %s", query_id, score_exc)
+                        record.dataset_metadata["unscorable_reason"] = "scoring_error"
+                        record.dataset_metadata["score_metadata"] = {
+                            "reason": "scoring_error",
+                            "error": str(score_exc),
+                        }
                     finally:
                         judge_end_time = time.time()
         except Exception as exc:
@@ -590,6 +1019,15 @@ class AgenticRunner:
                     else None
                 ),
                 is_resolved=record.dataset_metadata.get("is_resolved"),
+                unscorable_reason=str(
+                    record.dataset_metadata.get("unscorable_reason", "agent_error")
+                ),
+                score_metadata={
+                    "reason": str(
+                        record.dataset_metadata.get("unscorable_reason", "agent_error")
+                    ),
+                    "error": str(exc),
+                },
             )
             return trace
 
@@ -623,7 +1061,15 @@ class AgenticRunner:
 
         # When EventRecorder captured nothing, create a synthetic turn from
         # AgentRunResult so token counts and wall clock are preserved.
-        if not turns and (result.input_tokens > 0 or result.output_tokens > 0):
+        result_has_token_counts = (
+            result.input_tokens is not None
+            and result.output_tokens is not None
+        )
+        if (
+            not turns
+            and result_has_token_counts
+            and (result.input_tokens > 0 or result.output_tokens > 0)
+        ):
             turns = [TurnTrace(
                 turn_index=0,
                 input_tokens=result.input_tokens,
@@ -634,15 +1080,45 @@ class AgenticRunner:
 
         # Backfill tokens from AgentRunResult when turns have zero tokens
         # (e.g. OpenHands fires lm_inference events without token metadata)
-        if turns and result.input_tokens > 0 and result.output_tokens > 0:
-            total_turn_in = sum(t.input_tokens for t in turns)
-            total_turn_out = sum(t.output_tokens for t in turns)
+        if (
+            turns
+            and result_has_token_counts
+            and result.input_tokens > 0
+            and result.output_tokens > 0
+        ):
+            total_turn_in = sum(t.input_tokens or 0 for t in turns)
+            total_turn_out = sum(t.output_tokens or 0 for t in turns)
             if total_turn_in == 0 and total_turn_out == 0:
                 turns[0].input_tokens = result.input_tokens
                 turns[0].output_tokens = result.output_tokens
                 turns[0].wall_clock_s = turns[0].wall_clock_s or (prompt_end_time - start_time)
                 if result.cost_usd is not None and turns[0].cost_usd is None:
                     turns[0].cost_usd = result.cost_usd
+            else:
+                missing_token_turns = [
+                    t
+                    for t in turns
+                    if t.input_tokens is None
+                    and t.output_tokens is None
+                    and not t.tools_called
+                    and t.error is None
+                ]
+                if missing_token_turns:
+                    known_in = sum(
+                        t.input_tokens or 0
+                        for t in turns
+                        if t.input_tokens is not None
+                    )
+                    known_out = sum(
+                        t.output_tokens or 0
+                        for t in turns
+                        if t.output_tokens is not None
+                    )
+                    remaining_in = result.input_tokens - known_in
+                    remaining_out = result.output_tokens - known_out
+                    if remaining_in >= 0 and remaining_out >= 0:
+                        missing_token_turns[0].input_tokens = remaining_in
+                        missing_token_turns[0].output_tokens = remaining_out
 
         # Always compute prompt-only query energy from the prompt window.
         query_gpu_energy = _compute_energy_delta(
@@ -674,6 +1150,35 @@ class AgenticRunner:
         judge_gpu_power_avg = _compute_power_avg(judge_readings, "power_watts")
         judge_cpu_power_avg = _compute_power_avg(judge_readings, "cpu_power_watts")
 
+        # Fallback: estimate energy from average power when cumulative counters
+        # have fewer than 2 samples (no delta possible).
+        duration = prompt_end_time - start_time
+        if query_gpu_energy is None and readings:
+            query_gpu_energy = _estimate_energy_from_power(readings, "power_watts", duration)
+        if query_cpu_energy is None and readings:
+            query_cpu_energy = _estimate_energy_from_power(readings, "cpu_power_watts", duration)
+
+        # Extract MBU from telemetry samples
+        query_mbu_avg = None
+        query_mbu_max = None
+        if readings:
+            mbu_values = [
+                s.reading.gpu_memory_bandwidth_utilization_pct
+                for s in readings
+                if getattr(s.reading, 'gpu_memory_bandwidth_utilization_pct', None) is not None
+                and s.reading.gpu_memory_bandwidth_utilization_pct >= 0
+            ]
+            if mbu_values:
+                query_mbu_avg = statistics.mean(mbu_values)
+                query_mbu_max = max(mbu_values)
+
+        score_metadata = dict(record.dataset_metadata.get("score_metadata") or {})
+        agent_metadata = dict(record.dataset_metadata.get("agent_metadata") or {})
+        if agent_metadata:
+            score_metadata.setdefault("agent_metadata", agent_metadata)
+            if agent_metadata.get("token_source") is not None:
+                score_metadata.setdefault("token_source", agent_metadata["token_source"])
+
         trace = QueryTrace(
             query_id=query_id,
             workload_type=str(workload_type),
@@ -695,7 +1200,15 @@ class AgenticRunner:
                 if judge_start_time is not None and judge_end_time is not None
                 else None
             ),
+            query_mbu_avg_pct=query_mbu_avg,
+            query_mbu_max_pct=query_mbu_max,
             is_resolved=record.dataset_metadata.get("is_resolved"),
+            unscorable_reason=(
+                str(record.dataset_metadata["unscorable_reason"])
+                if record.dataset_metadata.get("unscorable_reason") is not None
+                else None
+            ),
+            score_metadata=score_metadata,
         )
 
         # Correlate energy data with trace
@@ -708,118 +1221,134 @@ class AgenticRunner:
         events: list,
         readings: list[TelemetrySample],
     ) -> list[TurnTrace]:
-        """Build TurnTrace objects from recorded events."""
-        turns: list[TurnTrace] = []
-        current_turn_index = 0
-        current_turn_start: Optional[float] = None
-        current_tools: list[str] = []
-        current_tool_latencies: dict[str, float] = {}
-        tool_start_times: dict[str, float] = {}
-        input_tokens = 0
-        output_tokens = 0
+        """Build TurnTrace objects from recorded events.
+
+        A turn is modeled as one LLM call plus the tool calls produced by that
+        model response. Tool calls usually happen after the ``lm_inference_end``
+        event, so they are attached to the most recent completed LLM turn and
+        extend that turn's telemetry window.
+        """
+        turn_records: list[dict[str, Any]] = []
+        current_turn: Optional[dict[str, Any]] = None
+        tool_start_times: dict[str, list[tuple[float, Optional[dict[str, Any]]]]] = {}
+
+        def _new_turn(start_ts: float) -> dict[str, Any]:
+            return {
+                "start": start_ts,
+                "end": start_ts,
+                "input_tokens": None,
+                "output_tokens": None,
+                "cost_usd": None,
+                "tools_called": [],
+                "tool_latencies_s": {},
+            }
+
+        def _latency_key(latencies: dict[str, float], tool_name: str) -> str:
+            if tool_name not in latencies:
+                return tool_name
+            suffix = 2
+            while f"{tool_name}#{suffix}" in latencies:
+                suffix += 1
+            return f"{tool_name}#{suffix}"
+
+        def _attach_tool(
+            record: Optional[dict[str, Any]],
+            tool_name: str,
+            latency: Optional[float],
+            end_ts: float,
+        ) -> None:
+            nonlocal current_turn
+            if record is None:
+                record = current_turn or (turn_records[-1] if turn_records else None)
+            if record is None:
+                record = _new_turn(end_ts)
+                turn_records.append(record)
+            record["tools_called"].append(tool_name)
+            if latency is not None:
+                record["tool_latencies_s"][
+                    _latency_key(record["tool_latencies_s"], tool_name)
+                ] = latency
+            record["end"] = max(record["end"], end_ts)
 
         for event in events:
             etype = event.event_type
 
             if etype == EventType.LM_INFERENCE_START:
-                current_turn_start = event.timestamp
+                current_turn = _new_turn(event.timestamp)
 
             elif etype == EventType.LM_INFERENCE_END:
-                wall_clock = 0.0
-                if current_turn_start is not None:
-                    wall_clock = event.timestamp - current_turn_start
+                if current_turn is None:
+                    current_turn = _new_turn(event.timestamp)
+                current_turn["end"] = max(current_turn["end"], event.timestamp)
+                current_turn["input_tokens"] = event.metadata.get("prompt_tokens")
+                current_turn["output_tokens"] = event.metadata.get("completion_tokens")
+                if event.metadata.get("cost_usd") is not None:
+                    current_turn["cost_usd"] = event.metadata.get("cost_usd")
+                turn_records.append(current_turn)
+                current_turn = None
 
-                input_tokens = event.metadata.get("prompt_tokens", 0)
-                output_tokens = event.metadata.get("completion_tokens", 0)
+            elif etype == EventType.TOOL_CALL_START:
+                tool_name = event.metadata.get("tool", "unknown")
+                owner = current_turn or (turn_records[-1] if turn_records else None)
+                tool_start_times.setdefault(tool_name, []).append(
+                    (event.timestamp, owner)
+                )
 
-                # Get energy readings for this turn window
-                turn_gpu_energy = None
-                turn_cpu_energy = None
-                turn_gpu_power_avg = None
-                turn_cpu_power_avg = None
+            elif etype == EventType.TOOL_CALL_END:
+                tool_name = event.metadata.get("tool", "unknown")
+                starts = tool_start_times.get(tool_name, [])
+                start_ts = None
+                owner = None
+                if starts:
+                    start_ts, owner = starts.pop()
+                    if not starts:
+                        tool_start_times.pop(tool_name, None)
+                latency = (
+                    event.timestamp - start_ts
+                    if start_ts is not None
+                    else None
+                )
+                _attach_tool(owner, tool_name, latency, event.timestamp)
 
-                if current_turn_start is not None and readings:
-                    turn_readings = [
-                        s for s in readings
-                        if current_turn_start <= s.timestamp <= event.timestamp
-                    ]
-                    if turn_readings:
-                        gpu_energies = [
-                            s.reading.energy_joules for s in turn_readings
-                            if s.reading.energy_joules is not None
-                            and math.isfinite(s.reading.energy_joules)
-                        ]
-                        if len(gpu_energies) >= 2:
-                            delta = gpu_energies[-1] - gpu_energies[0]
-                            turn_gpu_energy = delta if delta >= 0 else None
+        if current_turn is not None:
+            turn_records.append(current_turn)
 
-                        cpu_energies = [
-                            s.reading.cpu_energy_joules for s in turn_readings
-                            if s.reading.cpu_energy_joules is not None
-                            and math.isfinite(s.reading.cpu_energy_joules)
-                        ]
-                        if len(cpu_energies) >= 2:
-                            delta = cpu_energies[-1] - cpu_energies[0]
-                            turn_cpu_energy = delta if delta >= 0 else None
+        turns: list[TurnTrace] = []
+        for turn_index, record in enumerate(turn_records):
+            start = record["start"]
+            end = record["end"]
+            wall_clock = max(0.0, end - start)
+            turn_readings = [
+                s for s in readings
+                if start <= s.timestamp <= end
+            ]
+            turn_gpu_energy = _compute_energy_delta(turn_readings, "energy_joules")
+            turn_cpu_energy = _compute_energy_delta(turn_readings, "cpu_energy_joules")
+            turn_gpu_power_avg = _compute_power_avg(turn_readings, "power_watts")
+            turn_cpu_power_avg = _compute_power_avg(turn_readings, "cpu_power_watts")
 
-                        gpu_powers = [
-                            s.reading.power_watts for s in turn_readings
-                            if s.reading.power_watts is not None
-                            and math.isfinite(s.reading.power_watts)
-                        ]
-                        if gpu_powers:
-                            turn_gpu_power_avg = statistics.mean(gpu_powers)
+            if turn_gpu_energy is None and turn_readings:
+                turn_gpu_energy = _estimate_energy_from_power(
+                    turn_readings, "power_watts", wall_clock
+                )
+            if turn_cpu_energy is None and turn_readings:
+                turn_cpu_energy = _estimate_energy_from_power(
+                    turn_readings, "cpu_power_watts", wall_clock
+                )
 
-                        cpu_powers = [
-                            s.reading.cpu_power_watts for s in turn_readings
-                            if s.reading.cpu_power_watts is not None
-                            and math.isfinite(s.reading.cpu_power_watts)
-                        ]
-                        if cpu_powers:
-                            turn_cpu_power_avg = statistics.mean(cpu_powers)
-
-                turn = TurnTrace(
-                    turn_index=current_turn_index,
-                    input_tokens=input_tokens,
-                    output_tokens=output_tokens,
-                    tools_called=list(current_tools),
-                    tool_latencies_s=dict(current_tool_latencies),
+            turns.append(
+                TurnTrace(
+                    turn_index=turn_index,
+                    input_tokens=record["input_tokens"],
+                    output_tokens=record["output_tokens"],
+                    tools_called=list(record["tools_called"]),
+                    tool_latencies_s=dict(record["tool_latencies_s"]),
                     wall_clock_s=wall_clock,
                     gpu_energy_joules=turn_gpu_energy,
                     cpu_energy_joules=turn_cpu_energy,
                     gpu_power_avg_watts=turn_gpu_power_avg,
                     cpu_power_avg_watts=turn_cpu_power_avg,
-                )
-                turns.append(turn)
-
-                # Reset for next turn
-                current_turn_index += 1
-                current_turn_start = None
-                current_tools = []
-                current_tool_latencies = {}
-                input_tokens = 0
-                output_tokens = 0
-
-            elif etype == EventType.TOOL_CALL_START:
-                tool_name = event.metadata.get("tool", "unknown")
-                tool_start_times[tool_name] = event.timestamp
-
-            elif etype == EventType.TOOL_CALL_END:
-                tool_name = event.metadata.get("tool", "unknown")
-                current_tools.append(tool_name)
-                start_ts = tool_start_times.pop(tool_name, None)
-                if start_ts is not None:
-                    current_tool_latencies[tool_name] = (
-                        event.timestamp - start_ts
-                    )
-
-        # If there were events but no complete turn, create a synthetic one
-        if not turns and events:
-            turns.append(
-                TurnTrace(
-                    turn_index=0,
-                    tools_called=current_tools,
-                    tool_latencies_s=current_tool_latencies,
+                    cost_usd=record.get("cost_usd"),
                 )
             )
 
@@ -866,8 +1395,14 @@ class AgenticRunner:
             delta = cpu_energies[-1] - cpu_energies[0]
             total_cpu_energy = delta if delta >= 0 else None
 
-        # Distribute proportionally by wall clock time
+        # Fallback: estimate from power when cumulative counters unavailable
         total_wall = sum(t.wall_clock_s for t in trace.turns)
+        if total_gpu_energy is None and total_wall > 0:
+            total_gpu_energy = _estimate_energy_from_power(readings, "power_watts", total_wall)
+        if total_cpu_energy is None and total_wall > 0:
+            total_cpu_energy = _estimate_energy_from_power(readings, "cpu_power_watts", total_wall)
+
+        # Distribute proportionally by wall clock time
         if total_wall > 0:
             for turn in trace.turns:
                 fraction = turn.wall_clock_s / total_wall
@@ -915,7 +1450,11 @@ class AgenticRunner:
             "base_commit",
             "dataset_name",
             "is_resolved",
+            "unscorable_reason",
+            "score_metadata",
             "test_results",
+            "agent_metadata",
+            "token_source",
             "gdpval_outputs_dir",
             "gdpval_submitted_files",
             "evaluation_metadata",
@@ -950,11 +1489,15 @@ class AgenticRunner:
         # Per-token energy normalization
         energy_per_output_token = None
         energy_per_total_token = None
-        total_tokens = total_input_tokens + total_output_tokens
+        total_tokens = (
+            total_input_tokens + total_output_tokens
+            if total_input_tokens is not None and total_output_tokens is not None
+            else None
+        )
         if gpu_energy is not None and gpu_energy > 0:
-            if total_output_tokens > 0:
+            if total_output_tokens is not None and total_output_tokens > 0:
                 energy_per_output_token = gpu_energy / total_output_tokens
-            if total_tokens > 0:
+            if total_tokens is not None and total_tokens > 0:
                 energy_per_total_token = gpu_energy / total_tokens
 
         energy_metrics = EnergyMetrics(
@@ -973,7 +1516,7 @@ class AgenticRunner:
         # Latency
         per_token_ms = None
         throughput = None
-        if total_output_tokens > 0 and total_seconds > 0:
+        if total_output_tokens is not None and total_output_tokens > 0 and total_seconds > 0:
             per_token_ms = (total_seconds * 1000.0) / total_output_tokens
             throughput = total_output_tokens / total_seconds
 
@@ -988,7 +1531,12 @@ class AgenticRunner:
         # treat 0.0 as "not provided" and try pricing tables. The localhost
         # fallback below ensures local models still get cost=0.0.
         cost = trace.total_cost_usd
-        if (cost is None or cost == 0.0) and total_input_tokens > 0:
+        if (
+            (cost is None or cost == 0.0)
+            and total_input_tokens is not None
+            and total_output_tokens is not None
+            and total_input_tokens > 0
+        ):
             from ..cost.pricing import calculate_cost
 
             provider = self._config.get("provider", "")
@@ -1029,7 +1577,7 @@ class AgenticRunner:
             token_metrics=TokenMetrics(
                 input=total_input_tokens,
                 output=total_output_tokens,
-                total=total_input_tokens + total_output_tokens,
+                total=total_tokens,
             ),
             efficiency=DerivedEfficiencyMetrics(
                 throughput_per_watt=throughput_per_watt,

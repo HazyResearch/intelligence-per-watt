@@ -21,6 +21,8 @@ OPENAI_PRICING: dict[str, dict[str, float]] = {
     "o1-mini": {"input": 3.00, "output": 12.00},
     # GPT-5 series
     "gpt-5.2-2025-12-11": {"input": 30.00, "output": 120.00},
+    "gpt-5.4": {"input": 30.00, "output": 120.00},
+    "gpt-5-mini": {"input": 5.00, "output": 20.00},
     "gpt-5-mini-2025-08-07": {"input": 5.00, "output": 20.00},
     "gpt-5-nano-2025-08-07": {"input": 1.00, "output": 4.00},
 }
@@ -30,9 +32,13 @@ OPENAI_PRICING: dict[str, dict[str, float]] = {
 # Source: https://www.anthropic.com/pricing
 # ---------------------------------------------------------------------------
 ANTHROPIC_PRICING: dict[str, dict[str, float]] = {
+    # Claude 4.6 models
+    "claude-opus-4-6": {"input": 20.00, "output": 100.00},
+    "claude-sonnet-4-6": {"input": 4.00, "output": 20.00},
     # Claude 4.5 models
     "claude-opus-4-5-20251101": {"input": 20.00, "output": 100.00},
     "claude-sonnet-4-5-20250929": {"input": 4.00, "output": 20.00},
+    "claude-haiku-4-5": {"input": 1.00, "output": 5.00},
     "claude-haiku-4-5-20251001": {"input": 1.00, "output": 5.00},
     # Claude 4 models
     "claude-opus-4-20250514": {"input": 15.00, "output": 75.00},
@@ -51,6 +57,9 @@ ANTHROPIC_PRICING: dict[str, dict[str, float]] = {
 # Source: https://ai.google.dev/pricing
 # ---------------------------------------------------------------------------
 GEMINI_PRICING: dict[str, dict[str, float]] = {
+    # Gemini 3.1 models
+    "gemini-3.1-pro-preview": {"input": 1.25, "output": 5.00},
+    "gemini-3.1-flash-lite-preview": {"input": 0.075, "output": 0.30},
     # Gemini 3.0 Flash (preview)
     "gemini-3-flash-preview": {"input": 0.10, "output": 0.40},
     # Gemini 2.0 models

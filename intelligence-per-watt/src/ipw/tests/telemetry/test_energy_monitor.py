@@ -26,6 +26,15 @@ def test_wait_for_ready_returns_true(monitor_target: str) -> None:
     assert wait_for_ready(monitor_target, timeout=5.0)
 
 
+def test_collector_uses_visible_gpu_specific_default_target(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.delenv("IPW_ENERGY_MONITOR_TARGET", raising=False)
+    monkeypatch.setenv("CUDA_VISIBLE_DEVICES", "4")
+
+    collector = EnergyMonitorCollector()
+
+    assert collector._target == "127.0.0.1:50057"
+
+
 def test_stream_readings_produces_samples(monitor_target: str) -> None:
     collector = EnergyMonitorCollector(target=monitor_target)
     assert collector.is_available()

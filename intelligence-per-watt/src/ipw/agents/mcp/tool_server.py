@@ -11,9 +11,19 @@ import shutil
 import subprocess
 import sys
 import tempfile
+import xml.etree.ElementTree as ET
+import zipfile
 from typing import Any, List, Optional
 
 from ipw.agents.mcp.base import BaseMCPServer, MCPToolResult
+
+
+def _resolve_workspace_abbrev_path(file_path: str, working_dir: str | None) -> str:
+    """Map model-copied `/.../workspace/...` paths back into the active workspace."""
+    if not working_dir or "/.../workspace/" not in file_path:
+        return file_path
+    suffix = file_path.split("/.../workspace/", 1)[1]
+    return os.path.join(str(working_dir), suffix)
 
 
 def _check_bubblewrap_available() -> bool:
@@ -219,6 +229,11 @@ class WebSearchServer(BaseMCPServer):
     def __init__(
         self,
         api_key: Optional[str] = None,
+        max_results: int = 5,
+        search_depth: str = "basic",
+        include_answer: bool = True,
+        max_content_chars: Optional[int] = None,
+        max_total_chars: Optional[int] = None,
         telemetry_collector: Optional[Any] = None,
     ):
         super().__init__(
@@ -226,6 +241,11 @@ class WebSearchServer(BaseMCPServer):
             telemetry_collector=telemetry_collector,
         )
         self.api_key = api_key or os.environ.get("TAVILY_API_KEY")
+        self.max_results = max_results
+        self.search_depth = search_depth
+        self.include_answer = include_answer
+        self.max_content_chars = max_content_chars
+        self.max_total_chars = max_total_chars
         self._client = None
 
     def _get_client(self):
@@ -253,9 +273,11 @@ class WebSearchServer(BaseMCPServer):
         Returns:
             MCPToolResult with formatted search results
         """
-        max_results = params.get("max_results", 5)
-        search_depth = params.get("search_depth", "basic")
-        include_answer = params.get("include_answer", True)
+        max_results = params.get("max_results", self.max_results)
+        search_depth = params.get("search_depth", self.search_depth)
+        include_answer = params.get("include_answer", self.include_answer)
+        max_content_chars = params.get("max_content_chars", self.max_content_chars)
+        max_total_chars = params.get("max_total_chars", self.max_total_chars)
 
         # If no API key, return helpful message
         if not self.api_key:
@@ -294,12 +316,16 @@ class WebSearchServer(BaseMCPServer):
                 title = result.get("title", "No title")
                 url = result.get("url", "")
                 content_snippet = result.get("content", "")
+                if max_content_chars and len(content_snippet) > max_content_chars:
+                    content_snippet = content_snippet[:max_content_chars] + "\n... (result truncated)"
                 lines.append(f"{i}. {title}")
                 lines.append(f"   URL: {url}")
                 lines.append(f"   {content_snippet}")
                 lines.append("")
 
             content = "\n".join(lines)
+            if max_total_chars and len(content) > max_total_chars:
+                content = content[:max_total_chars] + "\n... (search results truncated)"
 
             return MCPToolResult(
                 content=content,
@@ -620,6 +646,121 @@ class CodeInterpreterServer(BaseMCPServer):
         )
 
 
+class ShellServer(BaseMCPServer):
+    """MCP server for running shell commands in the active workspace."""
+
+    def __init__(
+        self,
+        timeout: int = 120,
+        max_output_length: int = 20000,
+        allowed_dirs: Optional[List[str]] = None,
+        telemetry_collector: Optional[Any] = None,
+    ):
+        super().__init__(name="bash", telemetry_collector=telemetry_collector)
+        self.openhands_name = "bash"
+        self.timeout = timeout
+        self.max_output_length = max_output_length
+        self.working_dir = os.getcwd()
+        self._ipw_dynamic_allowed_dirs = allowed_dirs is None
+        self.allowed_dirs = allowed_dirs or [self.working_dir]
+
+    def _truncate(self, text: str) -> tuple[str, bool]:
+        if self.max_output_length and len(text) > self.max_output_length:
+            return text[: self.max_output_length] + "\n... (output truncated)", True
+        return text, False
+
+    def _execute_impl(self, prompt: str, **params: Any) -> MCPToolResult:
+        command = (prompt or params.get("command") or "").strip()
+        if not command:
+            return MCPToolResult(
+                content="Error: No shell command provided",
+                usage={"prompt_tokens": 0, "completion_tokens": 0, "total_tokens": 0},
+                cost_usd=0.0,
+                metadata={"tool": "bash", "error": "missing_command"},
+            )
+
+        timeout = int(params.get("timeout", self.timeout))
+        working_dir = params.get("working_dir") or self.working_dir or os.getcwd()
+        resolved_cwd = os.path.realpath(str(working_dir))
+        if not any(
+            resolved_cwd.startswith(os.path.realpath(d)) for d in self.allowed_dirs
+        ):
+            return MCPToolResult(
+                content="Error: Working directory not in allowed directories",
+                usage={"prompt_tokens": 0, "completion_tokens": 0, "total_tokens": 0},
+                cost_usd=0.0,
+                metadata={
+                    "tool": "bash",
+                    "error": "permission_denied",
+                    "working_dir": resolved_cwd,
+                },
+            )
+
+        try:
+            result = subprocess.run(
+                command,
+                shell=True,
+                executable="/bin/bash",
+                cwd=resolved_cwd,
+                capture_output=True,
+                text=True,
+                timeout=timeout,
+            )
+            stdout, stdout_truncated = self._truncate(result.stdout or "")
+            stderr, stderr_truncated = self._truncate(result.stderr or "")
+            parts = [
+                f"Exit code: {result.returncode}",
+                f"Working directory: {resolved_cwd}",
+            ]
+            if stdout:
+                parts.append(f"STDOUT:\n{stdout}")
+            if stderr:
+                parts.append(f"STDERR:\n{stderr}")
+            if not stdout and not stderr:
+                parts.append("(No output)")
+            return MCPToolResult(
+                content="\n\n".join(parts),
+                usage={"prompt_tokens": 0, "completion_tokens": 0, "total_tokens": 0},
+                cost_usd=0.0,
+                metadata={
+                    "tool": "bash",
+                    "return_code": result.returncode,
+                    "working_dir": resolved_cwd,
+                    "timeout": timeout,
+                    "stdout_truncated": stdout_truncated,
+                    "stderr_truncated": stderr_truncated,
+                },
+            )
+        except subprocess.TimeoutExpired as exc:
+            stdout = exc.stdout if isinstance(exc.stdout, str) else ""
+            stderr = exc.stderr if isinstance(exc.stderr, str) else ""
+            stdout, stdout_truncated = self._truncate(stdout)
+            stderr, stderr_truncated = self._truncate(stderr)
+            return MCPToolResult(
+                content=(
+                    f"Error: Command timed out after {timeout}s\n\n"
+                    f"STDOUT:\n{stdout}\n\nSTDERR:\n{stderr}"
+                ),
+                usage={"prompt_tokens": 0, "completion_tokens": 0, "total_tokens": 0},
+                cost_usd=0.0,
+                metadata={
+                    "tool": "bash",
+                    "error": "timeout",
+                    "working_dir": resolved_cwd,
+                    "timeout": timeout,
+                    "stdout_truncated": stdout_truncated,
+                    "stderr_truncated": stderr_truncated,
+                },
+            )
+        except Exception as exc:
+            return MCPToolResult(
+                content=f"Error: {exc}",
+                usage={"prompt_tokens": 0, "completion_tokens": 0, "total_tokens": 0},
+                cost_usd=0.0,
+                metadata={"tool": "bash", "error": str(exc), "working_dir": resolved_cwd},
+            )
+
+
 class ThinkServer(BaseMCPServer):
     """MCP server for internal reasoning/scratchpad.
 
@@ -661,10 +802,60 @@ class FileReadServer(BaseMCPServer):
     def __init__(
         self,
         allowed_dirs: Optional[List[str]] = None,
+        max_chars: int = 20000,
         telemetry_collector: Optional[Any] = None,
     ):
         super().__init__(name="file_read", telemetry_collector=telemetry_collector)
+        self.working_dir = os.getcwd()
+        self._ipw_dynamic_allowed_dirs = allowed_dirs is None
         self.allowed_dirs = allowed_dirs or [os.getcwd()]
+        self.max_chars = max_chars
+
+    def _extract_docx_text(self, path: str) -> str:
+        with zipfile.ZipFile(path) as archive:
+            document_xml = archive.read("word/document.xml")
+        root = ET.fromstring(document_xml)
+        namespace = {"w": "http://schemas.openxmlformats.org/wordprocessingml/2006/main"}
+        paragraphs: list[str] = []
+        for paragraph in root.findall(".//w:p", namespace):
+            text = "".join(
+                node.text or "" for node in paragraph.findall(".//w:t", namespace)
+            ).strip()
+            if text:
+                paragraphs.append(text)
+        return "\n".join(paragraphs)
+
+    def _extract_pdf_text(self, path: str) -> str:
+        try:
+            from pypdf import PdfReader  # type: ignore
+        except ImportError:
+            try:
+                from PyPDF2 import PdfReader  # type: ignore
+            except ImportError as exc:
+                raise RuntimeError(
+                    "PDF parsing requires pypdf or PyPDF2. Install one of them, "
+                    "or use code_interpreter with a PDF parser available."
+                ) from exc
+
+        reader = PdfReader(path)
+        pages: list[str] = []
+        for page in reader.pages:
+            try:
+                pages.append(page.extract_text() or "")
+            except Exception:
+                pages.append("")
+        text = "\n\n".join(page.strip() for page in pages if page.strip())
+        if not text:
+            return (
+                "No embedded text found in this PDF. OCR may be required; use "
+                "code_interpreter with an OCR package if available."
+            )
+        return text
+
+    def _truncate_content(self, content: str, max_chars: int) -> tuple[str, bool]:
+        if max_chars and len(content) > max_chars:
+            return content[:max_chars] + "\n... (file content truncated)", True
+        return content, False
 
     def _execute_impl(self, prompt: str, **params: Any) -> MCPToolResult:
         """Read file contents.
@@ -677,8 +868,13 @@ class FileReadServer(BaseMCPServer):
             MCPToolResult with file contents or error message
         """
         file_path = prompt.strip()
+        file_path = _resolve_workspace_abbrev_path(file_path, self.working_dir)
+        if file_path and not os.path.isabs(file_path):
+            base_dir = str(params.get("working_dir") or self.working_dir or os.getcwd())
+            file_path = os.path.join(base_dir, file_path)
         start_line = params.get("start_line", 1)
         end_line = params.get("end_line")
+        max_chars = int(params.get("max_chars", self.max_chars))
 
         # Security: resolve path and check if within allowed dirs
         try:
@@ -693,8 +889,29 @@ class FileReadServer(BaseMCPServer):
                     metadata={"tool": "file_read", "error": "permission_denied"},
                 )
 
-            with open(resolved, "r", encoding="utf-8", errors="replace") as f:
-                lines = f.readlines()
+            if resolved.lower().endswith(".docx"):
+                content = self._extract_docx_text(resolved)
+                lines = content.splitlines(keepends=True)
+            elif resolved.lower().endswith(".pdf"):
+                content = self._extract_pdf_text(resolved)
+                lines = content.splitlines(keepends=True)
+            else:
+                with open(resolved, "rb") as f:
+                    sample = f.read(4096)
+                    f.seek(0)
+                    if b"\x00" in sample:
+                        return MCPToolResult(
+                            content=(
+                                f"Error: {resolved} appears to be a binary file. "
+                                "Use the code_interpreter tool with an appropriate parser "
+                                "to extract structured text from it."
+                            ),
+                            usage={"prompt_tokens": 0, "completion_tokens": 0, "total_tokens": 0},
+                            cost_usd=0.0,
+                            metadata={"tool": "file_read", "path": resolved, "error": "binary_file"},
+                        )
+                    raw = f.read()
+                lines = raw.decode("utf-8", errors="replace").splitlines(keepends=True)
 
             # Apply line range (1-indexed)
             start_idx = max(0, start_line - 1)
@@ -703,7 +920,7 @@ class FileReadServer(BaseMCPServer):
             else:
                 lines = lines[start_idx:]
 
-            content = "".join(lines)
+            content, truncated = self._truncate_content("".join(lines), max_chars)
             return MCPToolResult(
                 content=content,
                 usage={"prompt_tokens": 0, "completion_tokens": 0, "total_tokens": 0},
@@ -714,6 +931,8 @@ class FileReadServer(BaseMCPServer):
                     "lines_read": len(lines),
                     "start_line": start_line,
                     "end_line": end_line,
+                    "truncated": truncated,
+                    "max_chars": max_chars,
                 },
             )
         except FileNotFoundError:
@@ -749,6 +968,8 @@ class FileWriteServer(BaseMCPServer):
         telemetry_collector: Optional[Any] = None,
     ):
         super().__init__(name="file_write", telemetry_collector=telemetry_collector)
+        self.working_dir = os.getcwd()
+        self._ipw_dynamic_allowed_dirs = allowed_dirs is None
         self.allowed_dirs = allowed_dirs or [os.getcwd()]
 
     def _execute_impl(self, prompt: str, **params: Any) -> MCPToolResult:
@@ -762,6 +983,10 @@ class FileWriteServer(BaseMCPServer):
             MCPToolResult with success message or error
         """
         file_path = prompt.strip()
+        file_path = _resolve_workspace_abbrev_path(file_path, self.working_dir)
+        if file_path and not os.path.isabs(file_path):
+            base_dir = str(params.get("working_dir") or self.working_dir or os.getcwd())
+            file_path = os.path.join(base_dir, file_path)
         content = params.get("content", "")
         mode = params.get("mode", "w")
 

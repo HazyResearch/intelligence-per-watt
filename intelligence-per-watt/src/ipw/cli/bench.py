@@ -99,6 +99,14 @@ def create_model(client_id: str, model: str, base_url: str | None = None, agent_
     """
     if agent_id == "openhands":
         return _create_openhands_llm(model, base_url, client_id)
+    if agent_id in ("dspy-rlm", "forgecode"):
+        return {
+            "model": model,
+            "base_url": base_url,
+            "api_key": os.environ.get("OPENAI_API_KEY", "EMPTY"),
+            "client": client_id,
+            "cloud": client_id == "openai" and not base_url,
+        }
     if client_id not in MODEL_FACTORIES:
         raise ValueError(f"Unknown client: {client_id}. Supported: {list(MODEL_FACTORIES.keys())}")
     return MODEL_FACTORIES[client_id](model, base_url)
@@ -192,6 +200,12 @@ def _compute_energy_metrics(samples, start_time: float, end_time: float) -> Dict
     gpu_power_samples = [r.power_watts for r in readings if r.power_watts is not None]
     cpu_power_samples = [r.cpu_power_watts for r in readings if r.cpu_power_watts is not None]
 
+    mbu_samples = [
+        r.gpu_memory_bandwidth_utilization_pct for r in readings
+        if getattr(r, 'gpu_memory_bandwidth_utilization_pct', None) is not None
+        and r.gpu_memory_bandwidth_utilization_pct >= 0
+    ]
+
     duration = max(end_time - start_time, 0.0)
     total_energy = (gpu_energy or 0) + (cpu_energy or 0)
 
@@ -203,6 +217,8 @@ def _compute_energy_metrics(samples, start_time: float, end_time: float) -> Dict
         "avg_gpu_power_watts": _safe_mean(gpu_power_samples),
         "max_gpu_power_watts": _safe_max(gpu_power_samples),
         "avg_cpu_power_watts": _safe_mean(cpu_power_samples),
+        "avg_mbu_pct": statistics.mean(mbu_samples) if mbu_samples else None,
+        "max_mbu_pct": max(mbu_samples) if mbu_samples else None,
         "telemetry_samples": len(samples),
     }
 
@@ -332,7 +348,30 @@ def execute_benchmark(
     import ipw.datasets
     ipw.datasets.ensure_registered()
 
+    # Register the OpenAI client for LLM-judge scoring.
+    # We avoid ipw.clients.ensure_registered() because it eagerly imports
+    # all client backends (vllm, ollama), which may fail if their native
+    # libraries are unavailable.  The openai client has no native deps.
+    try:
+        import ipw.clients.openai  # noqa: F401
+    except ImportError:
+        pass
+
+    from ipw.agents import dspy_rlm as _dspy_rlm  # noqa: F401
+    from ipw.agents import forgecode as _forgecode  # noqa: F401
     from ipw.agents import react as _react  # noqa: F401
+    try:
+        from ipw.agents import openhands as _openhands  # noqa: F401
+    except ImportError:
+        pass
+    try:
+        from ipw.agents import terminus as _terminus  # noqa: F401
+    except ImportError:
+        pass
+    try:
+        from ipw.agents import terminus_tb as _terminus_tb  # noqa: F401
+    except ImportError:
+        pass
     from ipw.core.registry import AgentRegistry, DatasetRegistry
     from ipw.execution.agentic_runner import AgenticRunner
     from ipw.execution.exporters import export_jsonl, export_summary_json
@@ -471,7 +510,26 @@ def execute_benchmark(
         traces = result.get("_traces")
         if traces:
             export_jsonl(traces, actual_output_dir / "traces.jsonl")
-            export_summary_json(traces, run_config, actual_output_dir / "summary.json")
+
+            # Pass benchmark-level energy metrics so the summary can
+            # include aggregate telemetry even when per-query energy is
+            # unavailable (i.e. telemetry_granularity == "benchmark").
+            bench_energy = {}
+            for key in (
+                "gpu_energy_joules", "cpu_energy_joules",
+                "avg_gpu_power_watts", "max_gpu_power_watts",
+                "avg_cpu_power_watts",
+                "avg_mbu_pct", "max_mbu_pct",
+                "duration_seconds", "telemetry_samples",
+            ):
+                if key in result:
+                    bench_energy[key] = result[key]
+
+            export_summary_json(
+                traces, run_config,
+                actual_output_dir / "summary.json",
+                bench_energy=bench_energy,
+            )
 
         return result
 
@@ -559,14 +617,28 @@ def _execute_with_telemetry(
 
                     total_prompt_tokens = 0
                     total_completion_tokens = 0
+                    missing_token_metrics = False
                     for event in events:
                         if event.event_type == "lm_inference_end":
-                            total_prompt_tokens += event.metadata.get("prompt_tokens", 0)
-                            total_completion_tokens += event.metadata.get("completion_tokens", 0)
+                            prompt_tokens = event.metadata.get("prompt_tokens")
+                            completion_tokens = event.metadata.get("completion_tokens")
+                            if prompt_tokens is None or completion_tokens is None:
+                                missing_token_metrics = True
+                                continue
+                            total_prompt_tokens += prompt_tokens
+                            total_completion_tokens += completion_tokens
 
-                    result["total_prompt_tokens"] = total_prompt_tokens
-                    result["total_completion_tokens"] = total_completion_tokens
-                    result["total_tokens"] = total_prompt_tokens + total_completion_tokens
+                    result["total_prompt_tokens"] = (
+                        None if missing_token_metrics else total_prompt_tokens
+                    )
+                    result["total_completion_tokens"] = (
+                        None if missing_token_metrics else total_completion_tokens
+                    )
+                    result["total_tokens"] = (
+                        None
+                        if missing_token_metrics
+                        else total_prompt_tokens + total_completion_tokens
+                    )
 
                     result["action_breakdown"] = [
                         {
@@ -613,7 +685,7 @@ def _execute_with_telemetry(
     "--agent",
     "agent_id",
     required=True,
-    help="Agent type (react, openhands, terminus)",
+    help="Agent type (react, dspy-rlm, forgecode, openhands, terminus)",
 )
 @click.option(
     "--model",
@@ -800,7 +872,15 @@ def bench(
         if traces:
             metric_rows = compute_trace_metrics(traces)
             print_metrics_table(rows=metric_rows, title="Benchmark Metrics")
-            print_efficiency_panel(traces=traces)
+            # Pass benchmark-level energy for the efficiency panel
+            bench_energy_display = {}
+            for key in ("gpu_energy_joules", "avg_gpu_power_watts"):
+                if key in metrics:
+                    bench_energy_display[key] = metrics[key]
+            print_efficiency_panel(
+                traces=traces,
+                bench_energy=bench_energy_display if bench_energy_display else None,
+            )
 
         # Display output path
         out_path = metrics.get("_output_dir") or metrics.get("output_dir")

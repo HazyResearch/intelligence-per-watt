@@ -14,7 +14,7 @@ IPW tracks API costs for cloud-hosted models automatically. Pricing tables are m
 
 All prices are per 1 million tokens in USD.
 
-### OpenAI
+### [OpenAI](https://openai.com/api/pricing/)
 
 | Model | Input ($/1M) | Output ($/1M) |
 |-------|-------------|---------------|
@@ -29,7 +29,7 @@ All prices are per 1 million tokens in USD.
 | `gpt-5-mini-2025-08-07` | $5.00 | $20.00 |
 | `gpt-5-nano-2025-08-07` | $1.00 | $4.00 |
 
-### Anthropic
+### [Anthropic](https://www.anthropic.com/pricing)
 
 | Model | Input ($/1M) | Output ($/1M) |
 |-------|-------------|---------------|
@@ -44,7 +44,7 @@ All prices are per 1 million tokens in USD.
 | `claude-3-sonnet-20240229` | $3.00 | $15.00 |
 | `claude-3-haiku-20240307` | $0.25 | $1.25 |
 
-### Google Gemini
+### [Google Gemini](https://ai.google.dev/pricing)
 
 | Model | Input ($/1M) | Output ($/1M) |
 |-------|-------------|---------------|
