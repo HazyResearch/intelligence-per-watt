@@ -30,6 +30,7 @@ dependencies = [
 [project.optional-dependencies]
 ollama = ["ollama"]
 vllm = ["vllm>=0.11.0"]
+mlx = ["mlx>=0.20", "mlx-lm>=0.20"]
 react = ["agno"]
 terminus = ["terminal-bench", "docker"]
 openhands = ["openhands-sdk", "openhands-tools"]
@@ -64,6 +65,8 @@ docs = ["mkdocs-material"]
 all = [
     "ollama",
     "vllm>=0.11.0",
+    "mlx>=0.20",
+    "mlx-lm>=0.20",
     "agno",
     "terminal-bench",
     "docker",

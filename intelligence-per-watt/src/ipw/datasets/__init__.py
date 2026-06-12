@@ -11,6 +11,7 @@ def ensure_registered() -> None:
     import ipw.evaluation  # noqa: F401  # register evaluation handlers used by datasets
 
     from . import (  # noqa: F401
+        fixed_length,
         arena_hard_auto,
         browsecomp,
         deepresearchbench,
