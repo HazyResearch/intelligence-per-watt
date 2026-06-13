@@ -2,18 +2,22 @@
 
 from __future__ import annotations
 
+import io
 import logging
 import os
+import tarfile
 import time
 import types
 import uuid
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Optional
+from typing import TYPE_CHECKING, Any, MutableMapping, Optional
 
 from ipw.agents.base import BaseAgent
 from ipw.core.registry import AgentRegistry
 from ipw.core.types import AgentRunResult
 from ipw.cost.pricing import calculate_cost
+
+logger = logging.getLogger(__name__)
 
 if TYPE_CHECKING:
     from ipw.telemetry.events import EventRecorder
@@ -508,6 +512,25 @@ class Terminus(BaseAgent):
             raise RuntimeError("Timeout waiting for tmux installation in container")
 
         return container
+
+    def set_task_metadata(self, metadata: MutableMapping[str, Any]) -> None:
+        """Stage GDPval reference files into ``/workspace/inputs`` if present."""
+        inputs_dir = metadata.get("gdpval_inputs_dir") if metadata else None
+        if not inputs_dir:
+            return
+        try:
+            container = self._get_or_create_container()
+            # tar the inputs dir and stream it into the container
+            buf = io.BytesIO()
+            with tarfile.open(fileobj=buf, mode="w") as tar:
+                src_root = Path(inputs_dir)
+                for src in src_root.iterdir():
+                    tar.add(str(src), arcname=src.name)
+            buf.seek(0)
+            container.exec_run(["mkdir", "-p", "/workspace/inputs"])
+            container.put_archive("/workspace/inputs", buf.getvalue())
+        except Exception:
+            logger.warning("Failed to stage gdpval inputs into container", exc_info=True)
 
     def get_session(self, tmux_session: Any = None) -> Any:
         """Get or create a TmuxSession.

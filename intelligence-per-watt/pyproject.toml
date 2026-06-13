@@ -20,6 +20,7 @@ dependencies = [
     "requests>=2",
     "datasets>=2.20",
     "numpy>=1.26",
+    "pandas>=2.2",
     "pyarrow>=18",
     "tqdm>=4.66",
     "hf_transfer",
@@ -31,10 +32,26 @@ ollama = ["ollama"]
 vllm = ["vllm>=0.11.0"]
 react = ["agno"]
 terminus = ["terminal-bench", "docker"]
-openhands = ["openhands-sdk"]
-agents = ["agno", "terminal-bench", "docker", "openhands-sdk"]
+openhands = ["openhands-sdk", "openhands-tools"]
+agents = ["agno", "terminal-bench", "docker", "openhands-sdk", "openhands-tools"]
+deliverables = [
+    "fpdf2",
+    "mutagen",
+    "openpyxl",
+    "pdf2image",
+    "pdfplumber",
+    "Pillow",
+    "psd-tools",
+    "pymupdf",
+    "python-docx",
+    "python-pptx",
+    "reportlab",
+    "scipy",
+    "weasyprint",
+]
 tavily = ["tavily-python"]
 flops = ["calflops"]
+media-transcription = ["openai-whisper"]
 # Browser + pdf extras for react-native + GAIA. After installing
 # ipw[browser] run `playwright install chromium` (one-time, ~200MB).
 browser = ["playwright>=1.40"]
@@ -51,8 +68,23 @@ all = [
     "terminal-bench",
     "docker",
     "openhands-sdk",
+    "openhands-tools",
+    "fpdf2",
+    "mutagen",
+    "openpyxl",
+    "pdf2image",
+    "pdfplumber",
+    "Pillow",
+    "psd-tools",
+    "pymupdf",
+    "python-docx",
+    "python-pptx",
+    "reportlab",
+    "scipy",
     "tavily-python",
     "calflops",
+    "weasyprint",
+    "openai-whisper",
     "playwright>=1.40",
     "pdfplumber>=0.10",
     "pypdf>=4.0",

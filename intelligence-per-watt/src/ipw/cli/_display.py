@@ -160,6 +160,7 @@ def compute_profile_metrics(
 
     rows = [
         _row("GPU Energy", _collect(lambda m: _safe_get(m, "energy_metrics", "per_query_joules")), "J"),
+        _row("Judge GPU Energy", _collect(lambda m: _safe_get(m, "energy_metrics", "judge_gpu_joules")), "J"),
         _row("CPU Energy", _collect(lambda m: _safe_get(m, "energy_metrics", "cpu_per_query_joules")), "J"),
         _row("GPU Power", _collect(lambda m: _safe_get(m, "power_metrics", "gpu", "per_query_watts", "avg")), "W"),
         _row("Latency", _collect(lambda m: _safe_get(m, "latency_metrics", "total_query_seconds")), "s"),
@@ -193,6 +194,7 @@ def compute_trace_metrics(traces: List["QueryTrace"]) -> List[MetricRow]:
     rows = [
         _row("Wall Clock", [t.total_wall_clock_s for t in traces], "s"),
         _row("GPU Energy", [t.total_gpu_energy_joules for t in traces], "J"),
+        _row("Judge GPU Energy", [t.judge_gpu_energy_joules for t in traces], "J"),
         _row("CPU Energy", [t.total_cpu_energy_joules for t in traces], "J"),
         _row("GPU Power", [t.avg_gpu_power_watts for t in traces], "W"),
         _row("CPU Power", [t.avg_cpu_power_watts for t in traces], "W"),

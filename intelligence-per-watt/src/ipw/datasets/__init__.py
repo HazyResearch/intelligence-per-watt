@@ -16,6 +16,7 @@ def ensure_registered() -> None:
         deepresearchbench,
         frames,
         gaia,
+        gdpval,
         gpqa,
         hle,
         ipw,

@@ -31,9 +31,16 @@ def _compute_stats(traces: list[QueryTrace]) -> dict[str, dict[str, Optional[flo
     stats: dict[str, dict[str, Optional[float]]] = {
         "wall_clock_s": _agg_stats([t.total_wall_clock_s for t in traces]),
         "gpu_energy_joules": _agg_stats([t.total_gpu_energy_joules for t in traces]),
+        "judge_gpu_energy_joules": _agg_stats([t.judge_gpu_energy_joules for t in traces]),
+        "total_task_gpu_energy_joules": _agg_stats([t.total_task_gpu_energy_joules for t in traces]),
         "cpu_energy_joules": _agg_stats([t.total_cpu_energy_joules for t in traces]),
+        "judge_cpu_energy_joules": _agg_stats([t.judge_cpu_energy_joules for t in traces]),
+        "total_task_cpu_energy_joules": _agg_stats([t.total_task_cpu_energy_joules for t in traces]),
         "gpu_power_watts": _agg_stats([t.avg_gpu_power_watts for t in traces]),
+        "judge_gpu_power_watts": _agg_stats([t.judge_gpu_power_avg_watts for t in traces]),
         "cpu_power_watts": _agg_stats([t.avg_cpu_power_watts for t in traces]),
+        "judge_cpu_power_watts": _agg_stats([t.judge_cpu_power_avg_watts for t in traces]),
+        "judge_wall_clock_s": _agg_stats([t.judge_wall_clock_s for t in traces]),
         "input_tokens": _agg_stats([
             float(t.total_input_tokens) if t.total_input_tokens is not None else None
             for t in traces
@@ -189,11 +196,35 @@ def export_summary_json(
     ]
     total_gpu_energy = sum(gpu_energy_values) if gpu_energy_values else None
 
+    judge_gpu_energy_values = [
+        t.judge_gpu_energy_joules for t in traces
+        if t.judge_gpu_energy_joules is not None
+    ]
+    total_judge_gpu_energy = (
+        sum(judge_gpu_energy_values) if judge_gpu_energy_values else None
+    )
+
+    total_task_gpu_energy_values = [
+        t.total_task_gpu_energy_joules for t in traces
+        if t.total_task_gpu_energy_joules is not None
+    ]
+    total_task_gpu_energy = (
+        sum(total_task_gpu_energy_values) if total_task_gpu_energy_values else None
+    )
+
     cpu_energy_values = [
         t.total_cpu_energy_joules for t in traces
         if t.total_cpu_energy_joules is not None
     ]
     total_cpu_energy = sum(cpu_energy_values) if cpu_energy_values else None
+
+    judge_cpu_energy_values = [
+        t.judge_cpu_energy_joules for t in traces
+        if t.judge_cpu_energy_joules is not None
+    ]
+    total_judge_cpu_energy = (
+        sum(judge_cpu_energy_values) if judge_cpu_energy_values else None
+    )
 
     # Aggregate resolved/unresolved
     resolved = sum(1 for t in traces if t.is_resolved is True)
@@ -308,7 +339,10 @@ def export_summary_json(
             "total_tokens": total_tokens,
             "wall_clock_s": total_wall_clock_s,
             "gpu_energy_joules": total_gpu_energy,
+            "judge_gpu_energy_joules": total_judge_gpu_energy,
+            "total_task_gpu_energy_joules": total_task_gpu_energy,
             "cpu_energy_joules": total_cpu_energy,
+            "judge_cpu_energy_joules": total_judge_cpu_energy,
             "cost_usd": total_cost,
             "accuracy": accuracy,
         },

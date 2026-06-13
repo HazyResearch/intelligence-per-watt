@@ -9,7 +9,10 @@ from typing import Any, Dict
 MODEL_PRESETS: Dict[str, Dict[str, Any]] = {
     "glm-4.7-flash": {
         "model_id": "zai-org/GLM-4.7-FP8",
-        "vllm_args": {"tensor_parallel_size": 8},
+        "vllm_args": {
+            "tensor_parallel_size": 8,
+            "tool_call_parser": "glm47",
+        },
     },
     "glm-5-fp8": {
         "model_id": "zai-org/GLM-5-FP8",
@@ -89,6 +92,24 @@ MODEL_PRESETS: Dict[str, Dict[str, Any]] = {
     },
     "qwen35-27b": {
         "model_id": "Qwen/Qwen3.5-27B",
+        "vllm_args": {
+            "tensor_parallel_size": 1,
+            "reasoning_parser": "qwen3",
+            "tool_call_parser": "qwen3_coder",
+            "language_model_only": True,
+        },
+    },
+    "qwen35-9b": {
+        "model_id": "Qwen/Qwen3.5-9B",
+        "vllm_args": {
+            "tensor_parallel_size": 1,
+            "reasoning_parser": "qwen3",
+            "tool_call_parser": "qwen3_coder",
+            "language_model_only": True,
+        },
+    },
+    "qwen36-27b": {
+        "model_id": "Qwen/Qwen3.6-27B",
         "vllm_args": {
             "tensor_parallel_size": 1,
             "reasoning_parser": "qwen3",

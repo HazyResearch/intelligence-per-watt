@@ -7,7 +7,9 @@ import json
 import logging
 import os
 import re
+import shutil
 import subprocess
+from pathlib import Path
 from typing import TYPE_CHECKING, Any, Dict, List, MutableMapping, Optional, Sequence
 
 from ipw.agents.base import BaseAgent
@@ -638,8 +640,15 @@ class OpenHands(BaseAgent):
     DEFAULT_MAX_TURNS = 20
 
     DEFAULT_INSTRUCTIONS = (
-        "You are a helpful assistant that can answer questions "
-        "and use the tools provided to you if necessary."
+        "You operate autonomously with two tools: `terminal` (bash) and "
+        "`file_editor`. NEVER ask the user questions — make every decision "
+        "yourself. To produce a deliverable, write a script with "
+        "`file_editor`, RUN it via `terminal` (e.g. `python script.py`), "
+        "and verify the output files exist with `ls`. Saving a script "
+        "without running it accomplishes nothing. Install any missing "
+        "libraries via `terminal` (e.g. `pip install openpyxl pdfplumber`). "
+        "Call `finish` exactly once, only after the deliverable files are "
+        "on disk."
     )
 
     def __init__(
@@ -671,6 +680,7 @@ class OpenHands(BaseAgent):
                 LLMConvertibleEvent,
                 LLMSummarizingCondenser,
                 LocalConversation,
+                Tool,
             )
             from openhands.sdk.event.llm_convertible.action import ActionEvent
             from openhands.sdk.event.llm_convertible.observation import ObservationEvent
@@ -678,6 +688,20 @@ class OpenHands(BaseAgent):
             raise ImportError(
                 "openhands-sdk package is required for OpenHands agent. "
                 "Install with: pip install openhands-sdk"
+            )
+
+        # Importing openhands.tools registers the standard tools (terminal,
+        # file_editor, task_tracker, etc.) in the SDK's tool registry. This
+        # is optional — if it isn't installed the agent will fall back to
+        # the SDK builtins (finish/think only).
+        _have_openhands_tools = False
+        try:
+            import openhands.tools  # noqa: F401
+            _have_openhands_tools = True
+        except ImportError:
+            logger.warning(
+                "openhands-tools not installed; agent will only have finish/"
+                "think available. Install with: pip install openhands-tools"
             )
 
         self.model = model
@@ -706,15 +730,38 @@ class OpenHands(BaseAgent):
             keep_first=2,
         )
 
-        agent_kwargs = {"llm": self._instrumented_model, "condenser": condenser}
+        # Build agent_kwargs up front but DEFER Agent construction to per-run.
+        #
+        # Why: openhands.sdk.AgentBase._initialize() builds the tools map
+        # exactly once and refuses to re-init. The first conversation's
+        # workspace becomes baked into the TerminalExecutor and reused for
+        # every subsequent conversation, so task N+1's `python build.py`
+        # writes outputs into task N's workspace. Building a fresh Agent
+        # per run() call forces _initialize to re-run with the current
+        # conversation's state (and the correct per-task workspace).
+        agent_kwargs: dict[str, Any] = {
+            "llm": self._instrumented_model,
+            "condenser": condenser,
+        }
 
         if tools:
             agent_kwargs["tools"] = tools
         elif mcp_tools:
             extra_tool_specs = _register_mcp_tools(mcp_tools)
             agent_kwargs["tools"] = extra_tool_specs
+        elif _have_openhands_tools:
+            # Default tools: terminal + file_editor only. Skipping
+            # task_tracker so small models don't spend turns building todo
+            # lists. terminal_type="subprocess" avoids the tmux pane pool
+            # (also a source of cross-conversation state leakage).
+            agent_kwargs["tools"] = [
+                Tool(name="terminal", params={"terminal_type": "subprocess"}),
+                Tool(name="file_editor"),
+            ]
 
-        self.agent = Agent(**agent_kwargs)
+        self._Agent = Agent
+        self._agent_kwargs = agent_kwargs
+        self.agent: Optional[Any] = None  # rebuilt in each run()
         self.conversation: Optional[Any] = None
         self.current_result = ""
         self._task_metadata: Optional[MutableMapping[str, Any]] = None
@@ -737,6 +784,25 @@ class OpenHands(BaseAgent):
 
     def set_task_metadata(self, metadata: MutableMapping[str, Any]) -> None:
         self._task_metadata = metadata
+        # GDPval: tell the rubric judge where the agent's deliverables live.
+        # OpenHands writes outputs directly into the workspace root (not a
+        # subdirectory), so point the judge at the workspace itself.
+        if metadata is not None and self._workspace and not metadata.get("session"):
+            metadata.setdefault("gdpval_outputs_dir", self._workspace)
+        # GDPval: materialize reference files into the workspace so the agent
+        # can read them via its file tools. Skipped in TerminalBench mode
+        # (handled separately via Docker copy).
+        inputs_dir = metadata.get("gdpval_inputs_dir") if metadata else None
+        if inputs_dir and not metadata.get("session"):
+            try:
+                dest = Path(self._workspace) / "inputs"
+                dest.mkdir(parents=True, exist_ok=True)
+                for src in Path(inputs_dir).iterdir():
+                    target = dest / src.name
+                    if not target.exists():
+                        shutil.copy2(src, target)
+            except Exception:
+                logger.warning("Failed to stage gdpval inputs", exc_info=True)
 
     def set_workspace(self, workspace_path: str) -> None:
         """Set the workspace directory for the next agent run."""
@@ -750,7 +816,15 @@ class OpenHands(BaseAgent):
                 server.allowed_dirs = [workspace_path]
 
     def _create_conversation(self) -> Any:
-        """Create a fresh LocalConversation for the next run."""
+        """Create a fresh Agent + LocalConversation for the next run.
+
+        Building a fresh Agent forces openhands.sdk.AgentBase._initialize()
+        to re-run with the current conversation's state, which in turn
+        creates a fresh TerminalExecutor bound to this task's workspace.
+        Without this, the executor's working_dir is frozen at the first
+        task's workspace and every subsequent task's outputs land there.
+        """
+        self.agent = self._Agent(**self._agent_kwargs)
         return self._LocalConversation(
             agent=self.agent,
             callbacks=[self._instrumented_callback],

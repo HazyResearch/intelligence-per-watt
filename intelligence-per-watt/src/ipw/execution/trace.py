@@ -98,6 +98,13 @@ class QueryTrace:
     query_cpu_energy_joules: Optional[float] = None
     query_gpu_power_avg_watts: Optional[float] = None
     query_cpu_power_avg_watts: Optional[float] = None
+    # Judge/evaluation energy is recorded separately so query energy remains
+    # attributable to the agent prompt window.
+    judge_gpu_energy_joules: Optional[float] = None
+    judge_cpu_energy_joules: Optional[float] = None
+    judge_gpu_power_avg_watts: Optional[float] = None
+    judge_cpu_power_avg_watts: Optional[float] = None
+    judge_wall_clock_s: Optional[float] = None
     query_mbu_avg_pct: Optional[float] = None
     query_mbu_max_pct: Optional[float] = None
     is_resolved: Optional[bool] = None
@@ -152,6 +159,24 @@ class QueryTrace:
         if values:
             return sum(values)
         return None
+
+    @property
+    def total_task_gpu_energy_joules(self) -> Optional[float]:
+        values = [
+            value
+            for value in (self.total_gpu_energy_joules, self.judge_gpu_energy_joules)
+            if value is not None
+        ]
+        return sum(values) if values else None
+
+    @property
+    def total_task_cpu_energy_joules(self) -> Optional[float]:
+        values = [
+            value
+            for value in (self.total_cpu_energy_joules, self.judge_cpu_energy_joules)
+            if value is not None
+        ]
+        return sum(values) if values else None
 
     @property
     def total_cost_usd(self) -> Optional[float]:
@@ -218,6 +243,13 @@ class QueryTrace:
             "query_cpu_energy_joules": self.query_cpu_energy_joules,
             "query_gpu_power_avg_watts": self.query_gpu_power_avg_watts,
             "query_cpu_power_avg_watts": self.query_cpu_power_avg_watts,
+            "judge_gpu_energy_joules": self.judge_gpu_energy_joules,
+            "judge_cpu_energy_joules": self.judge_cpu_energy_joules,
+            "judge_gpu_power_avg_watts": self.judge_gpu_power_avg_watts,
+            "judge_cpu_power_avg_watts": self.judge_cpu_power_avg_watts,
+            "judge_wall_clock_s": self.judge_wall_clock_s,
+            "total_task_gpu_energy_joules": self.total_task_gpu_energy_joules,
+            "total_task_cpu_energy_joules": self.total_task_cpu_energy_joules,
             "query_mbu_avg_pct": self.query_mbu_avg_pct,
             "query_mbu_max_pct": self.query_mbu_max_pct,
             "throughput_tokens_per_sec": self.throughput_tokens_per_sec,
@@ -248,6 +280,11 @@ class QueryTrace:
             query_cpu_energy_joules=d.get("query_cpu_energy_joules"),
             query_gpu_power_avg_watts=d.get("query_gpu_power_avg_watts"),
             query_cpu_power_avg_watts=d.get("query_cpu_power_avg_watts"),
+            judge_gpu_energy_joules=d.get("judge_gpu_energy_joules"),
+            judge_cpu_energy_joules=d.get("judge_cpu_energy_joules"),
+            judge_gpu_power_avg_watts=d.get("judge_gpu_power_avg_watts"),
+            judge_cpu_power_avg_watts=d.get("judge_cpu_power_avg_watts"),
+            judge_wall_clock_s=d.get("judge_wall_clock_s"),
             query_mbu_avg_pct=d.get("query_mbu_avg_pct"),
             query_mbu_max_pct=d.get("query_mbu_max_pct"),
             is_resolved=d.get("is_resolved"),
@@ -300,6 +337,11 @@ class QueryTrace:
                 "total_wall_clock_s": trace.total_wall_clock_s,
                 "total_gpu_energy_joules": trace.total_gpu_energy_joules,
                 "total_cpu_energy_joules": trace.total_cpu_energy_joules,
+                "judge_gpu_energy_joules": trace.judge_gpu_energy_joules,
+                "judge_cpu_energy_joules": trace.judge_cpu_energy_joules,
+                "judge_wall_clock_s": trace.judge_wall_clock_s,
+                "total_task_gpu_energy_joules": trace.total_task_gpu_energy_joules,
+                "total_task_cpu_energy_joules": trace.total_task_cpu_energy_joules,
                 "total_tokens": trace.total_tokens,
                 "total_cost_usd": trace.total_cost_usd,
                 "avg_gpu_power_watts": trace.avg_gpu_power_watts,

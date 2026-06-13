@@ -645,6 +645,71 @@ class TestAgenticRunner:
         # total_gpu_energy_joules should fall back to query-level
         assert trace.total_gpu_energy_joules == pytest.approx(10.0)
 
+    def test_judge_energy_recorded_separately_from_prompt_energy(self) -> None:
+        """Scoring/judge telemetry is not folded into query_gpu_energy_joules."""
+        agent = MagicMock()
+        agent.run.return_value = AgentRunResult(
+            content="ok",
+            input_tokens=10,
+            output_tokens=5,
+        )
+
+        dataset = MagicMock()
+        records = [
+            DatasetRecord(
+                problem="Q1", answer="A1", subject="s",
+                dataset_metadata={"dataset_name": "test"},
+            )
+        ]
+        dataset.__iter__ = MagicMock(return_value=iter(records))
+        dataset.size.return_value = 1
+        dataset.create_task_env.return_value = None
+        dataset.score.return_value = (True, {"score": 1.0})
+
+        prompt_samples = [
+            TelemetrySample(
+                timestamp=1000.0,
+                reading=TelemetryReading(energy_joules=100.0, power_watts=200.0),
+            ),
+            TelemetrySample(
+                timestamp=1001.0,
+                reading=TelemetryReading(energy_joules=112.0, power_watts=220.0),
+            ),
+        ]
+        judge_samples = [
+            TelemetrySample(
+                timestamp=1002.0,
+                reading=TelemetryReading(energy_joules=112.0, power_watts=210.0),
+            ),
+            TelemetrySample(
+                timestamp=1003.0,
+                reading=TelemetryReading(energy_joules=115.0, power_watts=230.0),
+            ),
+        ]
+
+        telemetry = MagicMock()
+        telemetry.readings.return_value = []
+        telemetry.window.side_effect = [iter(prompt_samples), iter(judge_samples)]
+
+        runner = AgenticRunner(
+            agent=agent,
+            dataset=dataset,
+            telemetry_session=telemetry,
+            config={"model": "test-model"},
+        )
+        traces = asyncio.run(runner.run())
+
+        trace = traces[0]
+        assert trace.query_gpu_energy_joules == pytest.approx(12.0)
+        assert trace.total_gpu_energy_joules == pytest.approx(12.0)
+        assert trace.judge_gpu_energy_joules == pytest.approx(3.0)
+        assert trace.total_task_gpu_energy_joules == pytest.approx(15.0)
+
+        metrics = runner.records[0].model_metrics["test-model"].energy_metrics
+        assert metrics.per_query_joules == pytest.approx(12.0)
+        assert metrics.judge_gpu_joules == pytest.approx(3.0)
+        assert metrics.total_task_gpu_joules == pytest.approx(15.0)
+
     def test_cost_computation_wired(self) -> None:
         """Cost is computed from pricing tables when trace has no cost but has tokens."""
         agent = MagicMock()
@@ -1447,6 +1512,28 @@ class TestEnergyHelpers:
             ),
         ]
         assert _compute_energy_delta(readings, "energy_joules") == pytest.approx(15.0)
+
+    def test_compute_energy_delta_interpolates_window_boundaries(self) -> None:
+        readings = [
+            TelemetrySample(
+                timestamp=1.0,
+                reading=TelemetryReading(energy_joules=100.0),
+            ),
+            TelemetrySample(
+                timestamp=2.0,
+                reading=TelemetryReading(energy_joules=120.0),
+            ),
+            TelemetrySample(
+                timestamp=3.0,
+                reading=TelemetryReading(energy_joules=150.0),
+            ),
+        ]
+        assert _compute_energy_delta(
+            readings,
+            "energy_joules",
+            start_time=1.5,
+            end_time=2.5,
+        ) == pytest.approx(25.0)
 
     def test_compute_energy_delta_none_with_single_reading(self) -> None:
         readings = [
