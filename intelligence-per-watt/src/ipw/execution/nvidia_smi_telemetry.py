@@ -91,7 +91,6 @@ class NvidiaSmiTelemetrySession(AbstractContextManager["NvidiaSmiTelemetrySessio
 
         total_power = sum(current_power.values())
         total_energy = sum(self._energy_joules.get(gpu_id, 0.0) for gpu_id in self._gpu_ids)
-        first = gpu_samples[0]
         memory_used = _sum_optional(sample.memory_used_mb for sample in gpu_samples)
         memory_total = _sum_optional(sample.memory_total_mb for sample in gpu_samples)
         utilization = _mean_optional(sample.utilization_pct for sample in gpu_samples)

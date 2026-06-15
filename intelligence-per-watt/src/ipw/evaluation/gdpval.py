@@ -18,7 +18,6 @@ from __future__ import annotations
 import base64
 import json
 import logging
-import os
 import re
 import subprocess
 import tempfile
@@ -45,14 +44,15 @@ def _describe_image_with_vision(path: Path, client) -> str:
     O(n_criteria).
     """
     if not hasattr(client, "_chat_completion"):
-        return f"<vision unavailable: client lacks _chat_completion>"
+        return "<vision unavailable: client lacks _chat_completion>"
     try:
         with path.open("rb") as f:
             b64 = base64.b64encode(f.read()).decode("ascii")
     except Exception as exc:
         return f"<image read error: {exc}>"
     suf = path.suffix.lower().lstrip(".")
-    if suf == "jpg": suf = "jpeg"
+    if suf == "jpg":
+        suf = "jpeg"
     data_url = f"data:image/{suf};base64,{b64}"
     messages = [
         {"role": "system", "content": "You are a careful visual describer."},
