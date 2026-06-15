@@ -81,7 +81,11 @@ class TestOpenHandsIntegration:
         model = MagicMock()
         agent = OpenHands(model=model)
         assert agent.model is model
-        _mock_openhands["Agent"].assert_called_once()
+        # Agent construction is deferred to per-run (_create_conversation) so
+        # the per-task workspace is bound freshly; __init__ only captures the
+        # class reference and the kwargs.
+        assert agent._Agent is _mock_openhands["Agent"]
+        _mock_openhands["Agent"].assert_not_called()
 
     def test_run_returns_agent_run_result(self, _mock_openhands: dict) -> None:
         from ipw.agents.openhands import OpenHands

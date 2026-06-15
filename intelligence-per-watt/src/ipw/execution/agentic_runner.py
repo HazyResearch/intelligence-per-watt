@@ -20,7 +20,7 @@ from typing import Any, Callable, Optional
 from tqdm.auto import tqdm
 
 from ..agents.base import BaseAgent, ToolUsingAgent
-from ..core.types import AgentRunResult, DatasetRecord
+from ..core.types import DatasetRecord
 from ..datasets.base import DatasetProvider
 from ..execution.telemetry_session import TelemetrySample, TelemetrySession
 from ..execution.trace import QueryTrace, TurnTrace
