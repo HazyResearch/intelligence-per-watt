@@ -26,6 +26,24 @@ logger = logging.getLogger(__name__)
 _docker_host_ip: str | None = None
 
 
+class _IPWTurnLimitReached(RuntimeError):
+    """Raised internally when a capped repair run reaches its LLM-call budget."""
+
+
+def _is_turn_limit_exception(exc: BaseException) -> bool:
+    if isinstance(exc, _IPWTurnLimitReached):
+        return True
+    if "max_turns reached" in str(exc):
+        return True
+    cause = getattr(exc, "__cause__", None)
+    context = getattr(exc, "__context__", None)
+    return any(
+        isinstance(inner, _IPWTurnLimitReached)
+        or (inner is not None and "max_turns reached" in str(inner))
+        for inner in (cause, context)
+    )
+
+
 def _usage_counts(model: Any) -> tuple[int | None, int | None, float | None]:
     """Return accumulated prompt/output tokens and cost from an OpenHands LLM."""
     input_tokens: int | None = None
@@ -120,13 +138,33 @@ def _get_mcp_tool_types() -> tuple[type, type, type, type]:
 def _instrument_openhands_llm(
     model: Any,
     recorder: Optional["EventRecorder"],
+    max_lm_calls: int | None = None,
 ) -> Any:
     """Record every OpenHands LLM call while preserving the LLM instance type."""
-    if recorder is None or getattr(model, "_ipw_instrumented", False) is True:
+    if max_lm_calls is not None:
+        object.__setattr__(model, "_ipw_max_lm_calls", max(1, int(max_lm_calls)))
+        object.__setattr__(model, "_ipw_lm_call_count", 0)
+    if recorder is None and max_lm_calls is None:
+        return model
+    if getattr(model, "_ipw_instrumented", False) is True:
         return model
 
     def _record_event(event_type: str, **metadata: Any) -> None:
+        if recorder is None:
+            return
         recorder.record(event_type, **metadata)
+
+    def _check_turn_limit() -> None:
+        limit = getattr(model, "_ipw_max_lm_calls", None)
+        if limit is None:
+            return
+        current = int(getattr(model, "_ipw_lm_call_count", 0) or 0)
+        if current >= int(limit):
+            raise _IPWTurnLimitReached(f"max_turns reached: {current}/{limit}")
+
+    def _mark_lm_call() -> None:
+        current = int(getattr(model, "_ipw_lm_call_count", 0) or 0)
+        object.__setattr__(model, "_ipw_lm_call_count", current + 1)
 
     def _record_lm_end(
         pre_input: int | None,
@@ -161,21 +199,25 @@ def _instrument_openhands_llm(
     def _wrap_call(func: Any) -> Any:
         if inspect.iscoroutinefunction(func):
             async def _async_wrapped(*args: Any, **kwargs: Any) -> Any:
+                _check_turn_limit()
                 pre_input, pre_output, pre_cost = _usage_counts(model)
                 _record_event("lm_inference_start", model=str(model))
                 try:
                     return await func(*args, **kwargs)
                 finally:
+                    _mark_lm_call()
                     _record_lm_end(pre_input, pre_output, pre_cost)
 
             return _async_wrapped
 
         def _wrapped(*args: Any, **kwargs: Any) -> Any:
+            _check_turn_limit()
             pre_input, pre_output, pre_cost = _usage_counts(model)
             _record_event("lm_inference_start", model=str(model))
             try:
                 return func(*args, **kwargs)
             finally:
+                _mark_lm_call()
                 _record_lm_end(pre_input, pre_output, pre_cost)
 
         return _wrapped
@@ -651,6 +693,13 @@ class OpenHands(BaseAgent):
         "on disk."
     )
 
+    SWE_CODING_INSTRUCTIONS = (
+        "For repository repair and optimization tasks, work inside the provided "
+        "workspace. Inspect the code, make minimal tracked source changes, run "
+        "relevant checks when practical, and finish only after producing a patch "
+        "or leaving a non-empty git diff in the workspace."
+    )
+
     def __init__(
         self,
         model: Any,
@@ -658,6 +707,7 @@ class OpenHands(BaseAgent):
         mcp_tools: Optional[Dict[str, "BaseMCPServer"]] = None,
         event_recorder: Optional["EventRecorder"] = None,
         max_turns: int = DEFAULT_MAX_TURNS,
+        instructions: Optional[str] = None,
         **kwargs: Any,
     ) -> None:
         """Initialize the OpenHands agent.
@@ -705,7 +755,11 @@ class OpenHands(BaseAgent):
             )
 
         self.model = model
-        self._instrumented_model = _instrument_openhands_llm(model, event_recorder)
+        self._instrumented_model = _instrument_openhands_llm(
+            model,
+            event_recorder,
+            max_lm_calls=max_turns,
+        )
         self.tools = tools
         self._mcp_tools = mcp_tools or {}
         self._pending_tool: Optional[str] = None
@@ -713,6 +767,7 @@ class OpenHands(BaseAgent):
         self._num_turns: int = 0
         self._workspace: str = os.getcwd()
         self._max_turns = max_turns
+        self.instructions = instructions or self.DEFAULT_INSTRUCTIONS
 
         # Store references for use in callbacks
         self._ActionEvent = ActionEvent
@@ -743,6 +798,18 @@ class OpenHands(BaseAgent):
             "llm": self._instrumented_model,
             "condenser": condenser,
         }
+        if self.instructions:
+            try:
+                from openhands.sdk.context.agent_context import AgentContext
+
+                agent_kwargs["agent_context"] = AgentContext(
+                    system_message_suffix=self.instructions
+                )
+            except Exception:
+                logger.warning(
+                    "Unable to attach OpenHands AgentContext instructions",
+                    exc_info=True,
+                )
 
         if tools:
             agent_kwargs["tools"] = tools
@@ -879,6 +946,8 @@ class OpenHands(BaseAgent):
         # Reset per-run tracking
         self._tool_names_used = []
         self._num_turns = 0
+        object.__setattr__(self._instrumented_model, "_ipw_lm_call_count", 0)
+        turn_cap_reached = False
 
         # Create a fresh conversation for each run (previous one is closed
         # in the finally block, so we need a new one each time).
@@ -889,27 +958,57 @@ class OpenHands(BaseAgent):
 
         try:
             self.conversation.send_message(input)
-            self.conversation.run()
+            try:
+                self.conversation.run()
+            except Exception as exc:
+                if not _is_turn_limit_exception(exc):
+                    raise
+                turn_cap_reached = True
+                logger.info(
+                    "OpenHands reached max_turns=%d; returning capped response",
+                    self._max_turns,
+                )
 
-            result = get_agent_final_response(self.conversation.state.events)
+            result = (
+                None
+                if turn_cap_reached
+                else get_agent_final_response(self.conversation.state.events)
+            )
             if not result:
                 # If the SDK did not emit a finish event, ask for a final answer
                 # without lowering the iteration budget. Query/client timeouts are
                 # the operational guardrail for long-running model behavior.
-                logger.info("No FinishTool call detected, sending final-answer nudge")
-                saved_limit = self.conversation.max_iteration_per_run
-                self.conversation.max_iteration_per_run = saved_limit + 1
-                self.conversation.send_message(
-                    "Please provide your final answer now. "
-                    "Use the finish tool to submit your answer."
-                )
-                self.conversation.run()
-                self.conversation.max_iteration_per_run = saved_limit
-                result = get_agent_final_response(self.conversation.state.events)
+                if not turn_cap_reached:
+                    logger.info("No FinishTool call detected, sending final-answer nudge")
+                    saved_limit = self.conversation.max_iteration_per_run
+                    self.conversation.max_iteration_per_run = saved_limit + 1
+                    self.conversation.send_message(
+                        "Please provide your final answer now. "
+                        "Use the finish tool to submit your answer."
+                    )
+                    try:
+                        self.conversation.run()
+                    except Exception as exc:
+                        if not _is_turn_limit_exception(exc):
+                            raise
+                        turn_cap_reached = True
+                        logger.info(
+                            "OpenHands reached max_turns=%d during final-answer nudge",
+                            self._max_turns,
+                        )
+                    self.conversation.max_iteration_per_run = saved_limit
+                    result = (
+                        None
+                        if turn_cap_reached
+                        else get_agent_final_response(self.conversation.state.events)
+                    )
 
             if not result:
-                result = self._extract_text(self.current_result)
-                logger.warning("get_agent_final_response() returned empty after nudge, using callback fallback")
+                if turn_cap_reached:
+                    result = ""
+                else:
+                    result = self._extract_text(self.current_result)
+                    logger.warning("get_agent_final_response() returned empty after nudge, using callback fallback")
 
             result = self._extract_text(result)
             self.current_result = ""
@@ -938,6 +1037,11 @@ class OpenHands(BaseAgent):
                 else "missing"
             )
 
+            metadata = {"token_source": token_source}
+            if turn_cap_reached:
+                metadata["turn_cap_reached"] = True
+                metadata["max_turns"] = self._max_turns
+
             return AgentRunResult(
                 content=result,
                 tool_calls_attempted=len(self._tool_names_used),
@@ -947,7 +1051,7 @@ class OpenHands(BaseAgent):
                 input_tokens=input_tokens,
                 output_tokens=output_tokens,
                 cost_usd=cost_usd,
-                metadata={"token_source": token_source},
+                metadata=metadata,
             )
         finally:
             try:

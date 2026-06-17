@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import asyncio
 import json
+import subprocess
+from pathlib import Path
 from unittest.mock import MagicMock
 
 import pytest
@@ -16,7 +18,7 @@ from ipw.execution.agentic_runner import (
     _compute_power_avg,
 )
 from ipw.execution.telemetry_session import TelemetrySample
-from ipw.execution.trace import QueryTrace
+from ipw.execution.trace import QueryTrace, TurnTrace
 from ipw.telemetry.events import EventRecorder, EventType
 
 
@@ -710,6 +712,63 @@ class TestAgenticRunner:
         assert metrics.judge_gpu_joules == pytest.approx(3.0)
         assert metrics.total_task_gpu_joules == pytest.approx(15.0)
 
+    def test_correlate_energy_fills_partially_missing_turn_energy(self) -> None:
+        """Partial per-turn energy attribution is completed without double-counting."""
+        runner = self._make_runner()
+        trace = QueryTrace(
+            query_id="q1",
+            workload_type="agentic",
+            query_text="Q1",
+            response_text="A1",
+            total_wall_clock_s=4.0,
+            completed=True,
+            turns=[
+                TurnTrace(
+                    turn_index=0,
+                    wall_clock_s=1.0,
+                    gpu_energy_joules=2.0,
+                    cpu_energy_joules=1.0,
+                ),
+                TurnTrace(turn_index=1, wall_clock_s=2.0),
+                TurnTrace(turn_index=2, wall_clock_s=1.0),
+            ],
+            query_gpu_energy_joules=10.0,
+            query_cpu_energy_joules=5.0,
+            query_gpu_power_avg_watts=2.5,
+            query_cpu_power_avg_watts=1.25,
+        )
+        readings = [
+            TelemetrySample(
+                timestamp=1000.0,
+                reading=TelemetryReading(
+                    energy_joules=100.0,
+                    power_watts=2.0,
+                    cpu_energy_joules=50.0,
+                    cpu_power_watts=1.0,
+                ),
+            ),
+            TelemetrySample(
+                timestamp=1004.0,
+                reading=TelemetryReading(
+                    energy_joules=110.0,
+                    power_watts=3.0,
+                    cpu_energy_joules=55.0,
+                    cpu_power_watts=1.5,
+                ),
+            ),
+        ]
+
+        updated = runner._correlate_energy(trace, readings)
+
+        assert [t.gpu_energy_joules for t in updated.turns] == pytest.approx(
+            [2.0, 16.0 / 3.0, 8.0 / 3.0]
+        )
+        assert [t.cpu_energy_joules for t in updated.turns] == pytest.approx(
+            [1.0, 8.0 / 3.0, 4.0 / 3.0]
+        )
+        assert all(t.gpu_power_avg_watts is not None for t in updated.turns)
+        assert all(t.cpu_power_avg_watts is not None for t in updated.turns)
+
     def test_cost_computation_wired(self) -> None:
         """Cost is computed from pricing tables when trace has no cost but has tokens."""
         agent = MagicMock()
@@ -811,6 +870,81 @@ class TestAgenticRunner:
         assert meta["is_resolved"] is True
         assert meta["test_results"] == {"passed": 5, "failed": 0}
 
+    def test_swe_workspace_diff_persisted_in_artifacts(self, tmp_path) -> None:
+        class EditingAgent(BaseAgent):
+            def __init__(self) -> None:
+                super().__init__()
+                self.workspace = None
+
+            def set_workspace(self, workspace_path: str) -> None:
+                self.workspace = Path(workspace_path)
+
+            def run(self, input: str, **kwargs) -> AgentRunResult:
+                assert self.workspace is not None
+                (self.workspace / "tracked.py").write_text("changed\n", encoding="utf-8")
+                return AgentRunResult(content="done")
+
+        class SweDataset:
+            dataset_id = "swebench"
+
+            def __init__(self) -> None:
+                self.records = [
+                    DatasetRecord(
+                        problem="Q1",
+                        answer="",
+                        subject="s",
+                        dataset_metadata={
+                            "dataset_name": "SWE-bench",
+                            "instance_id": "inst_001",
+                        },
+                    )
+                ]
+
+            def __iter__(self):
+                return iter(self.records)
+
+            def size(self) -> int:
+                return len(self.records)
+
+            def create_task_env(self, record):
+                return None
+
+            def prepare_workspace(self, record, workspace) -> None:
+                workspace.mkdir(parents=True, exist_ok=True)
+                subprocess.run(["git", "init"], cwd=workspace, check=True)
+                subprocess.run(
+                    ["git", "config", "user.email", "test@example.com"],
+                    cwd=workspace,
+                    check=True,
+                )
+                subprocess.run(
+                    ["git", "config", "user.name", "Test User"],
+                    cwd=workspace,
+                    check=True,
+                )
+                (workspace / "tracked.py").write_text("old\n", encoding="utf-8")
+                subprocess.run(["git", "add", "tracked.py"], cwd=workspace, check=True)
+                subprocess.run(
+                    ["git", "commit", "-m", "initial"],
+                    cwd=workspace,
+                    check=True,
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.PIPE,
+                )
+                record.dataset_metadata["workspace_path"] = str(workspace)
+
+        runner = AgenticRunner(
+            agent=EditingAgent(),
+            dataset=SweDataset(),
+            config={"model": "test-model"},
+            run_dir=tmp_path,
+        )
+        asyncio.run(runner.run())
+
+        workspace_diff = tmp_path / "artifacts" / "q0000_inst_001" / "workspace.diff"
+        assert workspace_diff.exists()
+        assert "-old" in workspace_diff.read_text(encoding="utf-8")
+        assert "+changed" in workspace_diff.read_text(encoding="utf-8")
 
     def test_local_model_cost_is_zero(self) -> None:
         """Cost = 0.0 when client_base_url is localhost (local inference)."""

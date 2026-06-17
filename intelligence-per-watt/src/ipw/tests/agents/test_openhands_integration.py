@@ -31,6 +31,7 @@ def _clean_openhands_registration():
 def _mock_openhands():
     """Patch openhands SDK imports used by the OpenHands agent."""
     mock_agent_cls = MagicMock()
+    mock_agent_context_cls = MagicMock()
     mock_conversation_cls = MagicMock()
     mock_condenser_cls = MagicMock()
     mock_event = MagicMock()
@@ -59,11 +60,16 @@ def _mock_openhands():
         "openhands.sdk.conversation.response_utils": MagicMock(
             get_agent_final_response=MagicMock(return_value="The final answer"),
         ),
+        "openhands.sdk.context": MagicMock(),
+        "openhands.sdk.context.agent_context": MagicMock(
+            AgentContext=mock_agent_context_cls,
+        ),
     }
 
     with patch.dict("sys.modules", modules):
         yield {
             "Agent": mock_agent_cls,
+            "AgentContext": mock_agent_context_cls,
             "LocalConversation": mock_conversation_cls,
             "Condenser": mock_condenser_cls,
             "ActionEvent": mock_action_event,
@@ -86,6 +92,21 @@ class TestOpenHandsIntegration:
         # class reference and the kwargs.
         assert agent._Agent is _mock_openhands["Agent"]
         _mock_openhands["Agent"].assert_not_called()
+
+    def test_passes_instructions_to_agent_context(self, _mock_openhands: dict) -> None:
+        from ipw.agents.openhands import OpenHands
+
+        model = MagicMock()
+        agent = OpenHands(model=model, instructions="Edit the repo and submit a patch.")
+
+        assert agent.instructions == "Edit the repo and submit a patch."
+        _mock_openhands["AgentContext"].assert_called_once_with(
+            system_message_suffix="Edit the repo and submit a patch."
+        )
+        _mock_openhands["Agent"].assert_not_called()
+        assert agent._agent_kwargs["agent_context"] is (
+            _mock_openhands["AgentContext"].return_value
+        )
 
     def test_run_returns_agent_run_result(self, _mock_openhands: dict) -> None:
         from ipw.agents.openhands import OpenHands

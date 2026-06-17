@@ -70,6 +70,19 @@ def _extract_openai_content(data: dict[str, Any]) -> str:
     return str(content or "")
 
 
+def _parse_vllm_context_budget_error(text: str) -> tuple[int, int] | None:
+    """Return (context_limit, actual_input_tokens) from vLLM validation text."""
+    lowered = text.lower()
+    limit_match = re.search(r"maximum context length is\s+(\d+)", lowered)
+    input_match = (
+        re.search(r"your request has\s+(\d+)\s+input", lowered)
+        or re.search(r"\((\d+)\s+in the messages?", lowered)
+    )
+    if not limit_match or not input_match:
+        return None
+    return int(limit_match.group(1)), int(input_match.group(1))
+
+
 class OpenAICompatibleHarness(BaseAgent):
     """Base class for lightweight text/tool harnesses."""
 
@@ -213,11 +226,19 @@ class OpenAICompatibleHarness(BaseAgent):
             or "maximum context length" not in text
         ):
             return response
-        max_tokens = int(payload.get("max_tokens") or 0)
-        if max_tokens <= 1024:
+        token_key = "max_tokens" if "max_tokens" in payload else "max_completion_tokens"
+        max_tokens = int(payload.get(token_key) or 0)
+        if max_tokens <= 1:
+            return response
+        parsed_budget = _parse_vllm_context_budget_error(response.text)
+        if parsed_budget is None:
+            return response
+        context_limit, actual_input_tokens = parsed_budget
+        retry_max_tokens = max(1, context_limit - actual_input_tokens - 1)
+        if retry_max_tokens >= max_tokens:
             return response
         retry_payload = dict(payload)
-        retry_payload["max_tokens"] = max(1024, max_tokens // 2)
+        retry_payload[token_key] = retry_max_tokens
         return requests.post(
             f"{base_url}/chat/completions",
             headers=headers,

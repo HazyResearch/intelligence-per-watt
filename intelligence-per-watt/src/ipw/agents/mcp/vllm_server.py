@@ -21,6 +21,19 @@ _retry_warn_count = 0
 _REQUEST_TIMEOUT_SECONDS = 240.0
 
 
+def _parse_vllm_context_budget_error(text: str) -> tuple[int, int] | None:
+    """Return (context_limit, actual_input_tokens) from vLLM validation text."""
+    lowered = text.lower()
+    limit_match = re.search(r"maximum context length is\s+(\d+)", lowered)
+    input_match = (
+        re.search(r"your request has\s+(\d+)\s+input", lowered)
+        or re.search(r"\((\d+)\s+in the messages?", lowered)
+    )
+    if not limit_match or not input_match:
+        return None
+    return int(limit_match.group(1)), int(input_match.group(1))
+
+
 class VLLMMCPServer(BaseMCPServer):
     """MCP server for vLLM-served models.
 
@@ -227,16 +240,11 @@ class VLLMMCPServer(BaseMCPServer):
             error_text_lower = error_text.lower()
 
             if e.response.status_code == 400 and ("max_tokens" in error_text_lower or "max_completion_tokens" in error_text_lower) and "too large" in error_text_lower:
-                match = re.search(r"maximum context length is (\d+)", error_text_lower)
-                input_match = re.search(r"your request has (\d+) input", error_text_lower)
+                parsed_budget = _parse_vllm_context_budget_error(error_text)
 
-                if match:
-                    validation_limit = int(match.group(1))
-                    actual_input_tokens = int(input_match.group(1)) if input_match else None
-
-                    if actual_input_tokens is None:
-                        raise
-                    capped_max_tokens = max(1, int(validation_limit - actual_input_tokens - 100))
+                if parsed_budget is not None:
+                    validation_limit, actual_input_tokens = parsed_budget
+                    capped_max_tokens = max(1, int(validation_limit - actual_input_tokens - 1))
 
                     if capped_max_tokens < max_tokens and capped_max_tokens > 0:
                         _retry_warn_count += 1

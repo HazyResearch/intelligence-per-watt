@@ -9,9 +9,11 @@ import inspect
 import json
 import logging
 import math
+import os
 import re
 import signal
 import statistics
+import subprocess
 import threading
 import time
 from pathlib import Path
@@ -220,6 +222,24 @@ def _extract_patch(text: str) -> Optional[str]:
     if patch_lines:
         return "\n".join(patch_lines)
     return None
+
+
+def _workspace_git_diff(workspace: Path) -> str:
+    if not (workspace / ".git").exists():
+        return ""
+    try:
+        result = subprocess.run(
+            ["git", "diff", "--binary"],
+            cwd=str(workspace),
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            text=True,
+            timeout=60,
+            env={**os.environ, "PYTHONDONTWRITEBYTECODE": "1"},
+        )
+    except Exception:
+        return ""
+    return result.stdout if result.returncode == 0 else ""
 
 
 class AgenticRunner:
@@ -1367,49 +1387,125 @@ class AgenticRunner:
         if not readings or not trace.turns:
             return trace
 
-        # Check if any turns already have energy data
-        has_turn_energy = any(
-            t.gpu_energy_joules is not None for t in trace.turns
-        )
-        if has_turn_energy:
-            return trace
+        total_wall = sum(max(0.0, t.wall_clock_s or 0.0) for t in trace.turns)
 
-        # Compute total query energy
+        # Compute total query energy.
         gpu_energies = [
             s.reading.energy_joules for s in readings
             if s.reading.energy_joules is not None
             and math.isfinite(s.reading.energy_joules)
         ]
-        total_gpu_energy = None
+        total_gpu_energy = trace.query_gpu_energy_joules
         if len(gpu_energies) >= 2:
             delta = gpu_energies[-1] - gpu_energies[0]
-            total_gpu_energy = delta if delta >= 0 else None
+            total_gpu_energy = total_gpu_energy if total_gpu_energy is not None else (
+                delta if delta >= 0 else None
+            )
+        total_gpu_power = trace.query_gpu_power_avg_watts or _compute_power_avg(
+            readings,
+            "power_watts",
+        )
 
         cpu_energies = [
             s.reading.cpu_energy_joules for s in readings
             if s.reading.cpu_energy_joules is not None
             and math.isfinite(s.reading.cpu_energy_joules)
         ]
-        total_cpu_energy = None
+        total_cpu_energy = trace.query_cpu_energy_joules
         if len(cpu_energies) >= 2:
             delta = cpu_energies[-1] - cpu_energies[0]
-            total_cpu_energy = delta if delta >= 0 else None
+            total_cpu_energy = total_cpu_energy if total_cpu_energy is not None else (
+                delta if delta >= 0 else None
+            )
+        total_cpu_power = trace.query_cpu_power_avg_watts or _compute_power_avg(
+            readings,
+            "cpu_power_watts",
+        )
 
         # Fallback: estimate from power when cumulative counters unavailable
-        total_wall = sum(t.wall_clock_s for t in trace.turns)
         if total_gpu_energy is None and total_wall > 0:
             total_gpu_energy = _estimate_energy_from_power(readings, "power_watts", total_wall)
         if total_cpu_energy is None and total_wall > 0:
             total_cpu_energy = _estimate_energy_from_power(readings, "cpu_power_watts", total_wall)
 
-        # Distribute proportionally by wall clock time
-        if total_wall > 0:
+        def _fill_missing(
+            *,
+            energy_attr: str,
+            power_attr: str,
+            total_energy: float | None,
+            total_power: float | None,
+        ) -> None:
+            missing = [
+                turn
+                for turn in trace.turns
+                if getattr(turn, energy_attr) is None
+            ]
+            if not missing:
+                for turn in trace.turns:
+                    if getattr(turn, power_attr) is None:
+                        energy = getattr(turn, energy_attr)
+                        wall = max(0.0, turn.wall_clock_s or 0.0)
+                        if energy is not None and wall > 0:
+                            setattr(turn, power_attr, energy / wall)
+                        elif total_power is not None:
+                            setattr(turn, power_attr, total_power)
+                return
+
+            known_energy = sum(
+                getattr(turn, energy_attr) or 0.0
+                for turn in trace.turns
+                if getattr(turn, energy_attr) is not None
+            )
+            remaining_energy = (
+                max(0.0, total_energy - known_energy)
+                if total_energy is not None
+                else None
+            )
+            missing_wall = sum(max(0.0, turn.wall_clock_s or 0.0) for turn in missing)
+
+            for turn in missing:
+                wall = max(0.0, turn.wall_clock_s or 0.0)
+                if remaining_energy is not None:
+                    if missing_wall > 0:
+                        energy = remaining_energy * (wall / missing_wall)
+                    else:
+                        energy = remaining_energy / len(missing)
+                elif total_power is not None and wall > 0:
+                    energy = total_power * wall
+                else:
+                    energy = None
+
+                if energy is not None:
+                    setattr(turn, energy_attr, energy)
+                    setattr(
+                        turn,
+                        power_attr,
+                        (energy / wall) if wall > 0 else total_power,
+                    )
+                elif total_power is not None and getattr(turn, power_attr) is None:
+                    setattr(turn, power_attr, total_power)
+
             for turn in trace.turns:
-                fraction = turn.wall_clock_s / total_wall
-                if total_gpu_energy is not None:
-                    turn.gpu_energy_joules = total_gpu_energy * fraction
-                if total_cpu_energy is not None:
-                    turn.cpu_energy_joules = total_cpu_energy * fraction
+                if getattr(turn, power_attr) is None:
+                    energy = getattr(turn, energy_attr)
+                    wall = max(0.0, turn.wall_clock_s or 0.0)
+                    if energy is not None and wall > 0:
+                        setattr(turn, power_attr, energy / wall)
+                    elif total_power is not None:
+                        setattr(turn, power_attr, total_power)
+
+        _fill_missing(
+            energy_attr="gpu_energy_joules",
+            power_attr="gpu_power_avg_watts",
+            total_energy=total_gpu_energy,
+            total_power=total_gpu_power,
+        )
+        _fill_missing(
+            energy_attr="cpu_energy_joules",
+            power_attr="cpu_power_avg_watts",
+            total_energy=total_cpu_energy,
+            total_power=total_cpu_power,
+        )
 
         return trace
 
@@ -1462,6 +1558,24 @@ class AgenticRunner:
             val = record.dataset_metadata.get(key)
             if val is not None:
                 meta[key] = val
+
+        dataset_id = str(getattr(self._dataset, "dataset_id", "") or "")
+        if dataset_id in {"swebench", "swefficiency"}:
+            workspace_raw = record.dataset_metadata.get("workspace_path")
+            workspace = (
+                Path(str(workspace_raw))
+                if workspace_raw
+                else query_dir / "workspace"
+            )
+            workspace_diff = _workspace_git_diff(workspace)
+            (query_dir / "workspace.diff").write_text(
+                workspace_diff,
+                encoding="utf-8",
+            )
+            meta["workspace_path"] = str(workspace)
+            meta["workspace_git_available"] = (workspace / ".git").exists()
+            meta["workspace_diff_bytes"] = len(workspace_diff.encode("utf-8"))
+
         (query_dir / "metadata.json").write_text(
             json.dumps(meta, indent=2, default=str), encoding="utf-8"
         )
@@ -1551,19 +1665,25 @@ class AgenticRunner:
 
         cost_metrics = CostMetrics(total_cost_usd=cost)
 
-        # Power metrics from trace
+        # Power metrics from trace. Prefer the query-level telemetry average
+        # when available; per-turn averages may be attribution-derived.
+        avg_gpu_power = trace.query_gpu_power_avg_watts
+        if avg_gpu_power is None:
+            avg_gpu_power = trace.avg_gpu_power_watts
+        avg_cpu_power = trace.query_cpu_power_avg_watts
+        if avg_cpu_power is None:
+            avg_cpu_power = trace.avg_cpu_power_watts
         power_metrics = PowerMetrics(
             gpu=PowerComponentMetrics(
-                per_query_watts=MetricStats(avg=trace.avg_gpu_power_watts),
+                per_query_watts=MetricStats(avg=avg_gpu_power),
             ),
             cpu=PowerComponentMetrics(
-                per_query_watts=MetricStats(avg=trace.avg_cpu_power_watts),
+                per_query_watts=MetricStats(avg=avg_cpu_power),
             ),
         )
 
         # Derived efficiency
         throughput_per_watt = None
-        avg_gpu_power = trace.avg_gpu_power_watts
         if throughput is not None and avg_gpu_power is not None and avg_gpu_power > 0:
             throughput_per_watt = throughput / avg_gpu_power
 
