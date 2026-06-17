@@ -57,6 +57,12 @@ _CODING_MCP_TOOLS = [
     "bash",
 ]
 _TERMINAL_MCP_TOOLS = ["think", "bash", "file_read", "file_write", "code_interpreter"]
+_OPENHANDS_CODING_INSTRUCTIONS = (
+    "For repository repair and optimization tasks, work inside the provided "
+    "workspace. Inspect the code, make minimal tracked source changes, run "
+    "relevant checks when practical, and finish only after producing a patch "
+    "or leaving a non-empty git diff in the workspace."
+)
 
 
 def _default_mcp_tool_spec_for_dataset(dataset_id: str) -> list[str] | None:
@@ -68,6 +74,29 @@ def _default_mcp_tool_spec_for_dataset(dataset_id: str) -> list[str] | None:
     if dataset_id in _TERMINAL_TOOL_DATASETS:
         return list(_TERMINAL_MCP_TOOLS)
     return None
+
+
+def _summarize_agent_kwargs(kwargs: dict) -> dict[str, object]:
+    """Return a JSON-safe summary of effective agent kwargs."""
+    summary: dict[str, object] = {}
+    for key, value in kwargs.items():
+        if key == "mcp_tools" and isinstance(value, dict):
+            summary[key] = sorted(str(name) for name in value)
+        elif isinstance(value, (str, int, float, bool)) or value is None:
+            summary[key] = value
+        elif isinstance(value, (list, tuple)):
+            summary[key] = [
+                item if isinstance(item, (str, int, float, bool)) or item is None else str(item)
+                for item in value
+            ]
+        elif isinstance(value, dict):
+            summary[key] = {
+                str(k): v if isinstance(v, (str, int, float, bool)) or v is None else str(v)
+                for k, v in value.items()
+            }
+        else:
+            summary[key] = str(value)
+    return summary
 
 
 def _is_cloud_model(model: str, base_url: str) -> bool:
@@ -532,6 +561,8 @@ def run_cmd(
                 extra_kwargs["mcp_tools"] = _resolve_openhands_mcp_tools(
                     default_mcp_tools
                 )
+        if agent_id == "openhands" and dataset_id in _CODING_TOOL_DATASETS:
+            extra_kwargs.setdefault("instructions", _OPENHANDS_CODING_INSTRUCTIONS)
 
     # Parse dataset kwargs
     extra_dataset_kwargs: dict = {}
@@ -662,6 +693,7 @@ def run_cmd(
         "eval_model": eval_model,
         "max_retries": max_retries,
         "require_dedicated_hardware": require_dedicated_hardware,
+        "effective_agent_kwargs": _summarize_agent_kwargs(extra_kwargs),
     }
 
     print_banner()

@@ -37,6 +37,17 @@ _LITELLM_PREFIXES = (
 LOGGER = logging.getLogger(__name__)
 
 
+class _IPWTurnLimitReached(RuntimeError):
+    """Raised internally when a capped run reaches its LLM-call budget."""
+
+
+def _is_turn_limit_exception(exc: Exception) -> bool:
+    if isinstance(exc, _IPWTurnLimitReached):
+        return True
+    text = f"{type(exc).__name__}: {exc}".lower()
+    return "_ipwturnlimitreached" in text or "max_turns reached" in text
+
+
 def _cloud_litellm_model_name(model: str) -> str:
     """Return a LiteLLM provider-qualified model name for cloud calls."""
     if model.startswith(_LITELLM_PREFIXES):
@@ -127,6 +138,13 @@ class Terminus(BaseAgent):
         if max_turns is not None:
             kwargs.setdefault("max_episodes", max(1, int(max_turns)))
         self._usage_calls: list[dict[str, Any]] = []
+        self._llm_call_count = 0
+        self._max_lm_calls = max(1, int(max_turns)) if max_turns is not None else None
+        self._turn_cap_reached = False
+        self._recoverable_run_errors = (
+            ContextLengthExceededError,
+            OutputLengthExceededError,
+        )
         local_openai_endpoint = bool(kwargs.get("api_base") or kwargs.get("base_url"))
         if local_openai_endpoint:
             os.environ.setdefault("OPENAI_API_KEY", os.getenv("VLLM_API_KEY", "EMPTY"))
@@ -409,6 +427,15 @@ class Terminus(BaseAgent):
                         raise
 
             def _instrumented_call(_llm: Any, *args: Any, **call_kwargs: Any) -> str:
+                if (
+                    self._max_lm_calls is not None
+                    and self._llm_call_count >= self._max_lm_calls
+                ):
+                    self._turn_cap_reached = True
+                    raise _IPWTurnLimitReached(
+                        f"max_turns reached: {self._llm_call_count}/{self._max_lm_calls}"
+                    )
+                self._llm_call_count += 1
                 call_kwargs = {**llm_call_kwargs, **call_kwargs}
                 _trim_message_history(_llm, args, call_kwargs)
                 messages = _call_messages(args, call_kwargs)
@@ -454,6 +481,44 @@ class Terminus(BaseAgent):
         if self._container is not None:
             self.cleanup()
         self._workspace = workspace
+
+    def _is_swe_style_task(self) -> bool:
+        metadata = self._task_metadata or {}
+        dataset_name = str(metadata.get("dataset_name") or "").lower()
+        return dataset_name in {"swe-bench", "swefficiency"}
+
+    def _mark_harness_invalid(self, reason: str) -> None:
+        if self._task_metadata is None:
+            return
+        self._task_metadata["unscorable_reason"] = "harness_invalid"
+        self._task_metadata["score_metadata"] = {
+            "reason": "harness_invalid",
+            "harness_error": reason,
+        }
+
+    def _send_session_command(self, session: Any, command: str) -> None:
+        try:
+            session.send_keys([command, "Enter"], block=False)
+        except TypeError:
+            session.send_keys(command, block=False)
+
+    def _preflight_swe_workspace(self, session: Any, container: Any) -> None:
+        if not self._is_swe_style_task():
+            return
+        if self._workspace is None:
+            reason = "missing_host_workspace"
+            self._mark_harness_invalid(reason)
+            raise RuntimeError(f"Terminus SWE workspace preflight failed: {reason}")
+        result = container.exec_run(
+            ["bash", "-lc", "test -d /workspace && test -e /workspace/.git"]
+        )
+        exit_code = result.exit_code if hasattr(result, "exit_code") else result[0]
+        if exit_code != 0:
+            reason = "missing_mounted_repo_workspace"
+            self._mark_harness_invalid(reason)
+            raise RuntimeError(f"Terminus SWE workspace preflight failed: {reason}")
+        self._send_session_command(session, "cd /workspace && pwd")
+        time.sleep(0.2)
 
     def _get_docker_client(self):
         """Get or create the Docker client."""
@@ -565,6 +630,7 @@ class Terminus(BaseAgent):
                 f"Failed to start tmux session '{session_name}' in container "
                 f"'{container.name}'."
             )
+        self._preflight_swe_workspace(session, container)
         return session
 
     def _cleanup_session(self, session: Any) -> None:
@@ -625,7 +691,30 @@ class Terminus(BaseAgent):
         session = self._instrument_session_tools(self.get_session(tmux_session))
         try:
             self._usage_calls = []
-            self.agent.perform_task(input, session=session, **kwargs)
+            self._llm_call_count = 0
+            self._turn_cap_reached = False
+            recoverable_error: Exception | None = None
+            try:
+                self.agent.perform_task(input, session=session, **kwargs)
+            except _IPWTurnLimitReached:
+                pass
+            except Exception as exc:
+                if _is_turn_limit_exception(exc):
+                    pass
+                else:
+                    error_text = str(exc).lower()
+                    if not (
+                        isinstance(exc, self._recoverable_run_errors)
+                        or "contextlengthexceedederror" in error_text
+                        or "context length" in error_text
+                        or "context window" in error_text
+                        or "maximum context" in error_text
+                        or "max_tokens limit" in error_text
+                        or "hit max_tokens" in error_text
+                        or "outputlengthexceedederror" in error_text
+                    ):
+                        raise
+                    recoverable_error = exc
 
             if not session.is_session_alive():
                 raise RuntimeError(
@@ -666,6 +755,14 @@ class Terminus(BaseAgent):
                 input_tokens = None
                 output_tokens = None
                 metadata = {"token_source": "missing"}
+            if self._turn_cap_reached:
+                metadata["turn_cap_reached"] = True
+                metadata["max_turns"] = self._max_lm_calls
+            if recoverable_error is not None:
+                metadata["recoverable_agent_error"] = str(recoverable_error)
+                metadata["recoverable_agent_error_type"] = type(
+                    recoverable_error
+                ).__name__
             return AgentRunResult(
                 content=terminal_output,
                 input_tokens=input_tokens,

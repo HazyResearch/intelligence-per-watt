@@ -90,12 +90,12 @@ def _compute_efficiency(
 
     ipj = (
         accuracy / total_gpu_energy
-        if (accuracy and accuracy > 0 and total_gpu_energy and total_gpu_energy > 0)
+        if (accuracy is not None and total_gpu_energy and total_gpu_energy > 0)
         else None
     )
     ipw = (
         accuracy / avg_gpu_power
-        if (accuracy and accuracy > 0 and avg_gpu_power and avg_gpu_power > 0)
+        if (accuracy is not None and avg_gpu_power and avg_gpu_power > 0)
         else None
     )
 
