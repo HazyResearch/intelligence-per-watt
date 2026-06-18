@@ -40,9 +40,9 @@ from typing import Any, Callable, List, Mapping, Tuple
 import mlx.core  # noqa: F401
 from mlx_lm import load, stream_generate
 
-from . import _mlx_kernels
 from ..core.registry import ClientRegistry
 from ..core.types import ChatUsage, Response
+from . import _mlx_kernels
 from .base import InferenceClient
 
 
@@ -109,8 +109,15 @@ class MLXClient(InferenceClient):
     ) -> Response:
         self._ensure_loaded(model)
 
-        max_tokens = int(params.get("max_tokens", 512))
-        gen_kwargs = self._build_gen_kwargs(params)
+        # `--client-param max_tokens=N` (and sampler keys) are passed to the
+        # CONSTRUCTOR by the runner — they land in self._config via the base
+        # class. The runner does not currently forward per-call params, so
+        # without this merge those flags would be silently ignored. Per-call
+        # values still win when both are present.
+        effective = {**self._config, **params}
+
+        max_tokens = int(effective.get("max_tokens", 512))
+        gen_kwargs = self._build_gen_kwargs(effective)
         if self._draft_model is not None:
             # mlx_lm.stream_generate dispatches to speculative_generate_step
             # internally when draft_model is non-None; num_draft_tokens flows

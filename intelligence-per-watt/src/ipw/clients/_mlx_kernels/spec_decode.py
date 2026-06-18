@@ -23,7 +23,6 @@ from __future__ import annotations
 
 from typing import Any, Iterable, Tuple
 
-
 # Sample IDs we round-trip through both tokenizers to detect reordered
 # vocabularies (matching vocab_size with mismatched id->token mapping is a
 # silent correctness failure for spec-decode — drafts proposing id 42 mean

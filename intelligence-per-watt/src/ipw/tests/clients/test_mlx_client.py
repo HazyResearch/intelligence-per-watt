@@ -35,7 +35,6 @@ from ipw.clients import _mlx_kernels  # noqa: E402
 from ipw.clients._mlx_kernels.spec_decode import assert_vocab_compat  # noqa: E402
 from ipw.clients.mlx import MLXClient, _coerce_scalar, _split_opts  # noqa: E402
 
-
 # ---- pure-Python helpers (no model load) -------------------------------------
 
 
@@ -140,6 +139,42 @@ def test_draft_model_default_is_disabled() -> None:
     try:
         assert client._draft_model_id == ""
         assert client._draft_model is None
+    finally:
+        client.close()
+
+
+def test_client_param_max_tokens_stored_at_construction() -> None:
+    """``--client-param max_tokens=N`` is forwarded to the constructor by
+    the runner (not to stream_chat_completion). It must land in
+    ``self._config`` so the per-call merge in stream_chat_completion can
+    pick it up — otherwise the value is silently lost."""
+    client = MLXClient(max_tokens=42, temp="0.7")
+    try:
+        assert client._config == {"max_tokens": 42, "temp": "0.7"}
+    finally:
+        client.close()
+
+
+def test_build_gen_kwargs_uses_construction_temp_default() -> None:
+    """Sampler kwargs from construction (the only path the runner currently
+    takes) must reach _build_gen_kwargs. temp>0 → a sampler is built."""
+    client = MLXClient(temp="0.7")
+    try:
+        effective = {**client._config}  # mirrors stream_chat_completion's merge
+        kw = client._build_gen_kwargs(effective)
+        assert "sampler" in kw
+    finally:
+        client.close()
+
+
+def test_build_gen_kwargs_per_call_overrides_construction() -> None:
+    """Per-call params win over construction defaults — temp=0.0 at call time
+    should force greedy decoding even when construction set temp=0.7."""
+    client = MLXClient(temp="0.7")
+    try:
+        effective = {**client._config, **{"temp": 0.0}}
+        kw = client._build_gen_kwargs(effective)
+        assert "sampler" not in kw  # temp==0 → greedy via sampler=None
     finally:
         client.close()
 
