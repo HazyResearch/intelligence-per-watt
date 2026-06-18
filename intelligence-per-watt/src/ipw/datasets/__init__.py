@@ -14,6 +14,7 @@ def ensure_registered() -> None:
         arena_hard_auto,
         browsecomp,
         deepresearchbench,
+        fixed_length,
         frames,
         gaia,
         gdpval,
