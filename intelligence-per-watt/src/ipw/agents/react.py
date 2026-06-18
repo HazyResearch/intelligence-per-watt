@@ -17,6 +17,10 @@ if TYPE_CHECKING:
     from ipw.telemetry.events import EventRecorder
 
 
+class _IPWTurnLimitReached(RuntimeError):
+    """Raised internally when a capped run reaches its LLM-call budget."""
+
+
 @AgentRegistry.register("react")
 class React(BaseAgent):
     """React agent that uses the Agno Agent framework for tool-augmented reasoning."""
@@ -64,6 +68,7 @@ class React(BaseAgent):
         self._original_tools = tools or []
         self.instructions = instructions or self.DEFAULT_INSTRUCTIONS
         max_turns = kwargs.pop("max_turns", None)
+        self._max_turns = max(1, int(max_turns)) if max_turns is not None else None
 
         # Instrument tools if event_recorder is provided
         if event_recorder is not None and self._original_tools:
@@ -342,6 +347,10 @@ class React(BaseAgent):
 
             def _completion_with_usage(*c_args: Any, **c_kwargs: Any) -> Any:
                 nonlocal lm_started
+                if self._max_turns is not None and len(usage_calls) >= self._max_turns:
+                    raise _IPWTurnLimitReached(
+                        f"max_turns reached: {len(usage_calls)}/{self._max_turns}"
+                    )
                 lm_started = True
                 self._record_event("lm_inference_start", model=str(self.model))
                 response = original_completion(*c_args, **c_kwargs)
@@ -366,7 +375,12 @@ class React(BaseAgent):
                 litellm.completion = original_completion
 
         try:
-            result = _run_with_litellm_usage_capture()
+            turn_cap_reached = False
+            try:
+                result = _run_with_litellm_usage_capture()
+            except _IPWTurnLimitReached:
+                turn_cap_reached = True
+                result = None
             # Extract token metrics from the result if available
             end_metadata: dict[str, Any] = {"model": str(self.model)}
             input_tokens: int | None = None
@@ -443,6 +457,9 @@ class React(BaseAgent):
             metadata = {"token_source": token_source}
             if usage_metadata:
                 metadata["usage"] = usage_metadata
+            if turn_cap_reached:
+                metadata["turn_cap_reached"] = True
+                metadata["max_turns"] = self._max_turns
 
             return AgentRunResult(
                 content=content,

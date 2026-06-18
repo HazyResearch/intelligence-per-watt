@@ -17,6 +17,30 @@ class DSPyRLM(OpenAICompatibleHarness):
     loop shape while using IPW MCP tools and the existing trace event contract.
     """
 
+    def _pre_tool_observation(
+        self,
+        *,
+        tool_name: str,
+        tool_input: str,
+        turn_index: int,
+        tools_attempted: int,
+    ) -> Optional[str]:
+        return None
+
+    def _post_tool_observation(
+        self,
+        observation: str,
+        *,
+        tool_name: str,
+        tool_input: str,
+        turn_index: int,
+        tools_attempted: int,
+    ) -> str:
+        return observation
+
+    def _turn_limit_final_prompt(self) -> Optional[str]:
+        return None
+
     def run(self, input: str, **kwargs: Any) -> AgentRunResult:
         tool_names = ", ".join(sorted(self.mcp_tools)) or "none"
         system = (
@@ -78,21 +102,56 @@ class DSPyRLM(OpenAICompatibleHarness):
 
             tools_attempted += 1
             tools_used.append(tool_name)
-            self._record_event("tool_call_start", tool=tool_name)
-            try:
-                if tool_name in {"bash", "shell"} and self._terminal_session() is not None:
-                    observation = self._execute_terminal_session_command(tool_input)
-                else:
-                    tool_result = self.mcp_tools[tool_name].execute(tool_input)
-                    observation = getattr(tool_result, "content", str(tool_result))
-                tools_succeeded += 1
-            except Exception as exc:
-                observation = f"Tool error: {exc}"
-            finally:
-                self._record_event("tool_call_end", tool=tool_name)
+            observation = self._pre_tool_observation(
+                tool_name=tool_name,
+                tool_input=tool_input,
+                turn_index=_turn,
+                tools_attempted=tools_attempted,
+            )
+            if observation is None:
+                self._record_event("tool_call_start", tool=tool_name)
+                try:
+                    if tool_name in {"bash", "shell"} and self._terminal_session() is not None:
+                        observation = self._execute_terminal_session_command(tool_input)
+                    else:
+                        tool_result = self.mcp_tools[tool_name].execute(tool_input)
+                        observation = getattr(tool_result, "content", str(tool_result))
+                    tools_succeeded += 1
+                except Exception as exc:
+                    observation = f"Tool error: {exc}"
+                finally:
+                    self._record_event("tool_call_end", tool=tool_name)
+            observation = self._post_tool_observation(
+                observation,
+                tool_name=tool_name,
+                tool_input=tool_input,
+                turn_index=_turn,
+                tools_attempted=tools_attempted,
+            )
 
             messages.append({"role": "assistant", "content": last_content})
             messages.append({"role": "user", "content": f"Observation: {observation}"})
+
+        if final_answer is None:
+            final_prompt = self._turn_limit_final_prompt()
+            if final_prompt:
+                messages.append({"role": "user", "content": final_prompt})
+                result = self._chat(messages)
+                if result.input_tokens is None or result.output_tokens is None:
+                    missing_usage_responses += 1
+                else:
+                    total_input += result.input_tokens
+                    total_output += result.output_tokens
+                if result.cost_usd is None:
+                    missing_cost = True
+                else:
+                    total_cost += result.cost_usd
+                token_sources.append(result.token_source)
+                last_content = result.content
+                final_answer = self._extract_final(last_content)
+                if final_answer is None:
+                    final_answer = last_content
+                messages.append({"role": "assistant", "content": last_content})
 
         token_source = "missing"
         if token_sources:

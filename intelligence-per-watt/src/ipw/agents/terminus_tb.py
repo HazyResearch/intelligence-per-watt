@@ -28,6 +28,10 @@ if AgentRegistry.has("terminus-tb"):
     AgentRegistry._entries().pop("terminus-tb", None)
 
 
+class _IPWTurnLimitReached(RuntimeError):
+    """Raised internally when a capped run reaches its LLM-call budget."""
+
+
 @AgentRegistry.register("terminus-tb")
 class TerminusTB(BaseAgent):
     """TerminalBench agent backed by Terminus2.
@@ -73,6 +77,9 @@ class TerminusTB(BaseAgent):
         llm_call_kwargs = dict(kwargs.pop("llm_call_kwargs", None) or {})
         if max_turns is not None:
             kwargs.setdefault("max_episodes", max(1, int(max_turns)))
+        self._max_lm_calls = max(1, int(max_turns)) if max_turns is not None else None
+        self._llm_call_count = 0
+        self._turn_cap_reached = False
         self._usage_proxy: OpenAIUsageProxy | None = None
         if api_base is not None:
             os.environ.setdefault("OPENAI_API_KEY", os.getenv("VLLM_API_KEY", "EMPTY"))
@@ -135,14 +142,21 @@ class TerminusTB(BaseAgent):
 
     def _configure_llm_call_kwargs(self, llm_call_kwargs: dict[str, Any]) -> None:
         """Apply default LiteLLM call kwargs that Terminus2 does not expose."""
-        if not llm_call_kwargs:
-            return
         llm = getattr(self._terminus, "_llm", None)
         original_call = getattr(llm, "call", None)
         if not callable(original_call) or getattr(llm, "_ipw_call_kwargs_wrapped", False):
             return
 
         def _call_with_ipw_kwargs(*args: Any, **call_kwargs: Any) -> Any:
+            if (
+                self._max_lm_calls is not None
+                and self._llm_call_count >= self._max_lm_calls
+            ):
+                self._turn_cap_reached = True
+                raise _IPWTurnLimitReached(
+                    f"max_turns reached: {self._llm_call_count}/{self._max_lm_calls}"
+                )
+            self._llm_call_count += 1
             return original_call(*args, **{**llm_call_kwargs, **call_kwargs})
 
         setattr(llm, "call", _call_with_ipw_kwargs)
@@ -213,6 +227,8 @@ class TerminusTB(BaseAgent):
         usage_stats: dict[str, Any] = {}
         if self._usage_proxy is not None:
             self._usage_proxy.reset()
+        self._llm_call_count = 0
+        self._turn_cap_reached = False
 
         if not self._records_lm_calls:
             self._record_event("lm_inference_start", model=self._model_name)
@@ -225,6 +241,9 @@ class TerminusTB(BaseAgent):
                     session=session,
                     time_limit_seconds=timeout,
                 )
+            except _IPWTurnLimitReached:
+                self._turn_cap_reached = True
+                LOGGER.info("Terminus-TB reached max_turns=%s", self._max_lm_calls)
             except Exception:
                 LOGGER.exception("Terminus2 agent failed on task %s", task_id)
 
@@ -275,16 +294,21 @@ class TerminusTB(BaseAgent):
             except Exception:
                 LOGGER.debug("Cost calculation failed for %s", self._model_name, exc_info=True)
 
+        metadata = {
+            "task_id": task_id,
+            "token_source": token_source,
+            "usage_proxy": usage_stats,
+        }
+        if self._turn_cap_reached:
+            metadata["turn_cap_reached"] = True
+            metadata["max_turns"] = self._max_lm_calls
+
         return AgentRunResult(
             content=terminal_output,
             input_tokens=input_tokens,
             output_tokens=output_tokens,
             cost_usd=cost,
-            metadata={
-                "task_id": task_id,
-                "token_source": token_source,
-                "usage_proxy": usage_stats,
-            },
+            metadata=metadata,
         )
 
 
