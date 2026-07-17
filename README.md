@@ -21,6 +21,8 @@ Intelligence Per Watt measures **accuracy alongside energy** for any LLM inferen
 > **[Documentation](https://hazyresearch.stanford.edu/intelligence-per-watt/)**
 >
 > **[Project Site](https://www.intelligence-per-watt.ai/)**
+>
+> **[Paper](https://arxiv.org/abs/2511.07885)**
 
 ## Prerequisites
 
