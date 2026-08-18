@@ -542,3 +542,42 @@ class TestApplySoCBasisInDisplay:
         assert "SoC Energy" in labels
         assert "ANE Power" in labels
         assert "SoC Power" in labels
+
+    def test_partial_soc_rails_fall_back_as_a_pair(self) -> None:
+        """SoC joules over GPU watts is a ratio across two rail sets."""
+        from io import StringIO
+
+        from rich.console import Console
+
+        from ipw.execution.types import (
+            EnergyMetrics,
+            LatencyMetrics,
+            MetricStats,
+            ModelMetrics,
+            PowerComponentMetrics,
+            PowerMetrics,
+            ProfilingRecord,
+        )
+
+        mm = ModelMetrics(
+            energy_metrics=EnergyMetrics(
+                per_query_joules=0.05, soc_per_query_joules=200.0, basis="soc"
+            ),
+            latency_metrics=LatencyMetrics(total_query_seconds=25.0),
+            # SoC energy is present but SoC power is not.
+            power_metrics=PowerMetrics(
+                gpu=PowerComponentMetrics(per_query_watts=MetricStats(avg=0.002)),
+                basis="soc",
+            ),
+        )
+        buffer = StringIO()
+        print_efficiency_panel(
+            Console(file=buffer, width=120),
+            records=[ProfilingRecord(problem="q", answer="a", model_metrics={"m": mm})],
+            model="m",
+            accuracy=1.0,
+        )
+        output = buffer.getvalue()
+
+        assert "0.05" in output
+        assert "200.00" not in output

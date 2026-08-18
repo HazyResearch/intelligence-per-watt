@@ -162,13 +162,15 @@ class AccuracyAnalysis(AnalysisProvider):
             metadata = _parse_metadata(evaluation.get("metadata")) if evaluation else {}
             model_answers = row.get("model_answers") or {}
             model_answer = model_answers.get(active_model)
-            basis = _resolve_basis(
-                energy_metrics, power_metrics, _to_mapping(metrics.get("gpu_info"))
+            basis, energy_joules, power_watts = _extract_basis_values(
+                energy_metrics,
+                power_metrics,
+                _resolve_basis(
+                    energy_metrics, power_metrics, _to_mapping(metrics.get("gpu_info"))
+                ),
             )
             bases_seen.add(basis)
-            energy_joules = _extract_energy_value(energy_metrics, basis)
             latency_seconds = latency_metrics.get("total_query_seconds")
-            power_watts = _extract_power_value(power_metrics, basis)
 
             records.append(
                 {
@@ -706,46 +708,53 @@ def _resolve_basis(
     return _GPU_BASIS
 
 
-def _extract_energy_value(
-    energy_metrics: Mapping[str, Any], basis: str = _GPU_BASIS
-) -> Any:
-    """Per-query energy on the given basis, falling back to the GPU rail.
+def _extract_basis_values(
+    energy_metrics: Mapping[str, Any],
+    power_metrics: Mapping[str, Any],
+    basis: str = _GPU_BASIS,
+) -> tuple[str, Any, float | None]:
+    """Per-query energy and power from one rail set, and the basis actually read.
 
-    Returns the raw value rather than a normalized float so the caller keeps
-    seeing an explicit zero (which triggers power x latency imputation) as
+    Energy and power fall back to the GPU rail **together**, never one at a
+    time: SoC joules divided by GPU watts is a ratio across two different rail
+    sets and means nothing. The returned basis is what was actually read, so a
+    record that asked for ``soc`` but only carries the GPU rail is reported as
+    ``gpu`` rather than mislabelled in the summary.
+
+    Energy is the raw stored value rather than a normalized float, so the caller
+    keeps seeing an explicit zero (which triggers power x latency imputation) as
     distinct from a missing measurement.
     """
-    keys = (
-        ("soc_per_query_joules", "per_query_joules")
-        if basis == _SOC_BASIS
-        else ("per_query_joules",)
+    if basis == _SOC_BASIS:
+        energy = energy_metrics.get("soc_per_query_joules")
+        power = _component_power(power_metrics, "soc")
+        if energy is not None and power is not None:
+            return _SOC_BASIS, energy, power
+    return (
+        _GPU_BASIS,
+        energy_metrics.get("per_query_joules"),
+        _component_power(power_metrics, "gpu"),
     )
-    for key in keys:
-        value = energy_metrics.get(key)
-        if value is not None:
-            return value
-    return None
 
 
-def _extract_power_value(
-    power_metrics: Mapping[str, Any], basis: str = _GPU_BASIS
+def _component_power(
+    power_metrics: Mapping[str, Any], component: str
 ) -> float | None:
-    components = ("soc", "gpu") if basis == _SOC_BASIS else ("gpu",)
-    for component in components:
-        component_metrics = power_metrics.get(component)
-        if not isinstance(component_metrics, Mapping):
+    """First positive, finite per-query stat from one power component."""
+    component_metrics = power_metrics.get(component)
+    if not isinstance(component_metrics, Mapping):
+        return None
+    per_query = component_metrics.get("per_query_watts")
+    if not isinstance(per_query, Mapping):
+        return None
+    for key in ("avg", "median", "max", "min"):
+        raw_value = per_query.get(key)
+        try:
+            candidate = float(raw_value)
+        except (TypeError, ValueError):
             continue
-        per_query = component_metrics.get("per_query_watts")
-        if not isinstance(per_query, Mapping):
-            continue
-        for key in ("avg", "median", "max", "min"):
-            raw_value = per_query.get(key)
-            try:
-                candidate = float(raw_value)
-            except (TypeError, ValueError):
-                continue
-            if math.isfinite(candidate) and candidate > 0:
-                return candidate
+        if math.isfinite(candidate) and candidate > 0:
+            return candidate
     return None
 
 

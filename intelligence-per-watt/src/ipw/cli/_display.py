@@ -320,16 +320,14 @@ def _basis_energy_and_power(model_metrics) -> tuple[Optional[float], Optional[fl
         power_metrics, "basis", None
     )
 
-    energy = None
-    power = None
     if basis == "soc":
         energy = getattr(energy_metrics, "soc_per_query_joules", None)
         power = _safe_get(power_metrics, "soc", "per_query_watts", "avg")
-    if energy is None:
-        energy = energy_metrics.per_query_joules
-    if power is None:
-        power = power_metrics.gpu.per_query_watts.avg
-    return energy, power
+        # Fall back as a pair, never one at a time: SoC joules divided by GPU
+        # watts is a number from two different rail sets and means nothing.
+        if energy is not None and power is not None:
+            return energy, power
+    return energy_metrics.per_query_joules, power_metrics.gpu.per_query_watts.avg
 
 
 def print_efficiency_panel(

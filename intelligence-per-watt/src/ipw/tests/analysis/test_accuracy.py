@@ -347,3 +347,27 @@ class TestApplySoCBasis:
         summary = self._run(tmp_path, metrics).summary
 
         assert summary["avg_per_query_energy_joules"] == pytest.approx(12.0)
+        # Reported as what was actually read, not what the record asked for.
+        assert summary["energy_basis"] == "gpu"
+
+    def test_partial_soc_rails_fall_back_as_a_pair(self, tmp_path: Path) -> None:
+        """SoC joules over GPU watts is a ratio across two rail sets."""
+        metrics = {
+            "energy_metrics": {
+                "per_query_joules": 0.06,
+                "soc_per_query_joules": 240.0,
+                "basis": "soc",
+            },
+            # SoC energy is present but SoC power is not.
+            "power_metrics": {
+                "gpu": {"per_query_watts": {"avg": 0.002}},
+                "basis": "soc",
+            },
+            "latency_metrics": {"total_query_seconds": 30.0},
+        }
+
+        summary = self._run(tmp_path, metrics).summary
+
+        assert summary["energy_basis"] == "gpu"
+        assert summary["avg_per_query_energy_joules"] == pytest.approx(0.06)
+        assert summary["avg_per_query_power_watts"] == pytest.approx(0.002)
