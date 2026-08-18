@@ -168,10 +168,16 @@ class ProfilerRunner:
             )
 
             self._ensure_client_ready(client)
-            self._client_info = self._describe_client(client)
 
             with TelemetrySession(collector) as telemetry:
                 self._process_records(dataset, client, telemetry)
+
+            # After the run, not before: `describe` reports per-run tallies that
+            # only exist once inference has happened (the AFM client counts the
+            # queries it skipped on context overflow). Still before
+            # `_close_client`, since closing may release the backend handles the
+            # metadata is read from.
+            self._client_info = self._describe_client(client)
 
             if not self._records:
                 return

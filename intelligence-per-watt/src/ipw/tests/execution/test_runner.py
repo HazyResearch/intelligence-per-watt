@@ -1223,3 +1223,103 @@ class TestPhaseEnergyBasis:
         )
         assert ProfilerRunner._phase_power(mac) == pytest.approx(10.0)
         assert ProfilerRunner._phase_power(linux) == pytest.approx(300.0)
+
+
+class _DescribingClient:
+    """Minimal client whose ``describe`` reports a tally built during the run.
+
+    Mirrors ``AFMClient``, which counts the queries it skipped on context
+    overflow -- metadata that only exists once inference has happened.
+    """
+
+    client_id, client_name = "describing", "Describing Client"
+    base_url = "in-process"
+
+    def __init__(self) -> None:
+        self.queries = 0
+        self.describe_calls = 0
+
+    def health(self) -> bool:
+        return True
+
+    def prepare(self, model: str) -> None:
+        return None
+
+    def stream_chat_completion(self, model: str, prompt: str, **params) -> Response:
+        self.queries += 1
+        return Response(
+            content="response",
+            usage=ChatUsage(prompt_tokens=10, completion_tokens=5, total_tokens=15),
+            time_to_first_token_ms=100.0,
+        )
+
+    def describe(self):
+        self.describe_calls += 1
+        return {"client_id": self.client_id, "skipped_queries": self.queries}
+
+    def close(self) -> None:
+        return None
+
+
+class TestClientInfoSummary:
+    """``describe`` must run after inference, or per-run tallies come back empty."""
+
+    @patch("ipw.execution.runner.DatasetRegistry")
+    @patch("ipw.execution.runner.ClientRegistry")
+    @patch("ipw.execution.runner.EnergyMonitorCollector")
+    @patch("ipw.execution.runner.TelemetrySession")
+    @patch("ipw.execution.runner.Dataset")
+    def test_client_info_reflects_state_accumulated_during_the_run(
+        self,
+        mock_dataset_class: Mock,
+        mock_session: Mock,
+        mock_collector: Mock,
+        mock_client_registry: Mock,
+        mock_dataset_registry: Mock,
+        tmp_path: Path,
+    ) -> None:
+        mock_dataset = MagicMock()
+        mock_dataset.size.return_value = 2
+        mock_dataset.__iter__.return_value = iter(
+            [
+                DatasetRecord(problem="one", answer="a", subject="math"),
+                DatasetRecord(problem="two", answer="b", subject="math"),
+            ]
+        )
+        mock_dataset.dataset_id = "test"
+        mock_dataset.dataset_name = "Test Dataset"
+        mock_dataset_registry.get.return_value = Mock(return_value=mock_dataset)
+
+        client = _DescribingClient()
+        mock_client_registry.get.return_value = Mock(return_value=client)
+
+        mock_collector.return_value = Mock()
+        mock_telemetry = Mock()
+        mock_telemetry.window.return_value = []
+        mock_telemetry.readings.return_value = []
+        mock_session.return_value.__enter__.return_value = mock_telemetry
+
+        mock_hf_dataset = Mock()
+        mock_hf_dataset.save_to_disk = lambda path: Path(path).mkdir(
+            parents=True, exist_ok=True
+        )
+        mock_dataset_class.from_list.return_value = mock_hf_dataset
+
+        config = ProfilerConfig(
+            model="test-model",
+            client_id="describing",
+            dataset_id="test-dataset",
+            output_dir=tmp_path,
+            warmup_queries=0,
+        )
+        ProfilerRunner(config).run()
+
+        summary_path = (
+            tmp_path / "profile_UNKNOWN_HW_test_model_Test Dataset" / "summary.json"
+        )
+        client_info = json.loads(summary_path.read_text())["client_info"]
+
+        assert client_info["client_id"] == "describing"
+        # Would be 0 if describe() ran before _process_records.
+        assert client_info["skipped_queries"] == 2
+        assert client.describe_calls == 1
