@@ -119,6 +119,25 @@ class EnergyMonitorCollector:
             cpu_energy_joules=_safe_float(
                 getattr(message, "cpu_energy_joules", None)
             ),
+            # Apple Neural Engine. The macOS collector samples ane_power via
+            # powermetrics and the proto carries these fields, but they were
+            # never mapped here -- so EnergyMetrics.ane_* was always None in
+            # real runs even though the plumbing existed end to end. That
+            # matters for any ANE-resident model (Apple Foundation Models runs
+            # mostly on the ANE), whose energy was previously invisible.
+            ane_power_watts=_safe_float(getattr(message, "ane_power_watts", None)),
+            ane_energy_joules=_safe_float(
+                getattr(message, "ane_energy_joules", None)
+            ),
+            gpu_memory_total_mb=_safe_float(
+                getattr(message, "gpu_memory_total_mb", None)
+            ),
+            gpu_compute_utilization_pct=_safe_float(
+                getattr(message, "gpu_compute_utilization_pct", None)
+            ),
+            gpu_tensor_core_utilization_pct=_safe_float(
+                getattr(message, "gpu_tensor_core_utilization_pct", None)
+            ),
             gpu_memory_bandwidth_utilization_pct=_safe_float(
                 getattr(message, "gpu_memory_bandwidth_utilization_pct", None)
             ),

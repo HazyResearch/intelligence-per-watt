@@ -29,7 +29,7 @@ Intelligence Per Watt measures **accuracy alongside energy** for any LLM inferen
 - **Python >= 3.13** -- managed with [uv](https://docs.astral.sh/uv/getting-started/installation/)
 - **Rust compiler** -- for the energy monitor ([install](https://www.rust-lang.org/tools/install))
 - **protoc** -- Protocol Buffer compiler ([install](https://grpc.io/docs/protoc-installation/))
-- **An inference runtime** -- [Ollama](https://ollama.ai/), [vLLM](https://docs.vllm.ai/), or an OpenAI-compatible API
+- **An inference runtime** -- [Ollama](https://ollama.ai/), [vLLM](https://docs.vllm.ai/), an OpenAI-compatible API, or on Apple Silicon [MLX](https://github.com/ml-explore/mlx) / [Apple Foundation Models](https://github.com/apple/python-apple-fm-sdk)
 
 See [Prerequisites](https://hazyresearch.stanford.edu/intelligence-per-watt/getting-started/installation/) for platform-specific setup (NVIDIA NVML, AMD ROCm, Apple Silicon, Linux RAPL).
 
@@ -89,7 +89,7 @@ Each query captures: energy (Joules), power (Watts), GPU/CPU memory, temperature
 
 ## What's Included
 
-**Inference clients** -- Ollama, vLLM (offline), OpenAI-compatible servers
+**Inference clients** -- Ollama, vLLM (offline), OpenAI-compatible servers, and two in-process Apple Silicon backends: MLX and Apple Foundation Models (on-device AFM 3)
 
 **Agent harnesses** -- [ReAct](https://github.com/agno-agi/agno) (Agno), [OpenHands](https://github.com/All-Hands-AI/OpenHands), [Terminus](https://github.com/terminal-bench/terminal-bench)
 
@@ -104,7 +104,7 @@ Each query captures: energy (Joules), power (Watts), GPU/CPU memory, temperature
 ```
 ipw/
 ├── cli/          CLI commands (profile, run, analyze, plot, list)
-├── clients/      Inference adapters (Ollama, vLLM, OpenAI)
+├── clients/      Inference adapters (Ollama, vLLM, OpenAI, MLX, Apple FM)
 ├── agents/       Agent harnesses with per-turn telemetry
 ├── datasets/     Dataset providers (10+ benchmarks)
 ├── evaluation/   Scoring handlers

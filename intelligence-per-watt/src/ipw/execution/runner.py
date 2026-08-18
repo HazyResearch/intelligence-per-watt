@@ -146,6 +146,7 @@ class ProfilerRunner:
         self._baseline_energy: Optional[float] = None
         self._last_energy_total: Optional[float] = None
         self._overwrite_confirmed: bool = False
+        self._client_info: Optional[Mapping[str, Any]] = None
 
     @property
     def records(self) -> list[ProfilingRecord]:
@@ -167,6 +168,7 @@ class ProfilerRunner:
             )
 
             self._ensure_client_ready(client)
+            self._client_info = self._describe_client(client)
 
             with TelemetrySession(collector) as telemetry:
                 self._process_records(dataset, client, telemetry)
@@ -231,6 +233,19 @@ class ProfilerRunner:
         cpu_power_stats = _stat_summary(
             [reading.cpu_power_watts for reading in telemetry_readings]
         )
+        ane_power_stats = _stat_summary(
+            [reading.ane_power_watts for reading in telemetry_readings]
+        )
+        soc_power_stats = _stat_summary(
+            [
+                _sum_optional(
+                    reading.power_watts,
+                    reading.cpu_power_watts,
+                    reading.ane_power_watts,
+                )
+                for reading in telemetry_readings
+            ]
+        )
         temperature_stats = _stat_summary(
             [reading.temperature_celsius for reading in telemetry_readings]
         )
@@ -274,15 +289,33 @@ class ProfilerRunner:
             per_token_ms = (total_seconds * 1000.0) / completion_tokens
             throughput_tokens = completion_tokens / total_seconds
 
+        # Choose the basis for the derived efficiency metrics below.
+        #
+        # On Apple Silicon `power_watts` / `energy_joules` carry the GPU rail
+        # only (see energy-monitor/src/collectors/macos.rs), with CPU and ANE in
+        # separate fields. A model executing on the Neural Engine -- as Apple
+        # Foundation Models does -- would therefore look nearly free. Use the
+        # whole-SoC sum there instead. Discrete-GPU hosts keep the established
+        # GPU-only basis so historical numbers stay comparable.
+        is_apple_soc = any(
+            reading.platform == "macos" for reading in telemetry_readings
+        )
+        energy_basis = (
+            energy_metrics.soc_per_query_joules
+            if is_apple_soc
+            else energy_metrics.per_query_joules
+        )
+        power_basis = soc_power_stats.avg if is_apple_soc else power_stats.avg
+
         # --- Tier 1.1: Per-token energy normalization ---
-        if energy_metrics.per_query_joules is not None:
+        if energy_basis is not None:
             if completion_tokens is not None and completion_tokens > 0:
                 energy_metrics.energy_per_output_token_joules = (
-                    energy_metrics.per_query_joules / completion_tokens
+                    energy_basis / completion_tokens
                 )
             if total_tokens is not None and total_tokens > 0:
                 energy_metrics.energy_per_total_token_joules = (
-                    energy_metrics.per_query_joules / total_tokens
+                    energy_basis / total_tokens
                 )
 
         # --- Tier 3.2: ITL percentiles from token timestamps ---
@@ -322,13 +355,13 @@ class ProfilerRunner:
 
         # --- Tier 1.2: Throughput per watt + FLOPs efficiency ---
         efficiency = DerivedEfficiencyMetrics()
-        if throughput_tokens is not None and power_stats.avg and power_stats.avg > 0:
-            efficiency.throughput_per_watt = throughput_tokens / power_stats.avg
-        if total_flops > 0 and energy_metrics.per_query_joules and energy_metrics.per_query_joules > 0:
-            efficiency.flops_per_joule = total_flops / energy_metrics.per_query_joules
-        if total_flops > 0 and power_stats.avg and power_stats.avg > 0 and total_seconds > 0:
+        if throughput_tokens is not None and power_basis and power_basis > 0:
+            efficiency.throughput_per_watt = throughput_tokens / power_basis
+        if total_flops > 0 and energy_basis and energy_basis > 0:
+            efficiency.flops_per_joule = total_flops / energy_basis
+        if total_flops > 0 and power_basis and power_basis > 0 and total_seconds > 0:
             actual_flops_per_sec = total_flops / total_seconds
-            efficiency.flops_per_watt = actual_flops_per_sec / power_stats.avg
+            efficiency.flops_per_watt = actual_flops_per_sec / power_basis
 
         # --- Tier 2.2: MFU ---
         gpu_name = self._gpu_info.name if self._gpu_info else None
@@ -381,6 +414,24 @@ class ProfilerRunner:
                         max=cpu_power_stats.max,
                         median=cpu_power_stats.median,
                         min=cpu_power_stats.min,
+                    ),
+                ),
+                ane=PowerComponentMetrics(
+                    per_query_watts=ane_power_stats,
+                    total_watts=MetricStats(
+                        avg=ane_power_stats.avg,
+                        max=ane_power_stats.max,
+                        median=ane_power_stats.median,
+                        min=ane_power_stats.min,
+                    ),
+                ),
+                soc=PowerComponentMetrics(
+                    per_query_watts=soc_power_stats,
+                    total_watts=MetricStats(
+                        avg=soc_power_stats.avg,
+                        max=soc_power_stats.max,
+                        median=soc_power_stats.median,
+                        min=soc_power_stats.min,
                     ),
                 ),
             ),
@@ -451,9 +502,12 @@ class ProfilerRunner:
             last_ts = samples[-1].timestamp
             decode_duration_ms = max((last_ts - ttft_epoch) * 1000.0, 0.0) if last_ts > ttft_epoch else None
 
-        # Power averages
-        prefill_power = _stat_summary([r.power_watts for r in prefill_readings])
-        decode_power = _stat_summary([r.power_watts for r in decode_readings])
+        # Power averages, on the same basis as the phase energy above so the
+        # prefill/decode split is consistent with the per-query metrics.
+        prefill_power = _stat_summary(
+            [self._phase_power(r) for r in prefill_readings]
+        )
+        decode_power = _stat_summary([self._phase_power(r) for r in decode_readings])
 
         # Per-token energy
         prefill_energy_per_input = None
@@ -475,14 +529,42 @@ class ProfilerRunner:
             decode_energy_per_output_token_j=decode_energy_per_output,
         )
 
+    @staticmethod
+    def _phase_energy_value(reading: TelemetryReading) -> Optional[float]:
+        """Energy counter for a phase, on the platform's appropriate basis.
+
+        Mirrors the per-query choice: whole-SoC on Apple Silicon (where
+        `energy_joules` is the GPU rail alone), GPU elsewhere.
+        """
+        if reading.platform == "macos":
+            return _sum_optional(
+                reading.energy_joules,
+                reading.cpu_energy_joules,
+                reading.ane_energy_joules,
+            )
+        return reading.energy_joules
+
+    @staticmethod
+    def _phase_power(reading: TelemetryReading) -> Optional[float]:
+        """Power sample for a phase, on the same basis as the phase energy."""
+        if reading.platform == "macos":
+            return _sum_optional(
+                reading.power_watts,
+                reading.cpu_power_watts,
+                reading.ane_power_watts,
+            )
+        return reading.power_watts
+
     def _compute_phase_energy(
         self, readings: Sequence[TelemetryReading]
     ) -> Optional[float]:
-        """Compute GPU energy delta for a phase from its readings."""
-        gpu_values = [
-            r.energy_joules for r in readings if r.energy_joules is not None
+        """Compute the energy delta for a phase from its readings."""
+        values = [
+            value
+            for value in (self._phase_energy_value(r) for r in readings)
+            if value is not None
         ]
-        return self._compute_energy_delta(gpu_values) if len(gpu_values) >= 2 else None
+        return self._compute_energy_delta(values) if len(values) >= 2 else None
 
     def _compute_energy_metrics(
         self, readings: Sequence[TelemetryReading]
@@ -516,6 +598,23 @@ class ProfilerRunner:
         ]
         ane_per_query = self._compute_energy_delta(ane_energy_values)
 
+        # Whole-SoC energy, summed per reading before differencing so a rail
+        # that is unavailable on this platform simply drops out. Yields None
+        # only when no rail reported anything.
+        soc_energy_values = [
+            value
+            for value in (
+                _sum_optional(
+                    reading.energy_joules,
+                    reading.cpu_energy_joules,
+                    reading.ane_energy_joules,
+                )
+                for reading in readings
+            )
+            if value is not None
+        ]
+        soc_per_query = self._compute_energy_delta(soc_energy_values)
+
         # Maintain baseline tracking for GPU (backward compat)
         if gpu_energy_values:
             start_value = gpu_energy_values[0]
@@ -536,6 +635,8 @@ class ProfilerRunner:
             cpu_total_joules=cpu_per_query,
             ane_per_query_joules=ane_per_query,
             ane_total_joules=ane_per_query,
+            soc_per_query_joules=soc_per_query,
+            soc_total_joules=soc_per_query,
         )
 
     def _compute_energy_delta(
@@ -634,6 +735,24 @@ class ProfilerRunner:
             )
         client.prepare(self._config.model)
 
+    def _describe_client(self, client: InferenceClient) -> Optional[Mapping[str, Any]]:
+        """Collect optional backend metadata for ``summary.json``.
+
+        ``describe`` is not part of the :class:`InferenceClient` contract; a
+        client implements it when it knows things about the run that cannot be
+        recovered from the records (the AFM client reports its SDK version,
+        context size and host chip, since the on-device model variant it used is
+        chosen by the framework and is not otherwise observable).
+        """
+        describe_fn = getattr(client, "describe", None)
+        if not callable(describe_fn):
+            return None
+        try:
+            return describe_fn()
+        except Exception:
+            LOGGER.warning("Failed to collect client metadata", exc_info=True)
+            return None
+
     def _close_client(self, client: InferenceClient | None) -> None:
         if client is None:
             return
@@ -714,6 +833,7 @@ class ProfilerRunner:
             "gpu_info": asdict(self._gpu_info) if self._gpu_info else None,
             "output_dir": str(output_path),
             "versions": _get_versions(),
+            "client_info": _jsonify(self._client_info) if self._client_info else None,
         }
         summary_path = output_path / "summary.json"
         summary_path.write_text(json.dumps(summary, indent=2, default=str))
@@ -734,6 +854,16 @@ class ProfilerRunner:
                 f"Profiling aborted to avoid overwriting existing output at {output_path}."
             )
         self._overwrite_confirmed = True
+
+
+def _sum_optional(*values: Optional[float]) -> Optional[float]:
+    """Sum the values that are present, or return None when none are.
+
+    Used to combine the CPU/GPU/ANE power and energy rails, which are reported
+    separately and are each unavailable on some platforms.
+    """
+    present = [float(v) for v in values if v is not None]
+    return sum(present) if present else None
 
 
 def _stat_summary(values: Iterable[Optional[float]]) -> MetricStats:

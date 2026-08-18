@@ -86,3 +86,64 @@ class TestConvertMethod:
         assert reading.cpu_energy_joules == 200.0
         assert reading.platform == "linux"
         assert reading.timestamp_nanos == 2000000000
+
+
+class TestAppleNeuralEngineFields:
+    """Regression: these proto fields existed but were never mapped.
+
+    The macOS collector samples ``ane_power``/``ane_energy`` via powermetrics and
+    the proto carries them, but ``_convert`` dropped them -- so
+    ``EnergyMetrics.ane_*`` was always None in real runs while unit tests passed
+    on a hand-populated fixture. Any ANE-resident model (Apple Foundation Models)
+    appeared to consume no energy at all.
+    """
+
+    def _make_message(self, **kwargs) -> SimpleNamespace:
+        return SimpleNamespace(**kwargs)
+
+    def _convert(self, **kwargs):
+        collector = EnergyMonitorCollector.__new__(EnergyMonitorCollector)
+        return collector._convert(self._make_message(**kwargs))
+
+    def test_ane_fields_extracted(self) -> None:
+        reading = self._convert(
+            power_watts=12.0,
+            energy_joules=30.0,
+            cpu_power_watts=4.0,
+            cpu_energy_joules=9.0,
+            ane_power_watts=6.5,
+            ane_energy_joules=15.25,
+            platform="macos",
+        )
+
+        assert reading.ane_power_watts == 6.5
+        assert reading.ane_energy_joules == 15.25
+
+    def test_ane_unavailable_sentinel_becomes_none(self) -> None:
+        # The Rust service emits -1.0 when a rail is unreadable.
+        reading = self._convert(ane_power_watts=-1.0, ane_energy_joules=-1.0)
+
+        assert reading.ane_power_watts is None
+        assert reading.ane_energy_joules is None
+
+    def test_ane_fields_none_when_absent(self) -> None:
+        # Non-Apple platforms omit them entirely.
+        reading = self._convert(power_watts=200.0, energy_joules=100.0)
+
+        assert reading.ane_power_watts is None
+        assert reading.ane_energy_joules is None
+
+    def test_gpu_utilization_and_total_memory_extracted(self) -> None:
+        """Dropped alongside the ANE fields; these populate on NVIDIA hosts."""
+        reading = self._convert(
+            gpu_memory_total_mb=81920.0,
+            gpu_compute_utilization_pct=88.0,
+            gpu_tensor_core_utilization_pct=41.0,
+            gpu_memory_bandwidth_utilization_pct=55.0,
+            platform="linux",
+        )
+
+        assert reading.gpu_memory_total_mb == 81920.0
+        assert reading.gpu_compute_utilization_pct == 88.0
+        assert reading.gpu_tensor_core_utilization_pct == 41.0
+        assert reading.gpu_memory_bandwidth_utilization_pct == 55.0

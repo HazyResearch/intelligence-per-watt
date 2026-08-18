@@ -31,6 +31,14 @@ dependencies = [
 ollama = ["ollama"]
 vllm = ["vllm>=0.11.0"]
 mlx = ["mlx>=0.20", "mlx-lm>=0.20"]
+# Apple Foundation Models (on-device AFM 3). Requires an Apple Silicon Mac on
+# macOS 26+ with Apple Intelligence enabled. The SDK compiles Swift bindings at
+# install time, so a full Xcode is needed -- Command Line Tools alone fail:
+#   DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer \
+#       uv pip install -e 'intelligence-per-watt[afm]'
+# 0.2.1 is the floor: it added SystemLanguageModel.context_size and token_count,
+# which the client uses for token accounting.
+afm = ["apple-fm-sdk>=0.2.1"]
 react = ["agno"]
 terminus = ["terminal-bench", "docker"]
 openhands = ["openhands-sdk", "openhands-tools"]
@@ -67,6 +75,7 @@ all = [
     "vllm>=0.11.0",
     "mlx>=0.20",
     "mlx-lm>=0.20",
+    "apple-fm-sdk>=0.2.1",
     "agno",
     "terminal-bench",
     "docker",
@@ -117,6 +126,7 @@ markers = [
     "auto_server: marks tests that use the auto-server functionality",
     "submodel: marks tests that use multiple models/submodels",
     "stress: marks the 20-way concurrency stress test (offline, opt-in; excluded from default runs)",
+    "apple: marks tests that require Apple Silicon hardware (powermetrics, ANE, Foundation Models)",
 ]
 # Exclude the opt-in concurrency stress test from default runs. Invoke explicitly with -m stress.
 addopts = "-m 'not stress'"

@@ -16,8 +16,11 @@ ipw profile --client <client> --model <model> [options]
 
 | Option | Description |
 |--------|-------------|
-| `--client` | Inference client ID (`ollama`, `vllm`) |
+| `--client` | Inference client ID (`ollama`, `vllm`, `openai-server`, `mlx`, `afm`) |
 | `--model` | Model name as known to the inference server |
+
+Run `ipw list clients` to see which are available in your install; the
+`mlx` and `afm` clients are Apple Silicon only and need their optional extras.
 
 ### Optional Options
 
@@ -57,6 +60,53 @@ ipw profile \
   --client-base-url http://localhost:8000 \
   --dataset mmlu-pro
 ```
+
+### Apple Silicon: on-device backends
+
+Both Apple backends run **in-process**, so `--client-base-url` is unused. Energy
+is captured by the same system-wide `powermetrics` collector, which needs `sudo`.
+
+```bash
+# MLX: any model from the mlx-community Hub org
+ipw profile --client mlx --model mlx-community/Qwen3-4B-bf16
+
+# Apple Foundation Models (AFM 3), the model behind Apple Intelligence
+ipw profile --client afm --model afm-3-core-advanced \
+  --dataset fixed_length --dataset-param prompt_length=512 num_samples=6 \
+  --client-param max_tokens=128
+```
+
+`--client afm` accepts three `--model` labels: `afm-3`, `afm-3-core` and
+`afm-3-core-advanced`. **These only label the run.** The Foundation Models
+framework's dynamic profile chooses AFM 3 Core (dense ~3B) or AFM 3 Core
+Advanced (20B sparse MoE) based on the host device, and the SDK exposes no
+override — so pick the label matching the tier you believe your device runs, and
+check `client_info` in `summary.json` for the SDK version, context size and host
+chip that produced the numbers.
+
+AFM-specific `--client-param` keys:
+
+| Param | Default | Description |
+|-------|---------|-------------|
+| `max_tokens` | SDK default | Maps to the SDK's `maximum_response_tokens` |
+| `temperature` | SDK default | Only meaningful with `sampling=random` |
+| `sampling` | `greedy` | `greedy` or `random`. Greedy by default for reproducible runs |
+| `top`, `probability_threshold`, `seed` | none | `sampling=random` only |
+| `instructions` | none | System prompt; counts against the 4096-token context |
+| `use_case` | `general` | `general` or `content_tagging` |
+| `guardrails` | `default` | `default` or `permissive_content_transformations` |
+
+Two measurement caveats when comparing AFM against other backends:
+
+- **Latency percentiles are per-chunk, not per-token.** The SDK streams
+  cumulative text snapshots batching roughly 8–10 tokens each, so
+  `time_to_first_token_seconds` is really time-to-first-*chunk* (~450 ms on an
+  M1 Pro) and the ITL percentiles are inter-chunk gaps. Token counts,
+  throughput and per-token energy are unaffected.
+- **Context is 4096 tokens**, including instructions and the response. Queries
+  that overflow it are recorded with empty content and counted under
+  `client_info.skipped_queries` rather than aborting the run; `fixed_length`
+  and short-prompt datasets suit AFM better than long-context ones.
 
 ---
 
