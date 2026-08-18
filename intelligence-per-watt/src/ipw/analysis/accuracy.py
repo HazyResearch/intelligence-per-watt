@@ -30,6 +30,10 @@ class _AccuracyCounters:
     incorrect: int = 0
     unevaluated: int = 0
     failed: int = 0
+    # Queries the client returned empty (AFM context overflow, guardrail
+    # refusal). Counted apart from `unevaluated` so the accuracy number is
+    # always read next to how many prompts never got an attempt.
+    skipped_empty: int = 0
 
 
 @dataclass(slots=True)
@@ -189,6 +193,10 @@ class AccuracyAnalysis(AnalysisProvider):
                 counters.failed += 1
                 continue
 
+            if metadata.get("skipped_empty_response"):
+                counters.skipped_empty += 1
+                continue
+
             is_correct = evaluation.get("is_correct")
             if is_correct is True:
                 counters.correct += 1
@@ -252,6 +260,7 @@ class AccuracyAnalysis(AnalysisProvider):
             "incorrect": counters.incorrect,
             "unevaluated": counters.unevaluated,
             "failed": counters.failed,
+            "skipped_empty_responses": counters.skipped_empty,
             "total_scored": total_scored,
             "accuracy": accuracy,
             "intelligence_per_joule": intelligence_per_joule,
@@ -311,6 +320,12 @@ class AccuracyAnalysis(AnalysisProvider):
         if counters.failed:
             warnings.append(
                 f"{counters.failed} records failed evaluation for model '{active_model}'."
+            )
+        if counters.skipped_empty:
+            warnings.append(
+                f"{counters.skipped_empty} records returned an empty response and are "
+                f"excluded from accuracy for model '{active_model}'; accuracy covers "
+                f"the {total_scored} prompts that were attempted."
             )
         if energy_stats.get("count", 0) == 0:
             warnings.append(
@@ -597,6 +612,17 @@ class AccuracyAnalysis(AnalysisProvider):
         return updated_dataset
 
     def _safe_score(self, provider, record, response, eval_client):
+        # An empty response is not an attempt, so it is left unevaluated and
+        # drops out of the accuracy denominator rather than counting as a wrong
+        # answer. Short-circuited *before* the provider, because a judge shown
+        # an empty candidate does not reliably reject it: on a real AFM run two
+        # empty responses were scored correct -- one because the pairwise judge
+        # ruled an empty string better than a harmful reference answer, another
+        # because it attributed the reference's content to the empty side.
+        # Clients that skip a query (AFM on context overflow or a guardrail
+        # refusal) return exactly this.
+        if not (response or "").strip():
+            return None, {"skipped_empty_response": True}
         try:
             return provider.score(record, response, eval_client=eval_client)
         except Exception as e:

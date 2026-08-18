@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from pathlib import Path
 from unittest import mock
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 
 import pytest
 
@@ -371,3 +371,38 @@ class TestApplySoCBasis:
         assert summary["energy_basis"] == "gpu"
         assert summary["avg_per_query_energy_joules"] == pytest.approx(0.06)
         assert summary["avg_per_query_power_watts"] == pytest.approx(0.002)
+
+
+class TestEmptyResponseHandling:
+    """An empty response is not an attempt, and must never reach a judge.
+
+    On a real AFM run two empty responses were scored *correct*: the pairwise
+    judge ruled an empty string better than a harmful reference answer in one
+    case, and attributed the reference's content to the empty side in another.
+    """
+
+    def test_empty_response_is_not_scored(self) -> None:
+        provider = Mock()
+        analysis = AccuracyAnalysis()
+
+        for response in ("", "   ", "\n", None):
+            is_correct, meta = analysis._safe_score(
+                provider, Mock(), response, eval_client=Mock()
+            )
+            assert is_correct is None
+            assert meta["skipped_empty_response"] is True
+
+        provider.score.assert_not_called()
+
+    def test_non_empty_response_still_reaches_the_provider(self) -> None:
+        provider = Mock()
+        provider.score.return_value = (True, {"judge": "ok"})
+        analysis = AccuracyAnalysis()
+
+        is_correct, meta = analysis._safe_score(
+            provider, Mock(), "an answer", eval_client=Mock()
+        )
+
+        assert is_correct is True
+        assert meta == {"judge": "ok"}
+        provider.score.assert_called_once()
