@@ -38,6 +38,7 @@ from __future__ import annotations
 
 import logging
 import platform
+import subprocess
 import time
 from importlib.metadata import PackageNotFoundError
 from importlib.metadata import version as _dist_version
@@ -108,6 +109,28 @@ def _resolve_handled_errors() -> tuple[type[BaseException], ...]:
 
 
 _HANDLED_ERRORS = _resolve_handled_errors()
+
+
+def _host_chip() -> str:
+    """Identify the Apple Silicon chip, e.g. "Apple M5 Max".
+
+    ``platform.processor()`` returns a bare "arm" on every Apple Silicon Mac,
+    which is useless for the one job this field has: the executing AFM variant
+    is not observable, so the host chip is how a run gets attributed after the
+    fact. ``sysctl`` names the exact part.
+    """
+    try:
+        result = subprocess.run(
+            ["sysctl", "-n", "machdep.cpu.brand_string"],
+            capture_output=True,
+            text=True,
+            timeout=5.0,
+            check=True,
+        )
+    except (OSError, subprocess.SubprocessError):  # pragma: no cover - host dependent
+        return platform.processor() or platform.machine()
+    return result.stdout.strip() or platform.processor() or platform.machine()
+
 
 
 @ClientRegistry.register("afm")
@@ -222,7 +245,7 @@ class AFMClient(InferenceClient):
             "afm_guardrails": self._guardrails_name,
             "afm_instructions": self._instructions or None,
             "afm_sampling": parse_sampling_spec(self._config)[0],
-            "host_chip": platform.processor() or platform.machine(),
+            "host_chip": _host_chip(),
             "host_os_version": platform.mac_ver()[0] or None,
             "variant_selection": (
                 "device-chosen by the Foundation Models dynamic profile; "

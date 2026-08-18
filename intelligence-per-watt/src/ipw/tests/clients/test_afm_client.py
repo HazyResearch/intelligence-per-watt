@@ -186,6 +186,10 @@ class TestAFMClientLive:
         assert isinstance(info["afm_context_size"], int)
         assert info["afm_context_size"] > 0
         assert info["afm_sdk_version"]
+        # Must name the part ("Apple M1 Pro"), not platform.processor()'s bare
+        # "arm" -- attributing a run to a device is the whole point of the field.
+        assert info["host_chip"].startswith("Apple ")
+        assert info["host_chip"] not in ("arm", "arm64")
 
     def test_generation_populates_response(self, client: AFMClient) -> None:
         response = client.stream_chat_completion(
