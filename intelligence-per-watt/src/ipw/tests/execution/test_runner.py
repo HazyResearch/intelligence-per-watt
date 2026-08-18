@@ -1168,6 +1168,17 @@ class TestDerivedMetricBasis:
         # GPU stats keep their original meaning.
         assert metrics.power_metrics.gpu.per_query_watts.avg == pytest.approx(1.0)
 
+    def test_basis_is_recorded_for_downstream_aggregation(self) -> None:
+        # analysis/accuracy.py and cli/_display.py aggregate across records and
+        # must repeat this choice rather than re-deriving it.
+        macos = self._metrics("macos")
+        assert macos.energy_metrics.basis == "soc"
+        assert macos.power_metrics.basis == "soc"
+
+        linux = self._metrics("linux")
+        assert linux.energy_metrics.basis == "gpu"
+        assert linux.power_metrics.basis == "gpu"
+
 
 class TestPhaseEnergyBasis:
     """Phase energy must use the same rail basis as the per-query metrics."""

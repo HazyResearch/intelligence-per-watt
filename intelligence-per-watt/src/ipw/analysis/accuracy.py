@@ -19,6 +19,10 @@ from .helpers import load_metrics_dataset, resolve_model_name
 
 LOGGER = logging.getLogger(__name__)
 
+# Rail sets the per-record metrics can be aggregated over. See _resolve_basis.
+_SOC_BASIS = "soc"
+_GPU_BASIS = "gpu"
+
 
 @dataclass(slots=True)
 class _AccuracyCounters:
@@ -144,6 +148,7 @@ class AccuracyAnalysis(AnalysisProvider):
         counters = _AccuracyCounters()
         efficiency = _EfficiencyAccumulator()
         records: list[Dict[str, Any]] = []
+        bases_seen: set[str] = set()
 
         # Iterate directly over the HF dataset rows
         # We assume structure: row["model_metrics"][active_model]["evaluation"]
@@ -157,9 +162,13 @@ class AccuracyAnalysis(AnalysisProvider):
             metadata = _parse_metadata(evaluation.get("metadata")) if evaluation else {}
             model_answers = row.get("model_answers") or {}
             model_answer = model_answers.get(active_model)
-            energy_joules = energy_metrics.get("per_query_joules")
+            basis = _resolve_basis(
+                energy_metrics, power_metrics, _to_mapping(metrics.get("gpu_info"))
+            )
+            bases_seen.add(basis)
+            energy_joules = _extract_energy_value(energy_metrics, basis)
             latency_seconds = latency_metrics.get("total_query_seconds")
-            power_watts = _extract_power_value(power_metrics)
+            power_watts = _extract_power_value(power_metrics, basis)
 
             records.append(
                 {
@@ -249,6 +258,14 @@ class AccuracyAnalysis(AnalysisProvider):
             "avg_per_query_power_watts": power_stats.get("avg"),
             "energy_sample_count": energy_stats.get("count"),
             "power_sample_count": power_stats.get("count"),
+            # "soc" (GPU+CPU+ANE) or "gpu"; "mixed" if records disagree. The
+            # energy and power figures above are only comparable across runs
+            # that share a basis.
+            "energy_basis": (
+                next(iter(bases_seen))
+                if len(bases_seen) == 1
+                else ("mixed" if bases_seen else None)
+            ),
         }
 
         efficiency_payload = {
@@ -666,21 +683,69 @@ def _is_non_positive(value: Any) -> bool:
     return math.isfinite(number) and number <= _EPSILON
 
 
-def _extract_power_value(power_metrics: Mapping[str, Any]) -> float | None:
-    gpu_metrics = power_metrics.get("gpu")
-    if not isinstance(gpu_metrics, Mapping):
-        return None
-    per_query = gpu_metrics.get("per_query_watts")
-    if not isinstance(per_query, Mapping):
-        return None
-    for key in ("avg", "median", "max", "min"):
-        raw_value = per_query.get(key)
-        try:
-            candidate = float(raw_value)
-        except (TypeError, ValueError):
+def _resolve_basis(
+    energy_metrics: Mapping[str, Any],
+    power_metrics: Mapping[str, Any],
+    gpu_info: Any,
+) -> str:
+    """Return the rail set to aggregate over: ``"soc"`` or ``"gpu"``.
+
+    The runner makes this choice per record and records it. Records profiled
+    before that field existed fall back to the vendor, because getting it wrong
+    on Apple Silicon is not a rounding error: powermetrics reports GPU, CPU and
+    ANE as separate rails, so the GPU rail alone omits whatever the model
+    actually ran on -- everything, for an ANE-resident model.
+    """
+    for source in (energy_metrics, power_metrics):
+        recorded = source.get("basis")
+        if isinstance(recorded, str) and recorded:
+            return recorded
+    if isinstance(gpu_info, Mapping):
+        if str(gpu_info.get("vendor") or "").strip().lower() == "apple":
+            return _SOC_BASIS
+    return _GPU_BASIS
+
+
+def _extract_energy_value(
+    energy_metrics: Mapping[str, Any], basis: str = _GPU_BASIS
+) -> Any:
+    """Per-query energy on the given basis, falling back to the GPU rail.
+
+    Returns the raw value rather than a normalized float so the caller keeps
+    seeing an explicit zero (which triggers power x latency imputation) as
+    distinct from a missing measurement.
+    """
+    keys = (
+        ("soc_per_query_joules", "per_query_joules")
+        if basis == _SOC_BASIS
+        else ("per_query_joules",)
+    )
+    for key in keys:
+        value = energy_metrics.get(key)
+        if value is not None:
+            return value
+    return None
+
+
+def _extract_power_value(
+    power_metrics: Mapping[str, Any], basis: str = _GPU_BASIS
+) -> float | None:
+    components = ("soc", "gpu") if basis == _SOC_BASIS else ("gpu",)
+    for component in components:
+        component_metrics = power_metrics.get(component)
+        if not isinstance(component_metrics, Mapping):
             continue
-        if math.isfinite(candidate) and candidate > 0:
-            return candidate
+        per_query = component_metrics.get("per_query_watts")
+        if not isinstance(per_query, Mapping):
+            continue
+        for key in ("avg", "median", "max", "min"):
+            raw_value = per_query.get(key)
+            try:
+                candidate = float(raw_value)
+            except (TypeError, ValueError):
+                continue
+            if math.isfinite(candidate) and candidate > 0:
+                return candidate
     return None
 
 

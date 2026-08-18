@@ -48,6 +48,11 @@ class EnergyMetrics:
     # Per-token energy normalization
     energy_per_output_token_joules: Optional[float] = None
     energy_per_total_token_joules: Optional[float] = None
+    # Which rail set the derived numbers above were computed from: "soc" on
+    # Apple Silicon, "gpu" elsewhere. Recorded so downstream aggregation
+    # (analysis/accuracy.py, cli/_display.py) repeats the runner's choice
+    # instead of guessing. None on records profiled before this field existed.
+    basis: Optional[str] = None
 
 
 @dataclass(slots=True)
@@ -106,6 +111,8 @@ class PowerMetrics:
     ane: PowerComponentMetrics = field(default_factory=PowerComponentMetrics)
     # Sum of the rails above, per sample. See EnergyMetrics.soc_per_query_joules.
     soc: PowerComponentMetrics = field(default_factory=PowerComponentMetrics)
+    # Rail set the derived numbers use. See EnergyMetrics.basis.
+    basis: Optional[str] = None
 
 
 @dataclass(slots=True)

@@ -141,6 +141,52 @@ def _register_proto_descriptors(pool: descriptor_pool.DescriptorPool) -> None:
         5,
         descriptor_pb2.FieldDescriptorProto.TYPE_DOUBLE,
     )
+    # Fields 10-17 mirror energy-monitor/proto/energy.proto. A descriptor that
+    # omits them still deserializes the stream -- the extra tags land in unknown
+    # fields -- so every rail below silently read back as None instead of
+    # failing. Keep this block in sync with the .proto or the rails go dark.
+    _add_field(
+        telemetry, "cpu_power_watts", 10, descriptor_pb2.FieldDescriptorProto.TYPE_DOUBLE
+    )
+    _add_field(
+        telemetry,
+        "cpu_energy_joules",
+        11,
+        descriptor_pb2.FieldDescriptorProto.TYPE_DOUBLE,
+    )
+    _add_field(
+        telemetry, "ane_power_watts", 12, descriptor_pb2.FieldDescriptorProto.TYPE_DOUBLE
+    )
+    _add_field(
+        telemetry,
+        "ane_energy_joules",
+        13,
+        descriptor_pb2.FieldDescriptorProto.TYPE_DOUBLE,
+    )
+    _add_field(
+        telemetry,
+        "gpu_compute_utilization_pct",
+        14,
+        descriptor_pb2.FieldDescriptorProto.TYPE_DOUBLE,
+    )
+    _add_field(
+        telemetry,
+        "gpu_memory_bandwidth_utilization_pct",
+        15,
+        descriptor_pb2.FieldDescriptorProto.TYPE_DOUBLE,
+    )
+    _add_field(
+        telemetry,
+        "gpu_tensor_core_utilization_pct",
+        16,
+        descriptor_pb2.FieldDescriptorProto.TYPE_DOUBLE,
+    )
+    _add_field(
+        telemetry,
+        "gpu_memory_total_mb",
+        17,
+        descriptor_pb2.FieldDescriptorProto.TYPE_DOUBLE,
+    )
     _add_field(
         telemetry, "platform", 6, descriptor_pb2.FieldDescriptorProto.TYPE_STRING
     )

@@ -67,7 +67,11 @@ landed on:
 On macOS the derived efficiency metrics
 (`energy_per_output_token_joules`, `energy_per_total_token_joules`,
 `throughput_per_watt`, `flops_per_joule`, `flops_per_watt`) are computed from the
-SoC basis. On every other platform they keep using the GPU basis. The raw
+SoC basis, as are the headline `intelligence_per_joule` / `intelligence_per_watt`
+in `analysis/accuracy.json` and the efficiency panel the CLI prints. On every
+other platform they keep using the GPU basis. Which basis a run used is recorded
+as `energy_metrics.basis` per record and `energy_basis` in the accuracy summary;
+energy and power figures are only comparable across runs that share one. The raw
 `per_query_joules` field keeps its GPU-only meaning everywhere, so the older
 basis stays reproducible from the same records — but **macOS derived metrics
 collected before this change are not directly comparable** to new ones, since

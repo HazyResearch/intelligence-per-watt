@@ -472,3 +472,73 @@ class TestFLOPsModels:
         from ipw.compute.flops import normalize_model_name
 
         assert "qwen-3" in normalize_model_name("Qwen/Qwen3-8B-Instruct")
+
+
+class TestApplySoCBasisInDisplay:
+    """The panel must aggregate the same rails accuracy.json does.
+
+    A GPU-only panel on Apple Silicon reports the near-idle GPU rail while the
+    model runs on the ANE, so the printed IPJ/IPW were orders of magnitude off.
+    """
+
+    def _make_record(self, model: str, *, basis: str | None):
+        from ipw.execution.types import (
+            EnergyMetrics,
+            LatencyMetrics,
+            MetricStats,
+            ModelMetrics,
+            PowerComponentMetrics,
+            PowerMetrics,
+            ProfilingRecord,
+        )
+
+        mm = ModelMetrics(
+            energy_metrics=EnergyMetrics(
+                per_query_joules=0.05,
+                soc_per_query_joules=200.0,
+                basis=basis,
+            ),
+            latency_metrics=LatencyMetrics(total_query_seconds=25.0),
+            power_metrics=PowerMetrics(
+                gpu=PowerComponentMetrics(per_query_watts=MetricStats(avg=0.002)),
+                soc=PowerComponentMetrics(per_query_watts=MetricStats(avg=8.0)),
+                basis=basis,
+            ),
+        )
+        return ProfilingRecord(problem="q", answer="a", model_metrics={model: mm})
+
+    def _render(self, basis: str | None) -> str:
+        from io import StringIO
+
+        from rich.console import Console
+
+        buffer = StringIO()
+        print_efficiency_panel(
+            Console(file=buffer, width=120),
+            records=[self._make_record("m", basis=basis)],
+            model="m",
+            accuracy=1.0,
+        )
+        return buffer.getvalue()
+
+    def test_soc_basis_panel_reports_soc_energy(self) -> None:
+        output = self._render("soc")
+
+        assert "200.00" in output  # SoC joules, not the 0.05 J GPU rail
+        assert "8.00" in output
+
+    def test_missing_basis_keeps_gpu_only(self) -> None:
+        # Records profiled before EnergyMetrics.basis existed.
+        output = self._render(None)
+
+        assert "0.05" in output
+        assert "200.00" not in output
+
+    def test_profile_table_exposes_ane_and_soc_rows(self) -> None:
+        rows = compute_profile_metrics([self._make_record("m", basis="soc")], "m")
+        labels = [r.label for r in rows]
+
+        assert "ANE Energy" in labels
+        assert "SoC Energy" in labels
+        assert "ANE Power" in labels
+        assert "SoC Power" in labels

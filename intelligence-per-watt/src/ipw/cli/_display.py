@@ -162,7 +162,14 @@ def compute_profile_metrics(
         _row("GPU Energy", _collect(lambda m: _safe_get(m, "energy_metrics", "per_query_joules")), "J"),
         _row("Judge GPU Energy", _collect(lambda m: _safe_get(m, "energy_metrics", "judge_gpu_joules")), "J"),
         _row("CPU Energy", _collect(lambda m: _safe_get(m, "energy_metrics", "cpu_per_query_joules")), "J"),
+        # ANE and SoC stay empty off Apple Silicon; print_metrics_table drops
+        # rows whose values are all None.
+        _row("ANE Energy", _collect(lambda m: _safe_get(m, "energy_metrics", "ane_per_query_joules")), "J"),
+        _row("SoC Energy", _collect(lambda m: _safe_get(m, "energy_metrics", "soc_per_query_joules")), "J"),
         _row("GPU Power", _collect(lambda m: _safe_get(m, "power_metrics", "gpu", "per_query_watts", "avg")), "W"),
+        _row("CPU Power", _collect(lambda m: _safe_get(m, "power_metrics", "cpu", "per_query_watts", "avg")), "W"),
+        _row("ANE Power", _collect(lambda m: _safe_get(m, "power_metrics", "ane", "per_query_watts", "avg")), "W"),
+        _row("SoC Power", _collect(lambda m: _safe_get(m, "power_metrics", "soc", "per_query_watts", "avg")), "W"),
         _row("Latency", _collect(lambda m: _safe_get(m, "latency_metrics", "total_query_seconds")), "s"),
         _row("TTFT", _collect(lambda m: _safe_get(m, "latency_metrics", "time_to_first_token_seconds", scale=1000.0)), "ms"),
         _row("Throughput", _collect(lambda m: _safe_get(m, "latency_metrics", "throughput_tokens_per_sec")), "tok/s"),
@@ -298,6 +305,33 @@ def print_metrics_table(
 # Efficiency panel (IPJ / IPW)
 # ---------------------------------------------------------------------------
 
+def _basis_energy_and_power(model_metrics) -> tuple[Optional[float], Optional[float]]:
+    """Per-query energy and power on the rail set the runner profiled against.
+
+    Apple Silicon reports GPU, CPU and ANE separately, so the GPU rail alone
+    misses everything an ANE-resident model spends. The runner records which
+    basis it used; records profiled before that field existed report None and
+    keep the historical GPU-only behaviour. Mirrors analysis/accuracy.py so the
+    panel and accuracy.json cannot disagree.
+    """
+    energy_metrics = model_metrics.energy_metrics
+    power_metrics = model_metrics.power_metrics
+    basis = getattr(energy_metrics, "basis", None) or getattr(
+        power_metrics, "basis", None
+    )
+
+    energy = None
+    power = None
+    if basis == "soc":
+        energy = getattr(energy_metrics, "soc_per_query_joules", None)
+        power = _safe_get(power_metrics, "soc", "per_query_watts", "avg")
+    if energy is None:
+        energy = energy_metrics.per_query_joules
+    if power is None:
+        power = power_metrics.gpu.per_query_watts.avg
+    return energy, power
+
+
 def print_efficiency_panel(
     console: Optional[Console] = None,
     *,
@@ -325,10 +359,9 @@ def print_efficiency_panel(
                 mm = next(iter(rec.model_metrics.values()))
             if mm is None:
                 continue
-            e = mm.energy_metrics.per_query_joules
+            e, p = _basis_energy_and_power(mm)
             if e is not None:
                 energies.append(e)
-            p = mm.power_metrics.gpu.per_query_watts.avg
             if p is not None:
                 powers.append(p)
         total_energy = sum(energies) if energies else 0.0

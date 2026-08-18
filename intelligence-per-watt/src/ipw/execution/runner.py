@@ -306,6 +306,8 @@ class ProfilerRunner:
             else energy_metrics.per_query_joules
         )
         power_basis = soc_power_stats.avg if is_apple_soc else power_stats.avg
+        basis_name = "soc" if is_apple_soc else "gpu"
+        energy_metrics.basis = basis_name
 
         # --- Tier 1.1: Per-token energy normalization ---
         if energy_basis is not None:
@@ -434,6 +436,7 @@ class ProfilerRunner:
                         min=soc_power_stats.min,
                     ),
                 ),
+                basis=basis_name,
             ),
             temperature_metrics=temperature_stats,
             token_metrics=TokenMetrics(
