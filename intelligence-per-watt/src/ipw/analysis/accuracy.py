@@ -19,6 +19,10 @@ from .helpers import load_metrics_dataset, resolve_model_name
 
 LOGGER = logging.getLogger(__name__)
 
+# Rail sets the per-record metrics can be aggregated over. See _resolve_basis.
+_SOC_BASIS = "soc"
+_GPU_BASIS = "gpu"
+
 
 @dataclass(slots=True)
 class _AccuracyCounters:
@@ -26,6 +30,10 @@ class _AccuracyCounters:
     incorrect: int = 0
     unevaluated: int = 0
     failed: int = 0
+    # Queries the client returned empty (AFM context overflow, guardrail
+    # refusal). Counted apart from `unevaluated` so the accuracy number is
+    # always read next to how many prompts never got an attempt.
+    skipped_empty: int = 0
 
 
 @dataclass(slots=True)
@@ -144,6 +152,7 @@ class AccuracyAnalysis(AnalysisProvider):
         counters = _AccuracyCounters()
         efficiency = _EfficiencyAccumulator()
         records: list[Dict[str, Any]] = []
+        bases_seen: set[str] = set()
 
         # Iterate directly over the HF dataset rows
         # We assume structure: row["model_metrics"][active_model]["evaluation"]
@@ -157,9 +166,15 @@ class AccuracyAnalysis(AnalysisProvider):
             metadata = _parse_metadata(evaluation.get("metadata")) if evaluation else {}
             model_answers = row.get("model_answers") or {}
             model_answer = model_answers.get(active_model)
-            energy_joules = energy_metrics.get("per_query_joules")
+            basis, energy_joules, power_watts = _extract_basis_values(
+                energy_metrics,
+                power_metrics,
+                _resolve_basis(
+                    energy_metrics, power_metrics, _to_mapping(metrics.get("gpu_info"))
+                ),
+            )
+            bases_seen.add(basis)
             latency_seconds = latency_metrics.get("total_query_seconds")
-            power_watts = _extract_power_value(power_metrics)
 
             records.append(
                 {
@@ -176,6 +191,10 @@ class AccuracyAnalysis(AnalysisProvider):
 
             if metadata.get("evaluation_failed"):
                 counters.failed += 1
+                continue
+
+            if metadata.get("skipped_empty_response"):
+                counters.skipped_empty += 1
                 continue
 
             is_correct = evaluation.get("is_correct")
@@ -241,6 +260,7 @@ class AccuracyAnalysis(AnalysisProvider):
             "incorrect": counters.incorrect,
             "unevaluated": counters.unevaluated,
             "failed": counters.failed,
+            "skipped_empty_responses": counters.skipped_empty,
             "total_scored": total_scored,
             "accuracy": accuracy,
             "intelligence_per_joule": intelligence_per_joule,
@@ -249,6 +269,14 @@ class AccuracyAnalysis(AnalysisProvider):
             "avg_per_query_power_watts": power_stats.get("avg"),
             "energy_sample_count": energy_stats.get("count"),
             "power_sample_count": power_stats.get("count"),
+            # "soc" (GPU+CPU+ANE) or "gpu"; "mixed" if records disagree. The
+            # energy and power figures above are only comparable across runs
+            # that share a basis.
+            "energy_basis": (
+                next(iter(bases_seen))
+                if len(bases_seen) == 1
+                else ("mixed" if bases_seen else None)
+            ),
         }
 
         efficiency_payload = {
@@ -292,6 +320,12 @@ class AccuracyAnalysis(AnalysisProvider):
         if counters.failed:
             warnings.append(
                 f"{counters.failed} records failed evaluation for model '{active_model}'."
+            )
+        if counters.skipped_empty:
+            warnings.append(
+                f"{counters.skipped_empty} records returned an empty response and are "
+                f"excluded from accuracy for model '{active_model}'; accuracy covers "
+                f"the {total_scored} prompts that were attempted."
             )
         if energy_stats.get("count", 0) == 0:
             warnings.append(
@@ -578,6 +612,17 @@ class AccuracyAnalysis(AnalysisProvider):
         return updated_dataset
 
     def _safe_score(self, provider, record, response, eval_client):
+        # An empty response is not an attempt, so it is left unevaluated and
+        # drops out of the accuracy denominator rather than counting as a wrong
+        # answer. Short-circuited *before* the provider, because a judge shown
+        # an empty candidate does not reliably reject it: on a real AFM run two
+        # empty responses were scored correct -- one because the pairwise judge
+        # ruled an empty string better than a harmful reference answer, another
+        # because it attributed the reference's content to the empty side.
+        # Clients that skip a query (AFM on context overflow or a guardrail
+        # refusal) return exactly this.
+        if not (response or "").strip():
+            return None, {"skipped_empty_response": True}
         try:
             return provider.score(record, response, eval_client=eval_client)
         except Exception as e:
@@ -666,11 +711,66 @@ def _is_non_positive(value: Any) -> bool:
     return math.isfinite(number) and number <= _EPSILON
 
 
-def _extract_power_value(power_metrics: Mapping[str, Any]) -> float | None:
-    gpu_metrics = power_metrics.get("gpu")
-    if not isinstance(gpu_metrics, Mapping):
+def _resolve_basis(
+    energy_metrics: Mapping[str, Any],
+    power_metrics: Mapping[str, Any],
+    gpu_info: Any,
+) -> str:
+    """Return the rail set to aggregate over: ``"soc"`` or ``"gpu"``.
+
+    The runner makes this choice per record and records it. Records profiled
+    before that field existed fall back to the vendor, because getting it wrong
+    on Apple Silicon is not a rounding error: powermetrics reports GPU, CPU and
+    ANE as separate rails, so the GPU rail alone omits whatever the model
+    actually ran on -- everything, for an ANE-resident model.
+    """
+    for source in (energy_metrics, power_metrics):
+        recorded = source.get("basis")
+        if isinstance(recorded, str) and recorded:
+            return recorded
+    if isinstance(gpu_info, Mapping):
+        if str(gpu_info.get("vendor") or "").strip().lower() == "apple":
+            return _SOC_BASIS
+    return _GPU_BASIS
+
+
+def _extract_basis_values(
+    energy_metrics: Mapping[str, Any],
+    power_metrics: Mapping[str, Any],
+    basis: str = _GPU_BASIS,
+) -> tuple[str, Any, float | None]:
+    """Per-query energy and power from one rail set, and the basis actually read.
+
+    Energy and power fall back to the GPU rail **together**, never one at a
+    time: SoC joules divided by GPU watts is a ratio across two different rail
+    sets and means nothing. The returned basis is what was actually read, so a
+    record that asked for ``soc`` but only carries the GPU rail is reported as
+    ``gpu`` rather than mislabelled in the summary.
+
+    Energy is the raw stored value rather than a normalized float, so the caller
+    keeps seeing an explicit zero (which triggers power x latency imputation) as
+    distinct from a missing measurement.
+    """
+    if basis == _SOC_BASIS:
+        energy = energy_metrics.get("soc_per_query_joules")
+        power = _component_power(power_metrics, "soc")
+        if energy is not None and power is not None:
+            return _SOC_BASIS, energy, power
+    return (
+        _GPU_BASIS,
+        energy_metrics.get("per_query_joules"),
+        _component_power(power_metrics, "gpu"),
+    )
+
+
+def _component_power(
+    power_metrics: Mapping[str, Any], component: str
+) -> float | None:
+    """First positive, finite per-query stat from one power component."""
+    component_metrics = power_metrics.get(component)
+    if not isinstance(component_metrics, Mapping):
         return None
-    per_query = gpu_metrics.get("per_query_watts")
+    per_query = component_metrics.get("per_query_watts")
     if not isinstance(per_query, Mapping):
         return None
     for key in ("avg", "median", "max", "min"):

@@ -15,7 +15,14 @@ from ipw.core.types import (
     Response,
     TelemetryReading,
 )
-from ipw.execution.runner import ProfilerRunner, _lookup_gpu_peak_tflops, _percentile, _slugify_model, _stat_summary
+from ipw.execution.runner import (
+    ProfilerRunner,
+    _lookup_gpu_peak_tflops,
+    _percentile,
+    _slugify_model,
+    _stat_summary,
+    _sum_optional,
+)
 from ipw.execution.telemetry_session import TelemetrySample
 
 
@@ -1016,3 +1023,303 @@ class TestGpuPeakTflopsLookup:
 
     def test_returns_none_for_none(self) -> None:
         assert _lookup_gpu_peak_tflops(None) is None
+
+
+class TestSumOptional:
+    """Combining power/energy rails that are each absent on some platforms."""
+
+    def test_sums_present_values(self) -> None:
+        assert _sum_optional(1.0, 2.0, 3.0) == 6.0
+
+    def test_ignores_missing_rails(self) -> None:
+        assert _sum_optional(10.0, None, 5.0) == 15.0
+
+    def test_all_missing_is_none(self) -> None:
+        assert _sum_optional(None, None) is None
+
+    def test_no_args_is_none(self) -> None:
+        assert _sum_optional() is None
+
+
+class TestSocEnergyMetrics:
+    """Whole-SoC energy: needed because macOS reports GPU-only in the headline.
+
+    On Apple Silicon powermetrics reports CPU/GPU/ANE separately and
+    `per_query_joules` carries the GPU rail alone, so an ANE-resident model such
+    as Apple Foundation Models would appear nearly free.
+    """
+
+    def _runner(self) -> ProfilerRunner:
+        return ProfilerRunner(
+            ProfilerConfig(model="afm-3-core-advanced", client_id="afm", dataset_id="test")
+        )
+
+    def test_soc_sums_all_three_rails(self) -> None:
+        readings = [
+            TelemetryReading(
+                energy_joules=100.0, cpu_energy_joules=50.0, ane_energy_joules=10.0
+            ),
+            TelemetryReading(
+                energy_joules=110.0, cpu_energy_joules=70.0, ane_energy_joules=25.0
+            ),
+        ]
+        metrics = self._runner()._compute_energy_metrics(readings)
+
+        assert metrics.per_query_joules == 10.0  # GPU only, unchanged semantics
+        assert metrics.cpu_per_query_joules == 20.0
+        assert metrics.ane_per_query_joules == 15.0
+        assert metrics.soc_per_query_joules == 45.0
+        assert metrics.soc_total_joules == 45.0
+
+    def test_soc_exceeds_gpu_only_for_ane_workload(self) -> None:
+        """The AFM case: almost all energy on the ANE rail."""
+        readings = [
+            TelemetryReading(
+                energy_joules=100.0, cpu_energy_joules=20.0, ane_energy_joules=200.0
+            ),
+            TelemetryReading(
+                energy_joules=100.4, cpu_energy_joules=22.0, ane_energy_joules=260.0
+            ),
+        ]
+        metrics = self._runner()._compute_energy_metrics(readings)
+
+        assert metrics.per_query_joules == pytest.approx(0.4)
+        assert metrics.soc_per_query_joules == pytest.approx(62.4)
+        assert metrics.soc_per_query_joules > metrics.per_query_joules
+
+    def test_soc_falls_back_to_available_rails(self) -> None:
+        # Discrete-GPU hosts report no ANE at all.
+        readings = [
+            TelemetryReading(energy_joules=100.0, cpu_energy_joules=50.0),
+            TelemetryReading(energy_joules=140.0, cpu_energy_joules=60.0),
+        ]
+        metrics = self._runner()._compute_energy_metrics(readings)
+
+        assert metrics.ane_per_query_joules is None
+        assert metrics.soc_per_query_joules == 50.0
+
+    def test_soc_is_none_without_any_energy(self) -> None:
+        readings = [TelemetryReading(power_watts=10.0), TelemetryReading(power_watts=11.0)]
+        metrics = self._runner()._compute_energy_metrics(readings)
+
+        assert metrics.soc_per_query_joules is None
+
+
+class TestDerivedMetricBasis:
+    """macOS derives efficiency from SoC energy; other platforms stay GPU-only."""
+
+    MODEL = "afm-3-core"
+
+    def _metrics(self, platform_name: str):
+        """Build one record and return its ModelMetrics."""
+        runner = ProfilerRunner(
+            ProfilerConfig(model=self.MODEL, client_id="afm", dataset_id="test")
+        )
+        readings = [
+            TelemetryReading(
+                power_watts=1.0,
+                cpu_power_watts=3.0,
+                ane_power_watts=6.0,
+                energy_joules=100.0,
+                cpu_energy_joules=50.0,
+                ane_energy_joules=10.0,
+                platform=platform_name,
+            ),
+            TelemetryReading(
+                power_watts=1.0,
+                cpu_power_watts=3.0,
+                ane_power_watts=6.0,
+                energy_joules=101.0,
+                cpu_energy_joules=53.0,
+                ane_energy_joules=16.0,
+                platform=platform_name,
+            ),
+        ]
+        samples = [TelemetrySample(timestamp=float(i), reading=r) for i, r in enumerate(readings)]
+        response = Response(
+            content="hi",
+            usage=ChatUsage(prompt_tokens=10, completion_tokens=10, total_tokens=20),
+            time_to_first_token_ms=5.0,
+        )
+        record = DatasetRecord(problem="q", answer="a", subject="test")
+        built = runner._build_record(0, record, response, samples, 0.0, 1.0)
+        assert built is not None
+        return built.model_metrics[self.MODEL]
+
+    def test_macos_uses_soc_energy(self) -> None:
+        metrics = self._metrics("macos")
+        # GPU delta is 1.0 J; SoC delta is 1 + 3 + 6 = 10.0 J over 10 tokens.
+        assert metrics.energy_metrics.per_query_joules == pytest.approx(1.0)
+        assert metrics.energy_metrics.soc_per_query_joules == pytest.approx(10.0)
+        assert metrics.energy_metrics.energy_per_output_token_joules == pytest.approx(1.0)
+        # 10 tok/s over SoC power 10 W.
+        assert metrics.efficiency.throughput_per_watt == pytest.approx(1.0)
+
+    def test_non_macos_keeps_gpu_only_basis(self) -> None:
+        metrics = self._metrics("linux")
+        # GPU-only: 1.0 J over 10 tokens, 10 tok/s over 1 W.
+        assert metrics.energy_metrics.energy_per_output_token_joules == pytest.approx(0.1)
+        assert metrics.efficiency.throughput_per_watt == pytest.approx(10.0)
+
+    def test_ane_and_soc_power_stats_recorded(self) -> None:
+        metrics = self._metrics("macos")
+        assert metrics.power_metrics.ane.per_query_watts.avg == pytest.approx(6.0)
+        assert metrics.power_metrics.soc.per_query_watts.avg == pytest.approx(10.0)
+        # GPU stats keep their original meaning.
+        assert metrics.power_metrics.gpu.per_query_watts.avg == pytest.approx(1.0)
+
+    def test_basis_is_recorded_for_downstream_aggregation(self) -> None:
+        # analysis/accuracy.py and cli/_display.py aggregate across records and
+        # must repeat this choice rather than re-deriving it.
+        macos = self._metrics("macos")
+        assert macos.energy_metrics.basis == "soc"
+        assert macos.power_metrics.basis == "soc"
+
+        linux = self._metrics("linux")
+        assert linux.energy_metrics.basis == "gpu"
+        assert linux.power_metrics.basis == "gpu"
+
+
+class TestPhaseEnergyBasis:
+    """Phase energy must use the same rail basis as the per-query metrics."""
+
+    def test_macos_phase_energy_includes_ane(self) -> None:
+        readings = [
+            TelemetryReading(
+                energy_joules=10.0,
+                cpu_energy_joules=5.0,
+                ane_energy_joules=100.0,
+                platform="macos",
+            ),
+            TelemetryReading(
+                energy_joules=10.5,
+                cpu_energy_joules=7.0,
+                ane_energy_joules=160.0,
+                platform="macos",
+            ),
+        ]
+        runner = ProfilerRunner(
+            ProfilerConfig(model="afm-3-core", client_id="afm", dataset_id="test")
+        )
+        # 0.5 GPU + 2.0 CPU + 60.0 ANE
+        assert runner._compute_phase_energy(readings) == pytest.approx(62.5)
+
+    def test_non_macos_phase_energy_stays_gpu_only(self) -> None:
+        readings = [
+            TelemetryReading(energy_joules=10.0, cpu_energy_joules=5.0, platform="linux"),
+            TelemetryReading(energy_joules=14.0, cpu_energy_joules=9.0, platform="linux"),
+        ]
+        runner = ProfilerRunner(
+            ProfilerConfig(model="m", client_id="vllm", dataset_id="test")
+        )
+        assert runner._compute_phase_energy(readings) == pytest.approx(4.0)
+
+    def test_phase_power_basis(self) -> None:
+        mac = TelemetryReading(
+            power_watts=1.0, cpu_power_watts=2.0, ane_power_watts=7.0, platform="macos"
+        )
+        linux = TelemetryReading(
+            power_watts=300.0, cpu_power_watts=90.0, platform="linux"
+        )
+        assert ProfilerRunner._phase_power(mac) == pytest.approx(10.0)
+        assert ProfilerRunner._phase_power(linux) == pytest.approx(300.0)
+
+
+class _DescribingClient:
+    """Minimal client whose ``describe`` reports a tally built during the run.
+
+    Mirrors ``AFMClient``, which counts the queries it skipped on context
+    overflow -- metadata that only exists once inference has happened.
+    """
+
+    client_id, client_name = "describing", "Describing Client"
+    base_url = "in-process"
+
+    def __init__(self) -> None:
+        self.queries = 0
+        self.describe_calls = 0
+
+    def health(self) -> bool:
+        return True
+
+    def prepare(self, model: str) -> None:
+        return None
+
+    def stream_chat_completion(self, model: str, prompt: str, **params) -> Response:
+        self.queries += 1
+        return Response(
+            content="response",
+            usage=ChatUsage(prompt_tokens=10, completion_tokens=5, total_tokens=15),
+            time_to_first_token_ms=100.0,
+        )
+
+    def describe(self):
+        self.describe_calls += 1
+        return {"client_id": self.client_id, "skipped_queries": self.queries}
+
+    def close(self) -> None:
+        return None
+
+
+class TestClientInfoSummary:
+    """``describe`` must run after inference, or per-run tallies come back empty."""
+
+    @patch("ipw.execution.runner.DatasetRegistry")
+    @patch("ipw.execution.runner.ClientRegistry")
+    @patch("ipw.execution.runner.EnergyMonitorCollector")
+    @patch("ipw.execution.runner.TelemetrySession")
+    @patch("ipw.execution.runner.Dataset")
+    def test_client_info_reflects_state_accumulated_during_the_run(
+        self,
+        mock_dataset_class: Mock,
+        mock_session: Mock,
+        mock_collector: Mock,
+        mock_client_registry: Mock,
+        mock_dataset_registry: Mock,
+        tmp_path: Path,
+    ) -> None:
+        mock_dataset = MagicMock()
+        mock_dataset.size.return_value = 2
+        mock_dataset.__iter__.return_value = iter(
+            [
+                DatasetRecord(problem="one", answer="a", subject="math"),
+                DatasetRecord(problem="two", answer="b", subject="math"),
+            ]
+        )
+        mock_dataset.dataset_id = "test"
+        mock_dataset.dataset_name = "Test Dataset"
+        mock_dataset_registry.get.return_value = Mock(return_value=mock_dataset)
+
+        client = _DescribingClient()
+        mock_client_registry.get.return_value = Mock(return_value=client)
+
+        mock_collector.return_value = Mock()
+        mock_telemetry = Mock()
+        mock_telemetry.window.return_value = []
+        mock_telemetry.readings.return_value = []
+        mock_session.return_value.__enter__.return_value = mock_telemetry
+
+        mock_hf_dataset = Mock()
+        mock_hf_dataset.save_to_disk = lambda path: Path(path).mkdir(
+            parents=True, exist_ok=True
+        )
+        mock_dataset_class.from_list.return_value = mock_hf_dataset
+
+        config = ProfilerConfig(
+            model="test-model",
+            client_id="describing",
+            dataset_id="test-dataset",
+            output_dir=tmp_path,
+            warmup_queries=0,
+        )
+        ProfilerRunner(config).run()
+
+        summary_path = (
+            tmp_path / "profile_UNKNOWN_HW_test_model_Test Dataset" / "summary.json"
+        )
+        client_info = json.loads(summary_path.read_text())["client_info"]
+
+        assert client_info["client_id"] == "describing"
+        # Would be 0 if describe() ran before _process_records.
+        assert client_info["skipped_queries"] == 2
+        assert client.describe_calls == 1

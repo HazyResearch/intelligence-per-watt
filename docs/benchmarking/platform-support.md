@@ -42,6 +42,59 @@ Uses the `powermetrics` system utility to capture power data for CPU, GPU, and A
 
 **Limitations:** No GPU memory reporting (unified memory architecture), no GPU utilization percentage, no temperature reporting, no GPU info.
 
+### Reading energy on Apple Silicon
+
+`powermetrics` reports CPU, GPU and ANE as **three separate rails**, and the
+top-level `power_watts` / `energy_joules` fields carry the **GPU rail only** — so
+on this platform they are a partial view of what a query cost. That matters a
+great deal for where a model actually executes:
+
+| Backend | Runs mostly on | GPU-only energy is |
+|---------|----------------|--------------------|
+| `mlx` | GPU | close to complete |
+| `afm` (Apple Foundation Models) | Apple Neural Engine | badly understated |
+
+Use the **`soc_*`** metrics for anything cross-backend. They sum CPU + GPU + ANE
+per sample, so they measure the whole chip regardless of which rail the work
+landed on:
+
+| Metric | Description |
+|--------|-------------|
+| `energy_metrics.soc_per_query_joules` | CPU + GPU + ANE energy for the query |
+| `power_metrics.soc.per_query_watts.{avg,max,min}` | Whole-SoC power during the query |
+| `power_metrics.ane.per_query_watts.{avg,max,min}` | ANE power alone |
+
+On macOS the derived efficiency metrics
+(`energy_per_output_token_joules`, `energy_per_total_token_joules`,
+`throughput_per_watt`, `flops_per_joule`, `flops_per_watt`) are computed from the
+SoC basis, as are the headline `intelligence_per_joule` / `intelligence_per_watt`
+in `analysis/accuracy.json` and the efficiency panel the CLI prints. On every
+other platform they keep using the GPU basis. Which basis a run used is recorded
+as `energy_metrics.basis` per record and `energy_basis` in the accuracy summary;
+energy and power figures are only comparable across runs that share one. The raw
+`per_query_joules` field keeps its GPU-only meaning everywhere, so the older
+basis stays reproducible from the same records — but **macOS derived metrics
+collected before this change are not directly comparable** to new ones, since
+they omitted the CPU and ANE rails.
+
+### Apple Foundation Models (`--client afm`)
+
+- Context is **4096 tokens** total, covering instructions, prompt and response.
+  Overflowing queries are recorded with empty content and tallied under
+  `client_info.skipped_queries` rather than failing the run.
+- The on-device variant (AFM 3 Core, dense ~3B, versus AFM 3 Core Advanced, 20B
+  sparse MoE activating 1–4B per request) is chosen by the framework's dynamic
+  profile from the host device's capabilities. It cannot be selected, so
+  `--model` is only a run label; `client_info` in `summary.json` records the SDK
+  version, context size and host chip for later attribution.
+- Latency percentiles are **per-chunk, not per-token** — the SDK streams
+  cumulative snapshots batching roughly 8–10 tokens, so TTFT and ITL figures are
+  not comparable with token-by-token backends. Token counts, throughput and
+  per-token energy are unaffected.
+- FLOPs for `afm-3-core-advanced` assume a 4B active-parameter upper bound, since
+  Apple has not published exact counts; treat `flops_per_joule` there as an
+  estimate.
+
 ## Linux RAPL (CPU-Only)
 
 Fallback when no GPU is detected. Reads CPU energy from sysfs:
@@ -73,7 +126,12 @@ Reports only CPU memory usage from the OS. All power, energy, temperature, and G
 | `ane_power_watts` | W | Apple Neural Engine power (macOS only) |
 | `ane_energy_joules` | J | Accumulated ANE energy (macOS only) |
 
-Per-query variants: `energy_metrics.per_query_joules`, `energy_metrics.cpu_per_query_joules`, `energy_metrics.ane_per_query_joules`.
+Per-query variants: `energy_metrics.per_query_joules` (GPU),
+`energy_metrics.cpu_per_query_joules`, `energy_metrics.ane_per_query_joules`, and
+`energy_metrics.soc_per_query_joules` (CPU + GPU + ANE).
+
+On Apple Silicon `power_watts` / `energy_joules` cover the GPU rail alone; prefer
+the `soc_*` variants there. See [Reading energy on Apple Silicon](#reading-energy-on-apple-silicon).
 
 ### Temperature Metrics
 
@@ -113,6 +171,8 @@ Available on: NVIDIA, AMD. Returns -1 on Apple Silicon and null collector.
 |--------|-------------|
 | `power_metrics.gpu.per_query_watts.{avg,max,min}` | GPU power stats during query |
 | `power_metrics.cpu.per_query_watts.{avg,max,min}` | CPU power stats during query |
+| `power_metrics.ane.per_query_watts.{avg,max,min}` | ANE power stats during query (Apple Silicon only) |
+| `power_metrics.soc.per_query_watts.{avg,max,min}` | Whole-SoC (CPU + GPU + ANE) power stats |
 
 ### GPU Utilization Metrics
 

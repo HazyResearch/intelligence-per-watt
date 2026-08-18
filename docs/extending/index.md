@@ -49,7 +49,39 @@ class MyServiceClient(InferenceClient):
         except Exception: return False
 ```
 
-Reference implementations: `ipw/clients/ollama.py`, `ipw/clients/openai.py`, `ipw/clients/vllm.py`.
+Reference implementations: `ipw/clients/ollama.py` (HTTP),
+`ipw/clients/openai.py`, `ipw/clients/vllm.py` (in-process, async engine),
+`ipw/clients/mlx.py` and `ipw/clients/afm.py` (in-process, no server).
+
+### Notes for non-HTTP backends
+
+- **`base_url` is optional.** In-process clients pass a placeholder to
+  `super().__init__` (`"in-process"` for `mlx`/`afm`, `"offline://vllm"` for
+  `vllm`) and ignore it.
+- **Async-only SDKs**: `stream_chat_completion` is synchronous. Use
+  `ipw.clients._async_loop.AsyncLoopRunner`, which owns an event loop on a
+  background thread, rather than `asyncio.run` per call.
+- **Merge `self._config` in `stream_chat_completion`.** `ProfilerRunner` passes
+  `--client-param` values to the **constructor**, and does not forward per-call
+  params, so a client that only reads `**params` silently ignores them. Do
+  `effective = {**self._config, **params}`, letting per-call values win.
+- **Warm up in `prepare()`** so model load and JIT land outside the first energy
+  window.
+- **Set `request_start_time` / `request_end_time`** (from `time.time()`) so the
+  runner can split prefill from decode energy accurately instead of falling back
+  to the first telemetry sample.
+- **Don't let one bad query kill the run.** `ProfilerRunner` does not catch
+  exceptions from `stream_chat_completion`; anything that escapes ends the run
+  and discards records since the last flush. Convert expected per-query failures
+  (context overflow, refusals) into an empty `Response`.
+- **Optional dependencies**: add an entry to `_CLIENT_CLASS_MAP` in
+  `ipw/clients/__init__.py` with the extra name and, when it differs from the
+  extra, the SDK's import root (`("afm", ..., "afm", "apple_fm_sdk")`). Import
+  the SDK at module top level so a missing extra becomes a `MISSING_CLIENTS`
+  hint instead of a crash.
+- **Optional `describe()`** returning a dict adds backend metadata to
+  `summary.json` under `client_info` — useful for facts not recoverable from the
+  records (SDK version, context size, host chip).
 
 ## Adding a Dataset
 

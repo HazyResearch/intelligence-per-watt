@@ -64,6 +64,17 @@ MODEL_PARAMS: dict[str, float] = {
     # Llama 4
     "llama-4-scout": 17.0,
     "llama-4-maverick": 17.0,
+    # Apple Foundation Models (on-device, AFM 3). "Core" is a dense ~3B model.
+    # "Core Advanced" is a 20B sparse MoE that activates only 1-4B parameters per
+    # request via Instruction-Following Pruning, so the nominal 4B upper bound is
+    # used here -- FLOPs and flops_per_joule for that label are an estimate of
+    # active compute, not a measured figure. Apple has not published exact
+    # parameter counts. Core Advanced is listed first because `lookup_params`
+    # falls back to a substring scan in insertion order and "afm-3" is a
+    # substring of the longer labels.
+    "afm-3-core-advanced": 4.0,
+    "afm-3-core": 3.0,
+    "afm-3": 3.0,
 }
 
 

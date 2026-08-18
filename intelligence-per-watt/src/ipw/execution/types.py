@@ -38,9 +38,21 @@ class EnergyMetrics:
     # ANE energy (macOS only)
     ane_per_query_joules: Optional[float] = None
     ane_total_joules: Optional[float] = None
+    # Whole-SoC energy: CPU + GPU + ANE. On Apple Silicon the fields above are
+    # each a partial view -- powermetrics reports the three rails separately and
+    # `per_query_joules` carries GPU only -- so a model that runs on the ANE
+    # would otherwise appear to consume almost no energy. On discrete-GPU hosts
+    # this is CPU + GPU with no ANE term.
+    soc_per_query_joules: Optional[float] = None
+    soc_total_joules: Optional[float] = None
     # Per-token energy normalization
     energy_per_output_token_joules: Optional[float] = None
     energy_per_total_token_joules: Optional[float] = None
+    # Which rail set the derived numbers above were computed from: "soc" on
+    # Apple Silicon, "gpu" elsewhere. Recorded so downstream aggregation
+    # (analysis/accuracy.py, cli/_display.py) repeats the runner's choice
+    # instead of guessing. None on records profiled before this field existed.
+    basis: Optional[str] = None
 
 
 @dataclass(slots=True)
@@ -95,6 +107,12 @@ class PowerComponentMetrics:
 class PowerMetrics:
     gpu: PowerComponentMetrics = field(default_factory=PowerComponentMetrics)
     cpu: PowerComponentMetrics = field(default_factory=PowerComponentMetrics)
+    # Apple Neural Engine, populated on Apple Silicon only.
+    ane: PowerComponentMetrics = field(default_factory=PowerComponentMetrics)
+    # Sum of the rails above, per sample. See EnergyMetrics.soc_per_query_joules.
+    soc: PowerComponentMetrics = field(default_factory=PowerComponentMetrics)
+    # Rail set the derived numbers use. See EnergyMetrics.basis.
+    basis: Optional[str] = None
 
 
 @dataclass(slots=True)
