@@ -23,7 +23,22 @@ from ipw.execution.runner import (
     _stat_summary,
     _sum_optional,
 )
-from ipw.execution.telemetry_session import TelemetrySample
+from ipw.execution.telemetry_session import TelemetrySample, WindowCoverage
+
+
+def _full_coverage() -> WindowCoverage:
+    """An untruncated window, for tests that mock the telemetry session out.
+
+    The runner asks the session how completely it covered each query; a bare
+    Mock answers with something that is neither true nor false nor comparable.
+    """
+    return WindowCoverage(
+        start_time=0.0,
+        end_time=1.0,
+        sample_count=0,
+        earliest_retained=None,
+        tolerance_seconds=1.0,
+    )
 
 
 class TestStatSummary:
@@ -145,6 +160,7 @@ class TestProfilerRunner:
         mock_telemetry = Mock()
         mock_telemetry.window.return_value = []
         mock_telemetry.readings.return_value = []
+        mock_telemetry.coverage.return_value = _full_coverage()
         mock_session.return_value.__enter__.return_value = mock_telemetry
 
         # Mock Dataset.from_list to return a mock with save_to_disk that creates the directory
@@ -904,6 +920,7 @@ class TestWarmupQueries:
         mock_telemetry = Mock()
         mock_telemetry.window.return_value = []
         mock_telemetry.readings.return_value = []
+        mock_telemetry.coverage.return_value = _full_coverage()
         mock_session.return_value.__enter__.return_value = mock_telemetry
 
         mock_hf_dataset = Mock()
@@ -964,6 +981,7 @@ class TestWarmupQueries:
         mock_telemetry = Mock()
         mock_telemetry.window.return_value = []
         mock_telemetry.readings.return_value = []
+        mock_telemetry.coverage.return_value = _full_coverage()
         mock_session.return_value.__enter__.return_value = mock_telemetry
 
         mock_hf_dataset = Mock()
@@ -1297,6 +1315,7 @@ class TestClientInfoSummary:
         mock_telemetry = Mock()
         mock_telemetry.window.return_value = []
         mock_telemetry.readings.return_value = []
+        mock_telemetry.coverage.return_value = _full_coverage()
         mock_session.return_value.__enter__.return_value = mock_telemetry
 
         mock_hf_dataset = Mock()
@@ -1323,3 +1342,138 @@ class TestClientInfoSummary:
         # Would be 0 if describe() ran before _process_records.
         assert client_info["skipped_queries"] == 2
         assert client.describe_calls == 1
+
+
+class TestTelemetryCoverageInSummary:
+    """A run that outran its telemetry buffer has to say so in its own artifact.
+
+    Truncation produces a plausible, merely-too-small energy number, so nothing
+    downstream can tell a short window from a short query. `summary.json` is
+    where that distinction has to survive.
+    """
+
+    @staticmethod
+    def _run_with_coverage(
+        coverage: WindowCoverage,
+        mock_dataset_class: Mock,
+        mock_session: Mock,
+        mock_collector: Mock,
+        mock_client_registry: Mock,
+        mock_dataset_registry: Mock,
+        tmp_path: Path,
+    ) -> dict:
+        mock_dataset = MagicMock()
+        mock_dataset.size.return_value = 2
+        mock_dataset.__iter__.return_value = iter(
+            [
+                DatasetRecord(problem="one", answer="a", subject="math"),
+                DatasetRecord(problem="two", answer="b", subject="math"),
+            ]
+        )
+        mock_dataset.dataset_id = "test"
+        mock_dataset.dataset_name = "Test Dataset"
+        mock_dataset_registry.get.return_value = Mock(return_value=mock_dataset)
+
+        mock_client = Mock()
+        mock_client.health.return_value = True
+        mock_client.stream_chat_completion.return_value = Response(
+            content="response",
+            usage=ChatUsage(prompt_tokens=10, completion_tokens=5, total_tokens=15),
+            time_to_first_token_ms=100.0,
+        )
+        mock_client_registry.get.return_value = Mock(return_value=mock_client)
+
+        mock_collector.return_value = Mock()
+        mock_telemetry = Mock()
+        mock_telemetry.window.return_value = []
+        mock_telemetry.readings.return_value = []
+        mock_telemetry.coverage.return_value = coverage
+        mock_session.return_value.__enter__.return_value = mock_telemetry
+
+        mock_hf_dataset = Mock()
+        mock_hf_dataset.save_to_disk = lambda path: Path(path).mkdir(
+            parents=True, exist_ok=True
+        )
+        mock_dataset_class.from_list.return_value = mock_hf_dataset
+
+        config = ProfilerConfig(
+            model="test-model",
+            client_id="test",
+            dataset_id="test-dataset",
+            output_dir=tmp_path,
+            warmup_queries=0,
+        )
+        ProfilerRunner(config).run()
+
+        summary_path = (
+            tmp_path / "profile_UNKNOWN_HW_test_model_Test Dataset" / "summary.json"
+        )
+        return json.loads(summary_path.read_text())
+
+    @patch("ipw.execution.runner.DatasetRegistry")
+    @patch("ipw.execution.runner.ClientRegistry")
+    @patch("ipw.execution.runner.EnergyMonitorCollector")
+    @patch("ipw.execution.runner.TelemetrySession")
+    @patch("ipw.execution.runner.Dataset")
+    def test_truncated_windows_are_tallied(
+        self,
+        mock_dataset_class: Mock,
+        mock_session: Mock,
+        mock_collector: Mock,
+        mock_client_registry: Mock,
+        mock_dataset_registry: Mock,
+        tmp_path: Path,
+    ) -> None:
+        truncated = WindowCoverage(
+            start_time=0.0,
+            end_time=150.0,
+            sample_count=600,
+            earliest_retained=120.0,  # 120 s of a 150 s query already evicted
+            tolerance_seconds=1.0,
+        )
+        summary = self._run_with_coverage(
+            truncated,
+            mock_dataset_class,
+            mock_session,
+            mock_collector,
+            mock_client_registry,
+            mock_dataset_registry,
+            tmp_path,
+        )
+
+        assert summary["telemetry_coverage"] == {
+            "queries_checked": 2,
+            "queries_truncated": 2,
+            "queries_without_samples": 0,
+            "worst_missing_seconds": 120.0,
+        }
+
+    @patch("ipw.execution.runner.DatasetRegistry")
+    @patch("ipw.execution.runner.ClientRegistry")
+    @patch("ipw.execution.runner.EnergyMonitorCollector")
+    @patch("ipw.execution.runner.TelemetrySession")
+    @patch("ipw.execution.runner.Dataset")
+    def test_retention_is_recorded_so_a_run_is_auditable(
+        self,
+        mock_dataset_class: Mock,
+        mock_session: Mock,
+        mock_collector: Mock,
+        mock_client_registry: Mock,
+        mock_dataset_registry: Mock,
+        tmp_path: Path,
+    ) -> None:
+        """Pre- and post-fix runs must be distinguishable from their artifacts."""
+        summary = self._run_with_coverage(
+            _full_coverage(),
+            mock_dataset_class,
+            mock_session,
+            mock_collector,
+            mock_client_registry,
+            mock_dataset_registry,
+            tmp_path,
+        )
+
+        assert summary["telemetry_coverage"]["queries_truncated"] == 0
+        config = summary["profiler_config"]
+        assert config["telemetry_buffer_seconds"] >= 3600.0
+        assert config["telemetry_max_samples"] >= 100_000

@@ -222,3 +222,79 @@ class TestRetentionCoversLongQueries:
         covered = list(session.window(now - 120.0, now))
         assert len(covered) == n, "samples from the start of the query were evicted"
         assert covered[0].timestamp <= now - 119.9
+
+
+class TestWindowCoverage:
+    """Truncation must announce itself.
+
+    A window cut short by retention still yields a per-query energy figure, and
+    that figure is plausible -- just too small. These pin the signal that makes
+    the difference visible instead of silent.
+    """
+
+    @staticmethod
+    def _session_with_history(
+        seconds: float, *, buffer_seconds: float | None
+    ) -> TelemetrySession:
+        session = TelemetrySession(
+            Mock(), buffer_seconds=buffer_seconds, max_samples=None
+        )
+        now = time.time()
+        for i in range(int(seconds / 0.05)):
+            session._samples.append(
+                TelemetrySample(
+                    timestamp=now - seconds + i * 0.05, reading=TelemetryReading()
+                )
+            )
+        session._trim(now)
+        return session
+
+    def test_intact_window_reports_full_coverage(self) -> None:
+        session = self._session_with_history(120.0, buffer_seconds=7200.0)
+        now = time.time()
+
+        coverage = session.coverage(now - 60.0, now)
+
+        assert not coverage.truncated
+        assert coverage.missing_seconds == 0.0
+        assert coverage.sample_count > 0
+
+    def test_trimmed_window_reports_truncation(self) -> None:
+        """The exact shape of the bug: 120 s query, 30 s of retention."""
+        session = self._session_with_history(120.0, buffer_seconds=30.0)
+        now = time.time()
+
+        coverage = session.coverage(now - 120.0, now)
+
+        assert coverage.truncated
+        # ~90 s of the query was evicted before anyone asked for it.
+        assert coverage.missing_seconds == pytest.approx(90.0, abs=2.0)
+        assert coverage.requested_seconds == pytest.approx(120.0, abs=0.1)
+
+    def test_window_warns_when_truncated(self, caplog) -> None:
+        session = self._session_with_history(120.0, buffer_seconds=30.0)
+        now = time.time()
+
+        with caplog.at_level("WARNING"):
+            list(session.window(now - 120.0, now))
+
+        assert "truncated" in caplog.text.lower()
+
+    def test_window_is_quiet_when_intact(self, caplog) -> None:
+        session = self._session_with_history(120.0, buffer_seconds=7200.0)
+        now = time.time()
+
+        with caplog.at_level("WARNING"):
+            list(session.window(now - 60.0, now))
+
+        assert caplog.text == ""
+
+    def test_empty_buffer_is_absence_not_truncation(self) -> None:
+        """No telemetry at all is a different failure, and must not be conflated."""
+        session = TelemetrySession(Mock(), buffer_seconds=30.0, max_samples=None)
+        now = time.time()
+
+        coverage = session.coverage(now - 120.0, now)
+
+        assert coverage.sample_count == 0
+        assert not coverage.truncated

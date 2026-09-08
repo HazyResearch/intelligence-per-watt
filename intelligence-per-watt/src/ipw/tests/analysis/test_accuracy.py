@@ -406,3 +406,109 @@ class TestEmptyResponseHandling:
         assert is_correct is True
         assert meta == {"judge": "ok"}
         provider.score.assert_called_once()
+
+
+def _record(problem: str, *, energy: float, power: float, seconds: float) -> dict:
+    return {
+        "problem": problem,
+        "answer": "a",
+        "model_answers": {"test-model": "a"},
+        "model_metrics": {
+            "test-model": {
+                "evaluation": {"is_correct": True},
+                "energy_metrics": {"per_query_joules": energy},
+                "power_metrics": {"gpu": {"per_query_watts": {"avg": power}}},
+                "latency_metrics": {"total_query_seconds": seconds},
+            }
+        },
+    }
+
+
+class TestTelemetryCoverageAudit:
+    """Catch energy windows that retention cut short.
+
+    Per-query energy is a counter delta across the retained samples, while
+    `total_query_seconds` measures the whole query. When retention is too short
+    the first diverges from `avg power x duration` by exactly the truncated
+    fraction -- which is what makes the defect detectable in artifacts written
+    before runs recorded their own coverage.
+    """
+
+    @patch.object(AccuracyAnalysis, "_needs_evaluation", return_value=False)
+    @patch("ipw.analysis.accuracy.resolve_model_name")
+    @patch("ipw.analysis.accuracy.load_metrics_dataset")
+    def test_consistent_records_are_not_flagged(
+        self,
+        mock_load: mock.MagicMock,
+        mock_resolve: mock.MagicMock,
+        _mock_needs_eval: mock.MagicMock,
+        tmp_path: Path,
+    ) -> None:
+        mock_resolve.return_value = "test-model"
+        # 28 W x 20 s = 560 J, an intact window.
+        mock_load.return_value = [
+            _record("p1", energy=560.0, power=28.0, seconds=20.0),
+            _record("p2", energy=280.0, power=28.0, seconds=10.0),
+        ]
+
+        result = AccuracyAnalysis().run(AnalysisContext(results_dir=tmp_path, options={}))
+
+        coverage = result.summary["telemetry_coverage"]
+        assert coverage["records_checked"] == 2
+        assert coverage["records_energy_short_of_power_x_time"] == 0
+        assert coverage["worst_energy_to_power_x_time_ratio"] is None
+
+    @patch.object(AccuracyAnalysis, "_needs_evaluation", return_value=False)
+    @patch("ipw.analysis.accuracy.resolve_model_name")
+    @patch("ipw.analysis.accuracy.load_metrics_dataset")
+    def test_truncated_records_are_flagged(
+        self,
+        mock_load: mock.MagicMock,
+        mock_resolve: mock.MagicMock,
+        _mock_needs_eval: mock.MagicMock,
+        tmp_path: Path,
+    ) -> None:
+        mock_resolve.return_value = "test-model"
+        # The reported shape of the bug: a 150 s query whose energy pins to
+        # 30 s x 28 W, and a 20 s query that never hit the buffer.
+        mock_load.return_value = [
+            _record("short", energy=560.0, power=28.0, seconds=20.0),
+            _record("long", energy=840.0, power=28.0, seconds=150.0),
+        ]
+
+        result = AccuracyAnalysis().run(AnalysisContext(results_dir=tmp_path, options={}))
+
+        coverage = result.summary["telemetry_coverage"]
+        assert coverage["records_checked"] == 2
+        assert coverage["records_energy_short_of_power_x_time"] == 1
+        # 840 J against 28 W x 150 s = 4200 J.
+        assert coverage["worst_energy_to_power_x_time_ratio"] == pytest.approx(0.2)
+
+    @patch.object(AccuracyAnalysis, "_needs_evaluation", return_value=False)
+    @patch("ipw.analysis.accuracy.resolve_model_name")
+    @patch("ipw.analysis.accuracy.load_metrics_dataset")
+    def test_sub_second_queries_are_not_audited(
+        self,
+        mock_load: mock.MagicMock,
+        mock_resolve: mock.MagicMock,
+        _mock_needs_eval: mock.MagicMock,
+        tmp_path: Path,
+    ) -> None:
+        """Sampling granularity, not retention, drives the ratio down here.
+
+        A 0.2 s query spans a couple of samples, so its energy delta covers well
+        under its wall-clock duration however much history is retained. Real
+        artifacts contain such queries; flagging them would bury the truncated
+        ones they sit next to.
+        """
+        mock_resolve.return_value = "test-model"
+        mock_load.return_value = [
+            _record("blink", energy=0.5, power=6.9, seconds=0.2),
+            _record("real", energy=560.0, power=28.0, seconds=20.0),
+        ]
+
+        result = AccuracyAnalysis().run(AnalysisContext(results_dir=tmp_path, options={}))
+
+        coverage = result.summary["telemetry_coverage"]
+        assert coverage["records_checked"] == 1
+        assert coverage["records_energy_short_of_power_x_time"] == 0

@@ -25,7 +25,7 @@ from ..core.registry import ClientRegistry, DatasetRegistry
 from ..core.types import DatasetRecord, GpuInfo, ProfilerConfig, Response, SystemInfo, TelemetryReading
 from ..telemetry import EnergyMonitorCollector
 from .hardware import derive_hardware_label
-from .telemetry_session import TelemetrySample, TelemetrySession
+from .telemetry_session import TelemetrySample, TelemetrySession, WindowCoverage
 from .types import (
     ComputeMetrics,
     DerivedEfficiencyMetrics,
@@ -147,6 +147,13 @@ class ProfilerRunner:
         self._last_energy_total: Optional[float] = None
         self._overwrite_confirmed: bool = False
         self._client_info: Optional[Mapping[str, Any]] = None
+        # Telemetry coverage tallies, surfaced in summary.json. A window that
+        # retention cut short still produces a per-query energy number; these
+        # are how a finished run says whether its numbers are whole.
+        self._coverage_checked: int = 0
+        self._coverage_truncated: int = 0
+        self._coverage_empty: int = 0
+        self._coverage_worst_missing_seconds: float = 0.0
 
     @property
     def records(self) -> list[ProfilingRecord]:
@@ -175,6 +182,8 @@ class ProfilerRunner:
                 max_samples=self._config.telemetry_max_samples,
             ) as telemetry:
                 self._process_records(dataset, client, telemetry)
+
+            self._warn_if_coverage_incomplete()
 
             # After the run, not before: `describe` reports per-run tallies that
             # only exist once inference has happened (the AFM client counts the
@@ -217,12 +226,53 @@ class ProfilerRunner:
                     continue  # Discard warmup queries
 
                 samples = list(telemetry.window(start, end))
+                self._record_coverage(telemetry.coverage(start, end))
                 built = self._build_record(index, record, response, samples, start, end)
                 if built is not None:
                     self._records.append(built)
                     if len(self._records) % self._FLUSH_INTERVAL == 0:
                         self._persist_records(dataset)
                 progress.update(1)
+
+    def _warn_if_coverage_incomplete(self) -> None:
+        """Say once, at the end, if any query outran telemetry retention.
+
+        The per-query warnings from `TelemetrySession.window()` scroll past
+        behind the progress bar; this is the line that survives to the end of
+        the run.
+        """
+        if not self._coverage_truncated:
+            return
+        LOGGER.warning(
+            "%d of %d queries outran the telemetry buffer (worst: %.1fs missing). "
+            "Their energy is under-reported. Raise "
+            "ProfilerConfig.telemetry_buffer_seconds (currently %.0fs) and "
+            "telemetry_max_samples (currently %d), then re-run.",
+            self._coverage_truncated,
+            self._coverage_checked,
+            self._coverage_worst_missing_seconds,
+            self._config.telemetry_buffer_seconds,
+            self._config.telemetry_max_samples,
+        )
+
+    def _record_coverage(self, coverage: WindowCoverage) -> None:
+        """Tally how completely telemetry covered each query window."""
+        self._coverage_checked += 1
+        if coverage.sample_count == 0:
+            self._coverage_empty += 1
+        if coverage.truncated:
+            self._coverage_truncated += 1
+            self._coverage_worst_missing_seconds = max(
+                self._coverage_worst_missing_seconds, coverage.missing_seconds
+            )
+
+    def _coverage_summary(self) -> dict[str, Any]:
+        return {
+            "queries_checked": self._coverage_checked,
+            "queries_truncated": self._coverage_truncated,
+            "queries_without_samples": self._coverage_empty,
+            "worst_missing_seconds": self._coverage_worst_missing_seconds,
+        }
 
     def _build_record(
         self,
@@ -847,6 +897,10 @@ class ProfilerRunner:
             "output_dir": str(output_path),
             "versions": _get_versions(),
             "client_info": _jsonify(self._client_info) if self._client_info else None,
+            # Non-zero `queries_truncated` means retention was too small for this
+            # run and its energy figures are under-reported; see
+            # ProfilerConfig.telemetry_buffer_seconds.
+            "telemetry_coverage": self._coverage_summary(),
         }
         summary_path = output_path / "summary.json"
         summary_path.write_text(json.dumps(summary, indent=2, default=str))

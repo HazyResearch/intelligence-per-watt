@@ -36,6 +36,63 @@ class _AccuracyCounters:
     skipped_empty: int = 0
 
 
+# A record whose reported energy falls below this fraction of `avg power x
+# duration` is treated as telemetry-truncated. For an intact window the two
+# agree by construction -- per-query energy is a counter delta across the same
+# samples the power average is taken over -- so the ratio sits at ~1.0 and the
+# slack here only absorbs counter quantisation.
+_COVERAGE_RATIO_THRESHOLD = 0.8
+
+# Queries shorter than this are not audited. Per-query energy is a delta across
+# the samples inside the window, so a query spanning only a handful of them
+# loses a sampling interval at each end -- a large fraction of a sub-second
+# query, and nothing to do with retention. Auditing them buries the real signal
+# in false positives.
+_COVERAGE_MIN_SECONDS = 1.0
+
+
+@dataclass(slots=True)
+class _CoverageAudit:
+    """Retroactive check that reported energy is consistent with power x duration.
+
+    Telemetry retention that is too short to span a query truncates its energy
+    window without truncating `total_query_seconds`, so reported energy falls
+    below `avg power x duration` by exactly the fraction that was evicted.
+    Runs made after the retention fix record their own coverage in
+    summary.json; this catches the same defect in artifacts written before
+    that, which carry no such field.
+    """
+
+    checked: int = 0
+    short: int = 0
+    worst_ratio: float | None = None
+
+    def register(self, energy_joules: Any, power_watts: Any, latency_seconds: Any) -> None:
+        energy, _ = _normalize_positive_number(energy_joules)
+        power, _ = _normalize_positive_number(power_watts)
+        latency, _ = _normalize_positive_number(latency_seconds)
+        if energy is None or power is None or latency is None:
+            return
+        if latency < _COVERAGE_MIN_SECONDS:
+            return
+        expected = power * latency
+        if expected <= 0:
+            return
+        self.checked += 1
+        ratio = energy / expected
+        if ratio < _COVERAGE_RATIO_THRESHOLD:
+            self.short += 1
+            if self.worst_ratio is None or ratio < self.worst_ratio:
+                self.worst_ratio = ratio
+
+    def as_dict(self) -> Dict[str, Any]:
+        return {
+            "records_checked": self.checked,
+            "records_energy_short_of_power_x_time": self.short,
+            "worst_energy_to_power_x_time_ratio": self.worst_ratio,
+        }
+
+
 @dataclass(slots=True)
 class _EfficiencyAccumulator:
     energy_joules: list[float] = field(default_factory=list)
@@ -151,6 +208,7 @@ class AccuracyAnalysis(AnalysisProvider):
         # Aggregate results
         counters = _AccuracyCounters()
         efficiency = _EfficiencyAccumulator()
+        coverage = _CoverageAudit()
         records: list[Dict[str, Any]] = []
         bases_seen: set[str] = set()
 
@@ -175,6 +233,9 @@ class AccuracyAnalysis(AnalysisProvider):
             )
             bases_seen.add(basis)
             latency_seconds = latency_metrics.get("total_query_seconds")
+            # Independent of scoring: coverage is a property of the telemetry,
+            # so failed and unevaluated queries are audited too.
+            coverage.register(energy_joules, power_watts, latency_seconds)
 
             records.append(
                 {
@@ -254,6 +315,18 @@ class AccuracyAnalysis(AnalysisProvider):
             else None
         )
 
+        if coverage.short:
+            LOGGER.warning(
+                "%d of %d records report less energy than avg power x duration "
+                "(worst ratio %.2f). Their telemetry windows were truncated, so "
+                "energy is under-reported and every efficiency figure derived "
+                "from it is correspondingly wrong. Re-run with a telemetry "
+                "buffer that spans the longest query.",
+                coverage.short,
+                coverage.checked,
+                coverage.worst_ratio if coverage.worst_ratio is not None else float("nan"),
+            )
+
         summary_payload: Dict[str, Any] = {
             "model": active_model,
             "correct": counters.correct,
@@ -269,6 +342,10 @@ class AccuracyAnalysis(AnalysisProvider):
             "avg_per_query_power_watts": power_stats.get("avg"),
             "energy_sample_count": energy_stats.get("count"),
             "power_sample_count": power_stats.get("count"),
+            # Non-zero `records_energy_short_of_power_x_time` means those
+            # records' energy windows were cut short by telemetry retention and
+            # every energy-derived figure above is under-reported.
+            "telemetry_coverage": coverage.as_dict(),
             # "soc" (GPU+CPU+ANE) or "gpu"; "mixed" if records disagree. The
             # energy and power figures above are only comparable across runs
             # that share a basis.
