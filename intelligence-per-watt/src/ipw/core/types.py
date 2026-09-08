@@ -59,6 +59,14 @@ class ProfilerConfig:
     additional_parameters: Mapping[str, Any] = field(default_factory=dict)
     warmup_queries: int = 3
 
+    # Telemetry retention. `TelemetrySession.window()` can only return samples
+    # it still holds, so these must cover the longest query in the run --
+    # anything shorter silently truncates that query's energy instead of
+    # failing. Serialized into summary.json via asdict(), so a run's retention
+    # is auditable after the fact rather than inferred from the code version.
+    telemetry_buffer_seconds: float = 7200.0
+    telemetry_max_samples: int = 150_000
+
 
 @dataclass(slots=True)
 class SystemInfo:

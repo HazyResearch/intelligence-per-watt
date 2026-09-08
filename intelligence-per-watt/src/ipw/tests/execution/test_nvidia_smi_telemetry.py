@@ -38,7 +38,9 @@ def test_session_integrates_energy_for_selected_gpu(monkeypatch: pytest.MonkeyPa
     monkeypatch.setattr(mod.time, "time", lambda: next(times))
     monkeypatch.setattr(mod, "_query_nvidia_smi", lambda gpu_ids: next(samples))
 
-    session = NvidiaSmiTelemetrySession([3])
+    session = NvidiaSmiTelemetrySession(
+        [3], buffer_seconds=3600.0, max_samples=10_000
+    )
     session._sample_once()
     session._sample_once()
     session._sample_once()

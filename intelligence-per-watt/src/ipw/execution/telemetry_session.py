@@ -27,9 +27,19 @@ class TelemetrySession(AbstractContextManager["TelemetrySession"]):
         self,
         collector: EnergyMonitorCollector,
         *,
-        buffer_seconds: Optional[float] = 30.0,
-        max_samples: Optional[int] = 10_000,
+        buffer_seconds: Optional[float],
+        max_samples: Optional[int],
     ) -> None:
+        """Capture telemetry readings in a background thread.
+
+        Both retention bounds are deliberately required. They cap how much
+        history ``window()`` can return, and a window shorter than the interval
+        it is asked for yields a *plausible but too small* energy figure rather
+        than an error -- so a shared default is a trap. The previous 30 s
+        default silently truncated every ``ipw profile`` query longer than 30 s
+        from the first commit onward. Size these to the longest query the
+        caller can produce; pass ``None`` to disable a bound entirely.
+        """
         self._collector = collector
         self._buffer_seconds = buffer_seconds
         self._max_samples = max_samples

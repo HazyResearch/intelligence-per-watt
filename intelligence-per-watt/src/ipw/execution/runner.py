@@ -169,7 +169,11 @@ class ProfilerRunner:
 
             self._ensure_client_ready(client)
 
-            with TelemetrySession(collector) as telemetry:
+            with TelemetrySession(
+                collector,
+                buffer_seconds=self._config.telemetry_buffer_seconds,
+                max_samples=self._config.telemetry_max_samples,
+            ) as telemetry:
                 self._process_records(dataset, client, telemetry)
 
             # After the run, not before: `describe` reports per-run tallies that
