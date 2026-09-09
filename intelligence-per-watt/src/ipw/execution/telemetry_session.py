@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 import os
 import threading
 import time
@@ -13,11 +14,53 @@ from typing import Deque, Iterable, Iterator, Optional
 from ..core.types import TelemetryReading
 from ..telemetry import EnergyMonitorCollector
 
+LOGGER = logging.getLogger(__name__)
+
+# How far after a requested start the first retained sample may land before the
+# window counts as truncated. The energy monitor streams at roughly 50 ms, so a
+# second of slack absorbs ordinary cadence jitter and a late-starting sampler
+# while still catching real eviction, which runs to tens of seconds or more.
+DEFAULT_COVERAGE_TOLERANCE_SECONDS = 1.0
+
 
 @dataclass
 class TelemetrySample:
     timestamp: float
     reading: TelemetryReading
+
+
+@dataclass(frozen=True)
+class WindowCoverage:
+    """How much of a requested interval ``window()`` was able to return.
+
+    ``window()`` filters whatever retention has left it; it cannot report what
+    was already trimmed. Integrating a short window yields a *plausible but too
+    small* energy figure rather than an error, so any caller turning a window
+    into a per-query total needs a way to ask whether the window was whole.
+    """
+
+    start_time: float
+    end_time: float
+    sample_count: int
+    earliest_retained: Optional[float]
+    tolerance_seconds: float
+
+    @property
+    def requested_seconds(self) -> float:
+        return max(0.0, self.end_time - self.start_time)
+
+    @property
+    def missing_seconds(self) -> float:
+        """Seconds at the head of the interval that retention had already dropped."""
+        if self.earliest_retained is None:
+            # Nothing retained at all -- absence of telemetry, not truncation of
+            # it. `sample_count` is the field that distinguishes the two.
+            return 0.0
+        return max(0.0, self.earliest_retained - self.start_time)
+
+    @property
+    def truncated(self) -> bool:
+        return self.missing_seconds > self.tolerance_seconds
 
 
 class TelemetrySession(AbstractContextManager["TelemetrySession"]):
@@ -27,9 +70,19 @@ class TelemetrySession(AbstractContextManager["TelemetrySession"]):
         self,
         collector: EnergyMonitorCollector,
         *,
-        buffer_seconds: Optional[float] = 30.0,
-        max_samples: Optional[int] = 10_000,
+        buffer_seconds: Optional[float],
+        max_samples: Optional[int],
     ) -> None:
+        """Capture telemetry readings in a background thread.
+
+        Both retention bounds are deliberately required. They cap how much
+        history ``window()`` can return, and a window shorter than the interval
+        it is asked for yields a *plausible but too small* energy figure rather
+        than an error -- so a shared default is a trap. The previous 30 s
+        default silently truncated every ``ipw profile`` query longer than 30 s
+        from the first commit onward. Size these to the longest query the
+        caller can produce; pass ``None`` to disable a bound entirely.
+        """
         self._collector = collector
         self._buffer_seconds = buffer_seconds
         self._max_samples = max_samples
@@ -122,7 +175,48 @@ class TelemetrySession(AbstractContextManager["TelemetrySession"]):
     def readings(self) -> Iterable[TelemetrySample]:
         return list(self._samples)
 
+    def coverage(
+        self,
+        start_time: float,
+        end_time: float,
+        *,
+        tolerance_seconds: float = DEFAULT_COVERAGE_TOLERANCE_SECONDS,
+    ) -> WindowCoverage:
+        """Report whether ``window(start_time, end_time)`` sees the whole interval.
+
+        Truncation is inferred from the oldest sample still retained: if the
+        buffer holds nothing from before ``start_time``, then everything
+        preceding its earliest sample was trimmed away and the window is short
+        at its head by that much.
+        """
+        samples = list(self._samples)
+        earliest = samples[0].timestamp if samples else None
+        return WindowCoverage(
+            start_time=start_time,
+            end_time=end_time,
+            sample_count=sum(
+                1 for s in samples if start_time <= s.timestamp <= end_time
+            ),
+            earliest_retained=earliest,
+            tolerance_seconds=tolerance_seconds,
+        )
+
     def window(self, start_time: float, end_time: float) -> Iterator[TelemetrySample]:
+        # Warn here rather than leaving it to the caller: a truncated window is
+        # indistinguishable from a short query downstream, and going quiet about
+        # it is what let the 30 s default under-report energy unnoticed. Callers
+        # that want to record the shortfall rather than just log it should use
+        # `coverage()`.
+        shortfall = self.coverage(start_time, end_time)
+        if shortfall.truncated:
+            LOGGER.warning(
+                "Telemetry window truncated: %.1fs of the requested %.1fs interval "
+                "was already evicted from the sample buffer. Energy integrated over "
+                "this window is under-reported. Raise buffer_seconds/max_samples on "
+                "this TelemetrySession.",
+                shortfall.missing_seconds,
+                shortfall.requested_seconds,
+            )
         for sample in list(self._samples):
             if start_time <= sample.timestamp <= end_time:
                 yield sample

@@ -37,8 +37,8 @@ class NvidiaSmiTelemetrySession(AbstractContextManager["NvidiaSmiTelemetrySessio
         gpu_ids: Sequence[int],
         *,
         interval_seconds: float = 0.2,
-        buffer_seconds: float = 30.0,
-        max_samples: int = 10_000,
+        buffer_seconds: float,
+        max_samples: int,
     ) -> None:
         if not gpu_ids:
             raise ValueError("At least one GPU id is required")

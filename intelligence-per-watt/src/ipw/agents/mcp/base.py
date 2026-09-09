@@ -128,7 +128,11 @@ class BaseMCPServer(ABC):
 
         # Execute with telemetry if available
         if HAS_TELEMETRY and self.telemetry_collector is not None and TelemetrySession is not None:
-            with TelemetrySession(self.telemetry_collector) as session:
+            with TelemetrySession(
+                self.telemetry_collector,
+                buffer_seconds=3600.0,
+                max_samples=100_000,
+            ) as session:
                 result = self._execute_impl(prompt, **params)
                 end_time = time.time()
                 result.telemetry_samples = list(session.window(start_time, end_time))

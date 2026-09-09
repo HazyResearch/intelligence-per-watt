@@ -227,7 +227,9 @@ class TestReplHardwareIntegration:
                 attributed: List[Event] = []
                 bus.subscribe(EventType.ENERGY_ATTRIBUTED, attributed.append)
 
-                with TelemetrySession(collector) as live_session:
+                with TelemetrySession(
+                    collector, buffer_seconds=3600.0, max_samples=100_000
+                ) as live_session:
                     # Give the monitor a moment to start streaming
                     time.sleep(0.3)
                     EnergyAttribution(
