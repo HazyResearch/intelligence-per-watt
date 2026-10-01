@@ -64,7 +64,7 @@ hide:
 | **Clients** | Ollama, vLLM, OpenAI-compatible (OpenAI, OpenRouter, Gemini, local servers) |
 | **Agents** | ReAct (Agno), OpenHands, Terminus |
 | **Datasets** | MMLU-Pro, GPQA, SuperGPQA, MATH-500, GAIA, SimpleQA, FRAMES, HLE, TerminalBench, SWE-bench, SWEfficiency |
-| **Telemetry** | NVIDIA (NVML), AMD (ROCm), Apple Silicon (powermetrics), Linux (RAPL) |
+| **Telemetry** | NVIDIA (NVML), NVIDIA Jetson (INA3221), AMD (ROCm), Apple Silicon (powermetrics), Linux (RAPL) |
 | **Evaluation** | LLM judge, MCQ exact match, task-specific scoring |
 
 ## About

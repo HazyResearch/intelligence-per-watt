@@ -27,12 +27,13 @@ Python (ProfilerRunner)                    Rust (energy-monitor)
 The energy monitor is a standalone Rust binary that auto-detects the best hardware collector at startup:
 
 1. **macOS** -- `powermetrics` for CPU/GPU/ANE power (requires `sudo`)
-2. **Linux/Windows + NVIDIA GPU** -- NVML; falls through if initialization fails
-3. **Linux + AMD GPU** -- ROCm SMI; falls through if unavailable
-4. **Linux + RAPL** -- Intel RAPL for CPU energy counters
-5. **Null collector** -- fallback reporting only CPU memory usage (all power/energy = -1)
+2. **Linux + NVIDIA Jetson** -- INA3221 power monitors via hwmon; selected when `/etc/nv_tegra_release` exists
+3. **Linux/Windows + NVIDIA GPU** -- NVML; falls through if initialization fails
+4. **Linux + AMD GPU** -- ROCm SMI; falls through if unavailable
+5. **Linux + RAPL** -- Intel RAPL for CPU energy counters
+6. **Null collector** -- fallback reporting only CPU memory usage (all power/energy = -1)
 
-The selected platform is reported in each `TelemetryReading.platform` field (e.g., `"nvidia"`, `"macos"`, `"amd"`, `"rapl"`, `"null"`).
+The selected platform is reported in each `TelemetryReading.platform` field (e.g., `"nvidia"`, `"jetson"`, `"macos"`, `"amd"`, `"rapl"`, `"null"`).
 
 ### Proto Definition
 

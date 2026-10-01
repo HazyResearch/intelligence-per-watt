@@ -5,6 +5,9 @@ use tracing::{debug, info};
 
 #[cfg(all(feature = "amd", not(target_os = "macos"), not(target_os = "windows")))]
 mod amd;
+// Also compiled for tests so the hwmon discovery tests run on any host.
+#[cfg(any(target_os = "linux", test))]
+mod jetson;
 #[cfg(target_os = "linux")]
 pub(crate) mod linux_rapl;
 #[cfg(target_os = "macos")]
@@ -14,6 +17,8 @@ mod nvidia;
 
 #[cfg(all(feature = "amd", not(target_os = "macos"), not(target_os = "windows")))]
 use amd::AmdCollector;
+#[cfg(target_os = "linux")]
+use jetson::JetsonCollector;
 #[cfg(target_os = "macos")]
 use macos::MacOSCollector;
 #[cfg(not(target_os = "macos"))]
@@ -116,6 +121,19 @@ pub async fn create_collector(config: Arc<Config>) -> Arc<dyn TelemetryCollector
                 return Arc::new(collector);
             }
             Err(err) => tracing::warn!("Failed to create macOS collector; falling back: {}", err),
+        }
+    }
+
+    // Jetson must be tried before NVIDIA: NVML initializes on Tegra but every
+    // power/energy query returns NotSupported.
+    #[cfg(target_os = "linux")]
+    {
+        match JetsonCollector::new() {
+            Ok(collector) => {
+                debug!("Auto-detected NVIDIA Jetson platform");
+                return Arc::new(collector);
+            }
+            Err(err) => debug!("Jetson collector unavailable: {}", err),
         }
     }
 

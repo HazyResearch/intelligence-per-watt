@@ -8,7 +8,7 @@ use std::sync::Arc;
 #[cfg(not(target_os = "macos"))]
 use std::sync::Mutex;
 #[cfg(not(target_os = "macos"))]
-use tracing::{debug, trace};
+use tracing::{debug, trace, warn};
 
 #[cfg(not(target_os = "macos"))]
 use super::{CollectorSample, TelemetryCollector};
@@ -138,6 +138,20 @@ impl NvidiaCollector {
             backend: "NVML".to_string(),
         };
         debug!("Aggregated GPU info: {}", gpu_info.name);
+
+        // Some NVML devices (e.g. Jetson/Tegra) enumerate fine but implement no power
+        // telemetry. collect() would then silently report no energy, so say so once.
+        let any_power_source = devices
+            .iter()
+            .any(|d| d.power_usage().is_ok() || d.total_energy_consumption().is_ok());
+        if !any_power_source {
+            warn!(
+                "NVML found {} device(s) ({}) but none support power_usage or \
+                 total_energy_consumption; energy and power will not be reported",
+                devices.len(),
+                gpu_info.name
+            );
+        }
 
         // Initialize per-GPU energy state
         let mut energy_baselines: Vec<u64> = Vec::with_capacity(devices.len());

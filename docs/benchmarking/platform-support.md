@@ -4,31 +4,39 @@ The energy monitor auto-detects the best available collector for your hardware. 
 
 ## Platform Matrix
 
-| Metric | NVIDIA (NVML) | AMD (ROCm) | Apple Silicon | Linux RAPL | Null |
-|--------|:---:|:---:|:---:|:---:|:---:|
-| GPU power (W) | yes | yes | yes | -- | -- |
-| GPU energy (J) | yes | yes | yes | -- | -- |
-| GPU temperature (C) | yes | yes | -- | -- | -- |
-| GPU memory usage (MB) | yes | yes | -- | -- | -- |
-| GPU memory total (MB) | yes | yes | -- | -- | -- |
-| GPU compute utilization (%) | yes | yes | -- | -- | -- |
-| GPU memory bandwidth util (%) | yes | yes | -- | -- | -- |
-| GPU tensor core util (%) | yes* | -- | -- | -- | -- |
-| CPU power (W) | via RAPL | via RAPL | yes | -- | -- |
-| CPU energy (J) | via RAPL | via RAPL | yes | yes | -- |
-| ANE power (W) | -- | -- | yes | -- | -- |
-| ANE energy (J) | -- | -- | yes | -- | -- |
-| CPU memory usage (MB) | yes | yes | yes | yes | yes |
-| System info | yes | yes | yes | yes | yes |
-| GPU info | yes | yes | -- | -- | -- |
+| Metric | NVIDIA (NVML) | Jetson | AMD (ROCm) | Apple Silicon | Linux RAPL | Null |
+|--------|:---:| :---: |:---:|:---:|:---:|:---:|
+| GPU power (W) | yes | yes† | yes | yes | -- | -- |
+| GPU energy (J) | yes | yes† | yes | yes | -- | -- |
+| GPU temperature (C) | yes | yes | yes | -- | -- | -- |
+| GPU memory usage (MB) | yes | -- | yes | -- | -- | -- |
+| GPU memory total (MB) | yes | -- | yes | -- | -- | -- |
+| GPU compute utilization (%) | yes | -- | yes | -- | -- | -- |
+| GPU memory bandwidth util (%) | yes | -- | yes | -- | -- | -- |
+| GPU tensor core util (%) | yes* | -- | -- | -- | -- | -- |
+| CPU power (W) | via RAPL | -- | via RAPL | yes | -- | -- |
+| CPU energy (J) | via RAPL | -- | via RAPL | yes | yes | -- |
+| ANE power (W) | -- | -- | -- | yes | -- | -- |
+| ANE energy (J) | -- | -- | -- | yes | -- | -- |
+| CPU memory usage (MB) | yes | yes | yes | yes | yes | yes |
+| System info | yes | yes | yes | yes | yes | yes |
+| GPU info | yes | yes | yes | -- | -- | -- |
 
 *Tensor core utilization requires NVIDIA Ampere architecture (A100, RTX 30xx) or newer.
+
+†On Jetson, power and energy cover the whole module, not just the GPU (see below).
 
 ## NVIDIA (NVML)
 
 Provides comprehensive GPU telemetry via NVML: power, energy (cumulative counter in millijoules), temperature, memory, compute utilization, and tensor core utilization (Ampere+). GPU info includes name, vendor, device ID, and backend.
 
 On Linux with Intel or AMD CPUs, CPU energy is additionally reported via RAPL by reading `/sys/class/powercap/intel-rapl/intel-rapl:0/energy_uj`.
+
+## NVIDIA Jetson
+
+On Jetson (Tegra) modules NVML initializes but reports no power, energy or other telemetry, so a dedicated collector reads the on-module INA3221 power monitors from `/sys/class/hwmon/hwmon*/` (no root required). It is selected ahead of NVML whenever `/etc/nv_tegra_release` exists.
+
+`power_watts` / `energy_joules` report the `VDD_IN` rail (module input: SoC + memory; the carrier board is excluded) on Orin Nano / NX. AGX Orin has no `VDD_IN` rail, so the sum of all rails is reported instead. Either way this is **module power, not GPU-only power**, so it is not directly comparable to NVML numbers from a discrete GPU. Energy is integrated from power samples. Temperature comes from the `gpu-thermal` zone, and GPU info is the device-tree model name with backend `sysfs/ina3221`.
 
 ## AMD (ROCm SMI)
 

@@ -71,6 +71,18 @@ uv pip install -e 'intelligence-per-watt[all]'        # Everything
     chmod o+r /sys/class/powercap/intel-rapl/intel-rapl:0/energy_uj
     ```
 
+=== "NVIDIA Jetson"
+
+    Tested on Orin-series modules (JetPack 6.x / 7.x). NVML reports no power on Jetson, so the energy monitor reads the on-module INA3221 power monitors via hwmon instead (no root required).
+
+    Telemetry: module power and energy (`VDD_IN`, or the sum of rails on AGX Orin), GPU temperature, CPU memory usage. No GPU memory or utilization reporting.
+
+    No prebuilt `linux-arm64` energy-monitor binary is bundled yet; build it on the device:
+
+    ```bash
+    python scripts/build_energy_monitor.py
+    ```
+
 === "AMD"
 
     Requires ROCm >= 5.0 with `rocm-smi` accessible.

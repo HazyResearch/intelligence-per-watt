@@ -95,7 +95,7 @@ Each query captures: energy (Joules), power (Watts), GPU/CPU memory, temperature
 
 **Benchmarks** -- MMLU-Pro, SuperGPQA, GAIA, FRAMES, HLE, SimpleQA, SWE-bench, SWEfficiency, TerminalBench, and a built-in 1K mixed set
 
-**Energy telemetry** -- Rust gRPC service (50ms sampling) with NVIDIA NVML, AMD ROCm, Apple Silicon powermetrics, and Linux RAPL collectors
+**Energy telemetry** -- Rust gRPC service (50ms sampling) with NVIDIA NVML, NVIDIA Jetson (INA3221), AMD ROCm, Apple Silicon powermetrics, and Linux RAPL collectors
 
 **Evaluation** -- LLM-as-judge, MCQ exact match, and task-specific scorers
 
