@@ -90,6 +90,15 @@ class TestToolRegistry:
         assert spec is not None
         assert spec.category == ToolCategory.SEARCH
 
+    def test_web_search_available_with_either_key(
+        self, registry: ToolRegistry, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.delenv("TAVILY_API_KEY", raising=False)
+        monkeypatch.delenv("FIRECRAWL_API_KEY", raising=False)
+        assert "web_search" not in registry.discover_available_tools()
+        monkeypatch.setenv("FIRECRAWL_API_KEY", "fc-test")
+        assert "web_search" in registry.discover_available_tools()
+
     def test_get_all_specs_nonempty(self, registry: ToolRegistry) -> None:
         specs = registry.get_all_specs()
         assert len(specs) > 10
