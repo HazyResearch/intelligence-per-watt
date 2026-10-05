@@ -8,7 +8,7 @@ import pytest
 from click.testing import CliRunner
 
 from ipw.cli import cli
-from ipw.cli.run import _default_mcp_tool_spec_for_dataset, _is_cloud_model
+from ipw.cli.run import _default_mcp_tool_spec_for_dataset, _is_cloud_model, _resolve_openhands_mcp_tools
 
 
 class TestIsCloudModel:
@@ -123,6 +123,29 @@ class TestRunCmd:
         assert tools is not None
         assert "web_search" in tools
         assert "bash" in tools
+
+    def test_web_search_provider_passes_through(self) -> None:
+        tools = _resolve_openhands_mcp_tools([{"type": "web_search", "provider": "firecrawl"}])
+
+        assert tools["web_search"].provider == "firecrawl"
+
+    def test_unknown_web_search_provider_is_a_cli_error(self) -> None:
+        import click
+
+        with pytest.raises(click.ClickException, match="mcp_tools.web_search"):
+            _resolve_openhands_mcp_tools([{"type": "web_search", "provider": "bing"}])
+
+    def test_summary_records_web_search_provider(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        from ipw.cli.run import _summarize_agent_kwargs
+
+        monkeypatch.delenv("TAVILY_API_KEY", raising=False)
+        monkeypatch.setenv("FIRECRAWL_API_KEY", "fc-test")
+        tools = _resolve_openhands_mcp_tools(["web_search", "think"])
+
+        summary = _summarize_agent_kwargs({"mcp_tools": tools})
+
+        assert summary["mcp_tools"] == ["think", "web_search"]
+        assert summary["web_search_provider"] == "firecrawl"
 
     def test_default_coding_tools_include_file_write(self) -> None:
         tools = _default_mcp_tool_spec_for_dataset("swebench")

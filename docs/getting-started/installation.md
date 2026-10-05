@@ -131,6 +131,7 @@ OPENAI_API_KEY=sk-...
 # Optional
 ANTHROPIC_API_KEY=sk-ant-...   # Anthropic models
 TAVILY_API_KEY=tvly-...        # Web search in agents
+FIRECRAWL_API_KEY=fc-...       # Web search in agents via Firecrawl
 ```
 
 ## Verify Installation

@@ -12,7 +12,7 @@ from __future__ import annotations
 import os
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any, Callable, Dict, List, Optional, Type
+from typing import Any, Callable, Dict, List, Optional, Tuple, Type, Union
 
 from ipw.agents.mcp.base import BaseMCPServer, MCPToolResult
 
@@ -68,8 +68,8 @@ class ToolSpec:
     estimated_energy_joules: float = 0.0
     """Estimated energy consumption per call"""
 
-    requires_api_key: Optional[str] = None
-    """Environment variable name for required API key"""
+    requires_api_key: Optional[Union[str, Tuple[str, ...]]] = None
+    """Environment variable name for required API key, or names of which any one suffices"""
 
     requires_server: Optional[str] = None
     """Required server (e.g., 'ollama', 'vllm')"""
@@ -186,10 +186,10 @@ class ToolRegistry:
         self.register(ToolSpec(
             name="web_search",
             category=ToolCategory.SEARCH,
-            description="Search the web via Tavily API. Cost: $0.01/search.",
+            description="Search the web via Tavily API ($0.01/search) or Firecrawl.",
             estimated_latency_ms=500,
             estimated_cost_usd=0.01,
-            requires_api_key="TAVILY_API_KEY",
+            requires_api_key=("TAVILY_API_KEY", "FIRECRAWL_API_KEY"),
             capabilities=["search", "retrieval", "current_info"],
             adp_domains=["agenttuning_webshop", "mind2web", "go-browse-wa"],
         ))
@@ -443,7 +443,10 @@ class ToolRegistry:
 
         for name, spec in self._specs.items():
             if spec.requires_api_key:
-                if not os.environ.get(spec.requires_api_key):
+                keys = spec.requires_api_key
+                if isinstance(keys, str):
+                    keys = (keys,)
+                if not any(os.environ.get(key) for key in keys):
                     continue
             available.append(name)
 

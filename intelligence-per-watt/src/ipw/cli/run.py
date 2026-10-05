@@ -82,6 +82,9 @@ def _summarize_agent_kwargs(kwargs: dict) -> dict[str, object]:
     for key, value in kwargs.items():
         if key == "mcp_tools" and isinstance(value, dict):
             summary[key] = sorted(str(name) for name in value)
+            search = value.get("web_search")
+            if hasattr(search, "_resolve_provider"):
+                summary["web_search_provider"] = search._resolve_provider()
         elif isinstance(value, (str, int, float, bool)) or value is None:
             summary[key] = value
         elif isinstance(value, (list, tuple)):
@@ -320,13 +323,17 @@ def _resolve_openhands_mcp_tools(spec):
                 kwargs["timeout"] = config["timeout"]
             resolved[name] = ShellServer(**kwargs)
         elif name == "web_search":
-            resolved[name] = WebSearchServer(
-                max_results=config.get("max_results", 5),
-                search_depth=config.get("search_depth", "basic"),
-                include_answer=config.get("include_answer", True),
-                max_content_chars=config.get("max_content_chars"),
-                max_total_chars=config.get("max_total_chars"),
-            )
+            try:
+                resolved[name] = WebSearchServer(
+                    max_results=config.get("max_results", 5),
+                    search_depth=config.get("search_depth", "basic"),
+                    include_answer=config.get("include_answer", True),
+                    max_content_chars=config.get("max_content_chars"),
+                    max_total_chars=config.get("max_total_chars"),
+                    provider=config.get("provider"),
+                )
+            except ValueError as exc:
+                raise click.ClickException(f"mcp_tools.web_search: {exc}") from exc
         else:
             raise click.ClickException(f"Unsupported OpenHands MCP tool: {name}")
     return resolved

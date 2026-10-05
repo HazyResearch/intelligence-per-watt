@@ -6,6 +6,7 @@ import pytest
 
 from ipw.cost.pricing import (
     ANTHROPIC_PRICING,
+    FIRECRAWL_COST_PER_CREDIT,
     GEMINI_PRICING,
     OPENAI_PRICING,
     PROVIDER_PRICING,
@@ -63,6 +64,9 @@ class TestCalculateCost:
 
     def test_tavily_cost_per_search(self) -> None:
         assert TAVILY_COST_PER_SEARCH == 0.01
+
+    def test_firecrawl_cost_per_credit(self) -> None:
+        assert FIRECRAWL_COST_PER_CREDIT == 0.00083
 
 
 class TestPricingTables:
