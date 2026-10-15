@@ -16,6 +16,13 @@ import zipfile
 from typing import Any, List, Optional
 
 from ipw.agents.mcp.base import BaseMCPServer, MCPToolResult
+from ipw.cost.pricing import FIRECRAWL_COST_PER_CREDIT
+
+FIRECRAWL_DEFAULT_API_URL = "https://api.firecrawl.dev"
+FIRECRAWL_KEYS_URL = (
+    "https://www.firecrawl.dev/app/api-keys"
+    "?utm_source=intelligence-per-watt&utm_medium=integration"
+)
 
 
 def _resolve_workspace_abbrev_path(file_path: str, working_dir: str | None) -> str:
@@ -211,7 +218,7 @@ class CalculatorServer(BaseMCPServer):
 
 
 class WebSearchServer(BaseMCPServer):
-    """MCP server for web search via Tavily API.
+    """MCP server for web search via Tavily API or Firecrawl.
 
     Tavily provides high-quality, AI-optimized search results designed
     for LLM consumption with structured, relevant content.
@@ -221,10 +228,20 @@ class WebSearchServer(BaseMCPServer):
         result = search.execute("latest AI news")
 
     Cost: ~$0.01 per search (Tavily free tier: 1000 searches/month)
+
+    ``provider`` selects ``"tavily"`` or ``"firecrawl"``. When omitted, Tavily
+    is used if ``TAVILY_API_KEY`` is set, then Firecrawl if
+    ``FIRECRAWL_API_KEY`` is set or ``FIRECRAWL_API_URL`` points at a
+    self-hosted instance, so existing setups resolve as before. Firecrawl
+    returns result descriptions only: ``search_depth`` and ``include_answer``
+    do not apply, and there is no ``Summary:`` line. Firecrawl cost is the
+    reported credits at :data:`ipw.cost.pricing.FIRECRAWL_COST_PER_CREDIT`,
+    and zero for a self-hosted instance.
     """
 
     # Cost per search in USD
     COST_PER_SEARCH = 0.01
+    PROVIDERS = ("tavily", "firecrawl")
 
     def __init__(
         self,
@@ -235,12 +252,30 @@ class WebSearchServer(BaseMCPServer):
         max_content_chars: Optional[int] = None,
         max_total_chars: Optional[int] = None,
         telemetry_collector: Optional[Any] = None,
+        provider: Optional[str] = None,
+        firecrawl_api_key: Optional[str] = None,
+        firecrawl_api_url: Optional[str] = None,
     ):
         super().__init__(
             name="web_search",
             telemetry_collector=telemetry_collector,
         )
+        if provider is not None and provider not in self.PROVIDERS:
+            raise ValueError(
+                f"Unknown web_search provider {provider!r}; "
+                f"expected one of {', '.join(self.PROVIDERS)}"
+            )
         self.api_key = api_key or os.environ.get("TAVILY_API_KEY")
+        self.firecrawl_api_key = firecrawl_api_key or os.environ.get("FIRECRAWL_API_KEY")
+        self.firecrawl_api_url = (
+            firecrawl_api_url
+            or os.environ.get("FIRECRAWL_API_URL")
+            or FIRECRAWL_DEFAULT_API_URL
+        ).rstrip("/")
+        # Self-hosted instances usually run without auth, so a custom URL
+        # enables Firecrawl even when no key is set.
+        self.firecrawl_self_hosted = self.firecrawl_api_url != FIRECRAWL_DEFAULT_API_URL
+        self.provider = provider
         self.max_results = max_results
         self.search_depth = search_depth
         self.include_answer = include_answer
@@ -260,15 +295,152 @@ class WebSearchServer(BaseMCPServer):
 
         return self._client
 
+    def _resolve_provider(self) -> str:
+        """Return the provider to use, preferring Tavily when its key is set."""
+        if self.provider:
+            return self.provider
+        if not self.api_key and (self.firecrawl_api_key or self.firecrawl_self_hosted):
+            return "firecrawl"
+        return "tavily"
+
+    def _get_backend(self) -> str:
+        """Record the search provider on submodel call events."""
+        return self._resolve_provider()
+
+    @staticmethod
+    def _format_results(
+        prompt: str,
+        results: List[tuple[str, str, str]],
+        max_content_chars: Optional[int],
+        max_total_chars: Optional[int],
+        summary: Optional[str] = None,
+    ) -> str:
+        """Render (title, url, snippet) results in the shared numbered format."""
+        lines = [f"Web search results for: {prompt}\n"]
+        if summary:
+            lines.append(f"Summary: {summary}\n")
+        for i, (title, url, content_snippet) in enumerate(results, 1):
+            if max_content_chars and len(content_snippet) > max_content_chars:
+                content_snippet = content_snippet[:max_content_chars] + "\n... (result truncated)"
+            lines.append(f"{i}. {title}")
+            lines.append(f"   URL: {url}")
+            lines.append(f"   {content_snippet}")
+            lines.append("")
+
+        content = "\n".join(lines)
+        if max_total_chars and len(content) > max_total_chars:
+            content = content[:max_total_chars] + "\n... (search results truncated)"
+        return content
+
+    def _firecrawl_search(
+        self,
+        prompt: str,
+        max_results: int,
+        max_content_chars: Optional[int],
+        max_total_chars: Optional[int],
+    ) -> MCPToolResult:
+        """Execute web search via the Firecrawl search API."""
+        if not self.firecrawl_api_key and not self.firecrawl_self_hosted:
+            content = (
+                f"[Web search for: {prompt}]\n\n"
+                "Firecrawl web search requires FIRECRAWL_API_KEY environment variable.\n"
+                f"Get an API key at: {FIRECRAWL_KEYS_URL}\n"
+                "Then set: export FIRECRAWL_API_KEY='your-key'"
+            )
+            return MCPToolResult(
+                content=content,
+                usage={},
+                cost_usd=0.0,
+                metadata={"tool": "web_search", "provider": "firecrawl", "error": "no_api_key"},
+            )
+
+        import httpx
+
+        headers = {}
+        if self.firecrawl_api_key:
+            headers["Authorization"] = f"Bearer {self.firecrawl_api_key}"
+        try:
+            response = httpx.post(
+                f"{self.firecrawl_api_url}/v2/search",
+                json={
+                    "query": prompt,
+                    "limit": max_results,
+                    "origin": "intelligence-per-watt",
+                },
+                headers=headers,
+                timeout=30.0,
+            )
+            response.raise_for_status()
+            payload = response.json()
+        except httpx.HTTPStatusError as e:
+            status = e.response.status_code
+            if status == 401:
+                error = "Firecrawl rejected the key in FIRECRAWL_API_KEY"
+            elif status == 402:
+                error = (
+                    "Firecrawl credits are exhausted for this key. Check the plan "
+                    f"or create a new key at {FIRECRAWL_KEYS_URL}"
+                )
+            elif status == 429:
+                error = "Firecrawl rate limit reached (HTTP 429); lower --concurrency or retry later"
+            else:
+                error = f"Firecrawl search failed with HTTP {status}"
+            return MCPToolResult(
+                content=f"Search error: {error}",
+                usage={},
+                cost_usd=0.0,
+                metadata={"tool": "web_search", "provider": "firecrawl", "error": error},
+            )
+        except (httpx.HTTPError, ValueError) as e:
+            return MCPToolResult(
+                content=f"Search error: {type(e).__name__}: {e}",
+                usage={},
+                cost_usd=0.0,
+                metadata={"tool": "web_search", "provider": "firecrawl", "error": str(e)},
+            )
+
+        if not isinstance(payload, dict):
+            payload = {}
+        data = payload.get("data")
+        results = (data.get("web") if isinstance(data, dict) else None) or []
+        content = self._format_results(
+            prompt,
+            [(r.get("title", "No title"), r.get("url", ""), r.get("description", "")) for r in results],
+            max_content_chars,
+            max_total_chars,
+        )
+
+        credits = payload.get("creditsUsed")
+        if self.firecrawl_self_hosted:
+            cost_usd = 0.0
+        elif isinstance(credits, (int, float)):
+            cost_usd = credits * FIRECRAWL_COST_PER_CREDIT
+        else:
+            # Search is billed 2 credits per 10 results.
+            cost_usd = 2 * -(-max_results // 10) * FIRECRAWL_COST_PER_CREDIT
+
+        return MCPToolResult(
+            content=content,
+            usage={},
+            cost_usd=cost_usd,
+            metadata={
+                "tool": "web_search",
+                "provider": "firecrawl",
+                "query": prompt,
+                "num_results": len(results),
+                "credits_used": credits,
+            },
+        )
+
     def _execute_impl(self, prompt: str, **params: Any) -> MCPToolResult:
-        """Execute web search via Tavily API.
+        """Execute web search via Tavily API or Firecrawl.
 
         Args:
             prompt: Search query
             **params: Additional parameters:
                 - max_results: Number of results (default: 5)
-                - search_depth: 'basic' or 'advanced' (default: 'basic')
-                - include_answer: Include AI-generated answer (default: True)
+                - search_depth: 'basic' or 'advanced' (default: 'basic', Tavily only)
+                - include_answer: Include AI-generated answer (default: True, Tavily only)
 
         Returns:
             MCPToolResult with formatted search results
@@ -279,19 +451,25 @@ class WebSearchServer(BaseMCPServer):
         max_content_chars = params.get("max_content_chars", self.max_content_chars)
         max_total_chars = params.get("max_total_chars", self.max_total_chars)
 
+        if self._resolve_provider() == "firecrawl":
+            return self._firecrawl_search(
+                prompt, max_results, max_content_chars, max_total_chars
+            )
+
         # If no API key, return helpful message
         if not self.api_key:
             content = (
                 f"[Web search for: {prompt}]\n\n"
                 "Web search requires TAVILY_API_KEY environment variable.\n"
                 "Get a free API key at: https://tavily.com\n"
-                "Then set: export TAVILY_API_KEY='your-key'"
+                "Then set: export TAVILY_API_KEY='your-key'\n"
+                "Or set FIRECRAWL_API_KEY to search with Firecrawl."
             )
             return MCPToolResult(
                 content=content,
                 usage={},
                 cost_usd=0.0,
-                metadata={"tool": "web_search", "error": "no_api_key"},
+                metadata={"tool": "web_search", "provider": "tavily", "error": "no_api_key"},
             )
 
         try:
@@ -303,29 +481,15 @@ class WebSearchServer(BaseMCPServer):
                 include_answer=include_answer,
             )
 
-            # Format results
-            lines = [f"Web search results for: {prompt}\n"]
-
-            # Include AI-generated answer if available
-            if include_answer and response.get("answer"):
-                lines.append(f"Summary: {response['answer']}\n")
-
-            # Format individual results
             results = response.get("results", [])
-            for i, result in enumerate(results, 1):
-                title = result.get("title", "No title")
-                url = result.get("url", "")
-                content_snippet = result.get("content", "")
-                if max_content_chars and len(content_snippet) > max_content_chars:
-                    content_snippet = content_snippet[:max_content_chars] + "\n... (result truncated)"
-                lines.append(f"{i}. {title}")
-                lines.append(f"   URL: {url}")
-                lines.append(f"   {content_snippet}")
-                lines.append("")
-
-            content = "\n".join(lines)
-            if max_total_chars and len(content) > max_total_chars:
-                content = content[:max_total_chars] + "\n... (search results truncated)"
+            content = self._format_results(
+                prompt,
+                [(r.get("title", "No title"), r.get("url", ""), r.get("content", "")) for r in results],
+                max_content_chars,
+                max_total_chars,
+                # Include AI-generated answer if available
+                summary=response.get("answer") if include_answer else None,
+            )
 
             return MCPToolResult(
                 content=content,
@@ -333,6 +497,7 @@ class WebSearchServer(BaseMCPServer):
                 cost_usd=self.COST_PER_SEARCH,
                 metadata={
                     "tool": "web_search",
+                    "provider": "tavily",
                     "query": prompt,
                     "num_results": len(results),
                     "search_depth": search_depth,
@@ -344,14 +509,14 @@ class WebSearchServer(BaseMCPServer):
                 content=f"Error: {e}",
                 usage={},
                 cost_usd=0.0,
-                metadata={"tool": "web_search", "error": "import_error"},
+                metadata={"tool": "web_search", "provider": "tavily", "error": "import_error"},
             )
         except Exception as e:
             return MCPToolResult(
                 content=f"Search error: {type(e).__name__}: {e}",
                 usage={},
                 cost_usd=0.0,
-                metadata={"tool": "web_search", "error": str(e)},
+                metadata={"tool": "web_search", "provider": "tavily", "error": str(e)},
             )
 
 

@@ -60,6 +60,7 @@ All prices are per 1 million tokens in USD.
 | Tool | Cost | Unit |
 |------|------|------|
 | Tavily web search | $0.01 | per search |
+| Firecrawl web search | $0.00083 | per credit (2 credits per 10 results, Standard plan rate) |
 
 ## Usage
 

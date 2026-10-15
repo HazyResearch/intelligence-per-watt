@@ -75,6 +75,9 @@ GEMINI_PRICING: dict[str, dict[str, float]] = {
 # Tool pricing (flat per-call)
 # ---------------------------------------------------------------------------
 TAVILY_COST_PER_SEARCH: float = 0.01
+# Firecrawl bills credits (search: 2 per 10 results). Rate is the Standard plan,
+# billed yearly: $83 for 100,000 credits.
+FIRECRAWL_COST_PER_CREDIT: float = 0.00083
 
 # ---------------------------------------------------------------------------
 # Unified lookup
@@ -120,6 +123,7 @@ def calculate_cost(
 
 __all__ = [
     "ANTHROPIC_PRICING",
+    "FIRECRAWL_COST_PER_CREDIT",
     "GEMINI_PRICING",
     "OPENAI_PRICING",
     "PROVIDER_PRICING",

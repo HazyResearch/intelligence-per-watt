@@ -128,6 +128,14 @@ Model Context Protocol servers provide tool capabilities to agents. Each MCP ser
 | `GrepServer` | Grep-based text search |
 | `HybridServer` | Combined BM25 + dense retrieval |
 
+**Search server** -- `web_search`, a default tool for the GAIA, FRAMES, DeepResearchBench, LiveResearchBench and BrowseComp datasets:
+
+| Server | Backend |
+|--------|---------|
+| `WebSearchServer` | Tavily API (`TAVILY_API_KEY`) or [Firecrawl](https://www.firecrawl.dev/app/api-keys?utm_source=intelligence-per-watt&utm_medium=integration) search API (`FIRECRAWL_API_KEY`) |
+
+Tavily is used when `TAVILY_API_KEY` is set, and Firecrawl when only `FIRECRAWL_API_KEY` is. To pick one explicitly, set `provider` on the `web_search` entry of `mcp_tools` in `--agent-kwargs`, for example `{"type": "web_search", "provider": "firecrawl"}`. Set `FIRECRAWL_API_URL` to use a [self-hosted Firecrawl](https://docs.firecrawl.dev/contributing/self-host); no key is needed if the instance runs without auth, and its searches are recorded at zero cost. The two providers return different content (Firecrawl returns result descriptions, with no `Summary:` answer, and ignores `search_depth` and `include_answer`), so compare accuracy within one provider. The run summary records which one was used as `web_search_provider`.
+
 ---
 
 ## Writing a Custom Agent
