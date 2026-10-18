@@ -107,6 +107,9 @@ class EnergyMonitorCollector:
             temperature_celsius=_safe_float(
                 getattr(message, "temperature_celsius", None)
             ),
+            cpu_temperature_celsius=_safe_float(
+                getattr(message, "cpu_temperature_celsius", None)
+            ),
             gpu_memory_usage_mb=_safe_float(
                 getattr(message, "gpu_memory_usage_mb", None)
             ),

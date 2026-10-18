@@ -102,6 +102,7 @@ class TelemetryReading:
     power_watts: Optional[float] = None
     energy_joules: Optional[float] = None
     temperature_celsius: Optional[float] = None
+    cpu_temperature_celsius: Optional[float] = None
     gpu_memory_usage_mb: Optional[float] = None
     gpu_memory_total_mb: Optional[float] = None
     cpu_memory_usage_mb: Optional[float] = None

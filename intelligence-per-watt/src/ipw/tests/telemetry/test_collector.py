@@ -143,6 +143,20 @@ class TestAppleNeuralEngineFields:
         assert reading.ane_power_watts is None
         assert reading.ane_energy_joules is None
 
+    def test_cpu_temperature_extracted(self) -> None:
+        reading = self._convert(
+            temperature_celsius=48.5, cpu_temperature_celsius=61.25, platform="macos"
+        )
+
+        assert reading.cpu_temperature_celsius == 61.25
+        assert reading.temperature_celsius == 48.5
+
+    def test_cpu_temperature_unavailable_sentinel_becomes_none(self) -> None:
+        # The macOS collector sends -1 until macmon's first reading lands.
+        reading = self._convert(cpu_temperature_celsius=-1.0)
+
+        assert reading.cpu_temperature_celsius is None
+
     def test_gpu_utilization_and_total_memory_extracted(self) -> None:
         """Dropped alongside the ANE fields; these populate on NVIDIA hosts."""
         reading = self._convert(
@@ -192,6 +206,7 @@ class TestProtoDescriptorCoverage:
             cpu_energy_joules=42.0,
             ane_power_watts=6.5,
             ane_energy_joules=15.25,
+            cpu_temperature_celsius=61.25,
             platform="macos",
         )
 
@@ -204,3 +219,4 @@ class TestProtoDescriptorCoverage:
         assert reading.cpu_energy_joules == 42.0
         assert reading.ane_power_watts == 6.5
         assert reading.ane_energy_joules == 15.25
+        assert reading.cpu_temperature_celsius == 61.25

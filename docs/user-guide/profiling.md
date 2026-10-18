@@ -258,6 +258,8 @@ All MCP tool servers are in `ipw/agents/mcp/` and implement the `BaseMCPServer` 
 runs/profile_<hardware>_<model>_<dataset>/
     data-00000-of-00001.arrow   # Per-query metrics (Arrow dataset)
     summary.json                # Run metadata
+    telemetry_timeline.csv      # Every telemetry sample (~20/s) over the run
+    query_windows.csv           # Start/end time of each query, warmup included
     analysis/
         accuracy.json           # IPJ/IPW and scoring results
 ```
@@ -267,10 +269,27 @@ runs/profile_<hardware>_<model>_<dataset>/
 ```
 runs/run_<agent>_<model>_<dataset>/
     traces.jsonl               # One QueryTrace per line (per-turn details)
+    telemetry_timeline.csv     # Every telemetry sample over the run
     data-*.arrow               # HuggingFace dataset format
     summary.json               # Run metadata
     analysis/
         accuracy.json          # Scoring results
+```
+
+### Telemetry timeline
+
+Per-query records only keep summary stats. `telemetry_timeline.csv` keeps the raw
+series: one row per sample with a Unix `timestamp`, `time_s` since the first
+sample, and every power, energy, temperature and memory field (empty where
+unavailable). `temperature_celsius` is the GPU temperature. It is streamed to
+disk during the run, so it covers the whole run even when the in-memory
+telemetry buffer is smaller.
+
+Plot temperature and power against time, with query windows shaded:
+
+```bash
+ipw plot runs/profile_<hardware>_<model>_<dataset> -v timeline
+ipw plot runs/profile_<hardware>_<model>_<dataset> -v timeline --option panels=temperature
 ```
 
 ### summary.json

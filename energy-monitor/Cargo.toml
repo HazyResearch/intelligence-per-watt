@@ -35,6 +35,8 @@ nvml-wrapper = "0.11.0"
 async-process = "2.3"
 futures = "0.3"
 plist = "1.7"
+# Sudoless SMC temperature readings; default features pull in the TUI app.
+macmon = { version = "0.10", default-features = false }
 
 [build-dependencies]
 tonic-prost-build = "0.14.2"

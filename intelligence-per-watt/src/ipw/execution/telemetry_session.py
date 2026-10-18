@@ -9,10 +9,12 @@ import time
 from collections import deque
 from contextlib import AbstractContextManager
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Deque, Iterable, Iterator, Optional
 
 from ..core.types import TelemetryReading
 from ..telemetry import EnergyMonitorCollector
+from .telemetry_timeline import TimelineWriter
 
 LOGGER = logging.getLogger(__name__)
 
@@ -72,6 +74,7 @@ class TelemetrySession(AbstractContextManager["TelemetrySession"]):
         *,
         buffer_seconds: Optional[float],
         max_samples: Optional[int],
+        timeline_path: Optional[Path] = None,
     ) -> None:
         """Capture telemetry readings in a background thread.
 
@@ -82,11 +85,20 @@ class TelemetrySession(AbstractContextManager["TelemetrySession"]):
         default silently truncated every ``ipw profile`` query longer than 30 s
         from the first commit onward. Size these to the longest query the
         caller can produce; pass ``None`` to disable a bound entirely.
+
+        ``timeline_path``, if given, streams every sample to that CSV from the
+        start of the session. Callers that only learn the path later can call
+        ``start_timeline()`` instead.
         """
         self._collector = collector
         self._buffer_seconds = buffer_seconds
         self._max_samples = max_samples
         self._samples: Deque[TelemetrySample] = deque(maxlen=max_samples)
+        self._timeline_path = timeline_path
+        self._timeline: Optional[TimelineWriter] = None
+        # Guards appends to `_samples` together with timeline writes, so a
+        # timeline started mid-run neither skips nor duplicates a sample.
+        self._timeline_lock = threading.Lock()
         self._thread: Optional[threading.Thread] = None
         self._stop_event = threading.Event()
         self._collector_ctx = None
@@ -96,6 +108,8 @@ class TelemetrySession(AbstractContextManager["TelemetrySession"]):
     def __enter__(self) -> "TelemetrySession":
         self._collector_ctx = self._collector.start()
         self._collector_ctx.__enter__()
+        if self._timeline_path is not None:
+            self.start_timeline(self._timeline_path)
         self._stop_event.clear()
         self._thread = threading.Thread(target=self._run, daemon=True)
         self._thread.start()
@@ -105,6 +119,9 @@ class TelemetrySession(AbstractContextManager["TelemetrySession"]):
         self._stop_event.set()
         if self._thread and self._thread.is_alive():
             self._thread.join(timeout=2.0)
+        with self._timeline_lock:
+            if self._timeline is not None:
+                self._timeline.close()
         if self._collector_ctx is not None:
             self._collector_ctx.__exit__(None, None, None)
 
@@ -118,15 +135,33 @@ class TelemetrySession(AbstractContextManager["TelemetrySession"]):
                     if reading.timestamp_nanos is not None
                     else time.time()
                 )
-                self._samples.append(
-                    TelemetrySample(timestamp=timestamp, reading=reading)
-                )
+                with self._timeline_lock:
+                    self._samples.append(
+                        TelemetrySample(timestamp=timestamp, reading=reading)
+                    )
+                    if self._timeline is not None:
+                        self._timeline.write(timestamp, reading)
                 self._trim(timestamp)
                 if self._stop_event.is_set():
                     break
         except Exception:  # pragma: no cover - surface to caller on access
             self._stop_event.set()
             raise
+
+    def start_timeline(self, path: Path) -> Path:
+        """Stream every sample to a CSV at ``path`` from now until exit.
+
+        Samples still in the buffer are written first, so the timeline also
+        covers whatever was captured before the caller knew where to put it
+        (for example, before the run's output directory was resolved).
+        """
+        with self._timeline_lock:
+            if self._timeline is not None:
+                self._timeline.close()
+            self._timeline = TimelineWriter(path)
+            for sample in self._samples:
+                self._timeline.write(sample.timestamp, sample.reading)
+            return self._timeline.path
 
     def _visible_gpu_parts(self) -> list[str]:
         visible = os.getenv("CUDA_VISIBLE_DEVICES", "")

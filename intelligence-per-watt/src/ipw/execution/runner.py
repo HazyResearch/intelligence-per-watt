@@ -26,6 +26,11 @@ from ..core.types import DatasetRecord, GpuInfo, ProfilerConfig, Response, Syste
 from ..telemetry import EnergyMonitorCollector
 from .hardware import derive_hardware_label
 from .telemetry_session import TelemetrySample, TelemetrySession, WindowCoverage
+from .telemetry_timeline import (
+    QUERY_WINDOWS_FILENAME,
+    TIMELINE_FILENAME,
+    QueryWindowWriter,
+)
 from .types import (
     ComputeMetrics,
     DerivedEfficiencyMetrics,
@@ -212,14 +217,20 @@ class ProfilerRunner:
         # Prime hardware metadata early so the output directory label is accurate.
         self._prime_hardware_metadata(telemetry)
         # Prepare output directory (and confirm overwrite) before any inference.
-        self._ensure_output_prepared(dataset)
-        with tqdm(total=total_queries, desc="Profiling", unit="query") as progress:
+        output_path = self._ensure_output_prepared(dataset)
+        # Raw series for plotting against time; per-query records only keep stats.
+        output_path.mkdir(parents=True, exist_ok=True)
+        telemetry.start_timeline(output_path / TIMELINE_FILENAME)
+        with QueryWindowWriter(output_path / QUERY_WINDOWS_FILENAME) as query_windows, tqdm(
+            total=total_queries, desc="Profiling", unit="query"
+        ) as progress:
             for index, record in iterator:
                 if index >= total_with_warmup:
                     break
                 start = time.time()
                 response = self._invoke_client(client, record)
                 end = time.time()
+                query_windows.write(index, start, end, warmup=index < warmup)
 
                 if index < warmup:
                     progress.set_postfix_str(f"warmup {index + 1}/{warmup}")
@@ -308,6 +319,9 @@ class ProfilerRunner:
         )
         temperature_stats = _stat_summary(
             [reading.temperature_celsius for reading in telemetry_readings]
+        )
+        cpu_temperature_stats = _stat_summary(
+            [reading.cpu_temperature_celsius for reading in telemetry_readings]
         )
         cpu_memory_stats = _stat_summary(
             [reading.cpu_memory_usage_mb for reading in telemetry_readings]
@@ -499,6 +513,7 @@ class ProfilerRunner:
                 basis=basis_name,
             ),
             temperature_metrics=temperature_stats,
+            cpu_temperature_metrics=cpu_temperature_stats,
             token_metrics=TokenMetrics(
                 input=prompt_tokens,
                 output=completion_tokens,

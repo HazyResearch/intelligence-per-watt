@@ -192,6 +192,14 @@ class TestProfilerRunner:
         summary = json.loads(summary_path.read_text())
         assert summary["profiler_config"]["model"] == "test-model"
         assert "versions" in summary
+        # The raw series goes next to the results, plus one window per query
+        mock_telemetry.start_timeline.assert_called_once_with(
+            expected_dir / "telemetry_timeline.csv"
+        )
+        windows = (expected_dir / "query_windows.csv").read_text().splitlines()
+        assert windows[0] == "query_index,warmup,start_timestamp,end_timestamp"
+        assert len(windows) == 2
+        assert windows[1].startswith("0,0,")
 
     @patch("ipw.execution.runner.DatasetRegistry")
     @patch("ipw.execution.runner.ClientRegistry")
@@ -456,6 +464,34 @@ class TestProfilerRunner:
         assert metrics.token_metrics.input == 10
         assert metrics.token_metrics.output == 5
         assert metrics.token_metrics.total == 15
+
+    def test_build_record_summarizes_cpu_and_gpu_temperature(self) -> None:
+        runner = ProfilerRunner(
+            ProfilerConfig(model="test-model", client_id="test", dataset_id="test")
+        )
+        record = DatasetRecord(problem="test", answer="answer", subject="math")
+        response = Response(
+            content="response",
+            usage=ChatUsage(prompt_tokens=10, completion_tokens=5, total_tokens=15),
+            time_to_first_token_ms=100.0,
+        )
+        samples = [
+            TelemetrySample(
+                timestamp=float(i),
+                reading=TelemetryReading(
+                    temperature_celsius=gpu, cpu_temperature_celsius=cpu
+                ),
+            )
+            for i, (cpu, gpu) in enumerate([(50.0, 45.0), (60.0, 47.0), (None, None)])
+        ]
+
+        result = runner._build_record(0, record, response, samples, 0.0, 2.0)
+
+        metrics = result.model_metrics["test-model"]
+        assert metrics.cpu_temperature_metrics.min == 50.0
+        assert metrics.cpu_temperature_metrics.max == 60.0
+        assert metrics.cpu_temperature_metrics.avg == 55.0
+        assert metrics.temperature_metrics.max == 47.0
 
     def test_build_record_handles_zero_completion_tokens(self) -> None:
         config = ProfilerConfig(

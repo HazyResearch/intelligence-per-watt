@@ -17,7 +17,7 @@ src/ipw/
 ├── evaluation/        Judge handlers used during scoring
 ├── telemetry/         Energy monitoring integration (gRPC client, launcher)
 ├── tests/             Test suite
-└── visualization/     Plotting and visualization (KDE, regression plots)
+└── visualization/     Plotting and visualization (KDE, regression, telemetry timeline plots)
 ```
 
 ## Installation

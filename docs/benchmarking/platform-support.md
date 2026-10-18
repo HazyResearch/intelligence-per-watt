@@ -8,7 +8,8 @@ The energy monitor auto-detects the best available collector for your hardware. 
 |--------|:---:|:---:|:---:|:---:|:---:|
 | GPU power (W) | yes | yes | yes | -- | -- |
 | GPU energy (J) | yes | yes | yes | -- | -- |
-| GPU temperature (C) | yes | yes | -- | -- | -- |
+| GPU temperature (C) | yes | yes | yes | -- | -- |
+| CPU temperature (C) | -- | -- | yes | -- | -- |
 | GPU memory usage (MB) | yes | yes | -- | -- | -- |
 | GPU memory total (MB) | yes | yes | -- | -- | -- |
 | GPU compute utilization (%) | yes | yes | -- | -- | -- |
@@ -40,7 +41,9 @@ RAPL integration for CPU energy works the same as with NVIDIA.
 
 Uses the `powermetrics` system utility to capture power data for CPU, GPU, and ANE (Apple Neural Engine). Requires root privileges -- configure passwordless sudo for `powermetrics` (see [Benchmarking Overview](overview.md#building-the-energy-monitor)).
 
-**Limitations:** No GPU memory reporting (unified memory architecture), no GPU utilization percentage, no temperature reporting, no GPU info.
+CPU and GPU temperatures come from the [macmon](https://github.com/vladkens/macmon) library, linked into the energy monitor (no `sudo` and no separate install). They are the **average** across each block's SMC sensors, not the hotspot, update about once a second, and lag the die by roughly a second -- fine for trends over a run, not for sub-second bursts or throttling analysis. While the GPU is power-gated its sensors are off and the GPU temperature reads as unavailable.
+
+**Limitations:** No GPU memory reporting (unified memory architecture), no GPU utilization percentage, no GPU info.
 
 ### Reading energy on Apple Silicon
 
@@ -138,8 +141,11 @@ the `soc_*` variants there. See [Reading energy on Apple Silicon](#reading-energ
 | Metric | Unit | Description |
 |--------|------|-------------|
 | `temperature_metrics.{avg,max,min}` | C | GPU temperature stats during query |
+| `cpu_temperature_metrics.{avg,max,min}` | C | CPU temperature stats during query |
 
-Available on: NVIDIA, AMD. Returns -1 on Apple Silicon and null collector.
+GPU temperature is available on NVIDIA, AMD and Apple Silicon; CPU temperature on Apple Silicon only. Unavailable readings are `null`.
+
+For temperature **over time** rather than per-query stats, see `telemetry_timeline.csv` and `ipw plot -v timeline` in [Profiling output](../user-guide/profiling.md#telemetry-timeline).
 
 ### Memory Metrics
 

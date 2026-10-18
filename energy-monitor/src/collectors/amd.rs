@@ -104,6 +104,7 @@ impl TelemetryCollector for AmdCollector {
             power_watts: -1.0,
             energy_joules: -1.0,
             temperature_celsius: -1.0,
+            cpu_temperature_celsius: -1.0,
             gpu_memory_usage_mb: -1.0,
             gpu_memory_total_mb: -1.0,
             cpu_memory_usage_mb: -1.0,

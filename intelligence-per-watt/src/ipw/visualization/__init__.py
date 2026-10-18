@@ -11,6 +11,7 @@ def ensure_registered() -> None:
     from . import (
         output_kde,  # noqa: F401  (registers on import)
         regression,  # noqa: F401  (registers on import)
+        timeline,  # noqa: F401  (registers on import)
     )
 
 

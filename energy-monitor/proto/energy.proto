@@ -31,6 +31,9 @@ message TelemetryReading {
   double gpu_tensor_core_utilization_pct = 16;       // Tensor core utilization (%), -1 if unavailable
   double gpu_memory_total_mb = 17;                   // Total GPU memory in MB (-1 if unavailable)
 
+  // CPU temperature (instantaneous)
+  double cpu_temperature_celsius = 18;       // Average CPU die temperature (-1 if unavailable)
+
   // Metadata
   string platform = 6;                       // "nvidia", "macos", or "null"
   int64 timestamp_nanos = 7;                 // Unix timestamp in nanoseconds

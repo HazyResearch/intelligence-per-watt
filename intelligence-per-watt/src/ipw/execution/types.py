@@ -158,7 +158,9 @@ class ModelMetrics:
     latency_metrics: LatencyMetrics = field(default_factory=LatencyMetrics)
     memory_metrics: MemoryMetrics = field(default_factory=MemoryMetrics)
     power_metrics: PowerMetrics = field(default_factory=PowerMetrics)
+    # GPU temperature, kept under its original name for existing datasets
     temperature_metrics: MetricStats = field(default_factory=MetricStats)
+    cpu_temperature_metrics: MetricStats = field(default_factory=MetricStats)
     token_metrics: TokenMetrics = field(default_factory=TokenMetrics)
     phase_metrics: PhaseMetrics = field(default_factory=PhaseMetrics)
     hardware_utilization: HardwareUtilization = field(default_factory=HardwareUtilization)

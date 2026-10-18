@@ -17,13 +17,13 @@ The service implements a collector pattern with automatic platform detection:
 Each collector samples hardware metrics and returns:
 - Power consumption (watts)
 - Energy usage (joules)
-- GPU temperature
+- GPU temperature (and CPU temperature on macOS)
 - Memory usage
 - GPU information
 
 ## Supported Platforms
 
-- **macOS**: Uses `powermetrics` for Apple Silicon and Intel Macs
+- **macOS**: Uses `powermetrics` for power and the [macmon](https://github.com/vladkens/macmon) library for CPU/GPU temperature (Apple Silicon)
 - **Linux/Windows + NVIDIA**: Uses NVML (NVIDIA Management Library)
 - **Linux + AMD**: Uses ROCm SMI library
 
@@ -62,7 +62,7 @@ Options:
 - `--port`: Port number (default: 50053)
 - `--collection-interval-ms`: Sample interval in milliseconds (default: 50)
 
-macOS requires `sudo` privileges for `powermetrics`.
+macOS requires `sudo` privileges for `powermetrics`. Temperatures (via macmon) work without `sudo`.
 
 ## Adding Custom Collectors
 

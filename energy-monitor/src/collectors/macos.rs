@@ -4,13 +4,109 @@ use anyhow::Result;
 use async_process::{Command, Stdio};
 use async_trait::async_trait;
 use futures::io::AsyncReadExt;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 use tracing::{debug, info, warn};
 
 use super::{CollectorSample, TelemetryCollector};
 use crate::energy::GpuInfo;
 
-/// macOS telemetry collector using powermetrics
+/// How often the macmon thread refreshes temperatures. The SMC averages it
+/// reads update only about once a second, so sampling faster just repeats them.
+const TEMPERATURE_INTERVAL_MS: u32 = 500;
+
+/// Readings below this are treated as unavailable. When the GPU is power-gated
+/// its SMC sensors switch off and macmon returns a fixed placeholder (9.2 C on
+/// an M1 Pro), which would otherwise drag down per-query minimums and averages.
+/// A running die never sits this far below room temperature. GPU activity
+/// can't be used instead: the readings lag it by about a second.
+const MIN_PLAUSIBLE_DIE_CELSIUS: f32 = 15.0;
+
+/// CPU and GPU die temperatures from macmon, refreshed on a background thread.
+///
+/// `macmon::Sampler::get_metrics` blocks for its whole interval, so it can't sit
+/// on the 50ms collect path. The thread caches the latest reading and `collect()`
+/// copies it. Values are the average across each block's SMC sensors, not the
+/// hotspot, and lag the die by roughly a second.
+struct TemperatureSampler {
+    // (cpu_celsius, gpu_celsius); -1 until the first reading or after a failure
+    latest: Arc<Mutex<(f64, f64)>>,
+    stop: Arc<AtomicBool>,
+}
+
+impl TemperatureSampler {
+    fn start() -> Self {
+        let latest = Arc::new(Mutex::new((-1.0, -1.0)));
+        let stop = Arc::new(AtomicBool::new(false));
+        let thread_latest = latest.clone();
+        let thread_stop = stop.clone();
+
+        let spawned = std::thread::Builder::new()
+            .name("macmon-temperature".to_string())
+            .spawn(move || {
+                let mut sampler = match macmon::Sampler::new() {
+                    Ok(sampler) => sampler,
+                    Err(e) => {
+                        warn!("macmon unavailable; temperatures will be reported as -1: {}", e);
+                        return;
+                    }
+                };
+                info!(
+                    "macmon temperature sampler started ({}ms interval)",
+                    TEMPERATURE_INTERVAL_MS
+                );
+
+                let mut warned = false;
+                while !thread_stop.load(Ordering::Relaxed) {
+                    let reading = match sampler.get_metrics(TEMPERATURE_INTERVAL_MS) {
+                        Ok(metrics) => (
+                            Self::celsius_or_unavailable(metrics.temp.cpu_temp_avg),
+                            Self::celsius_or_unavailable(metrics.temp.gpu_temp_avg),
+                        ),
+                        Err(e) => {
+                            if !warned {
+                                warn!("macmon temperature read failed: {}", e);
+                                warned = true;
+                            }
+                            std::thread::sleep(std::time::Duration::from_millis(
+                                TEMPERATURE_INTERVAL_MS as u64,
+                            ));
+                            // Report unavailable rather than a stale reading
+                            (-1.0, -1.0)
+                        }
+                    };
+                    *thread_latest.lock().unwrap() = reading;
+                }
+            });
+
+        if let Err(e) = spawned {
+            warn!("Failed to spawn macmon temperature thread: {}", e);
+        }
+
+        Self { latest, stop }
+    }
+
+    fn celsius_or_unavailable(value: Option<f32>) -> f64 {
+        match value {
+            Some(celsius) if celsius >= MIN_PLAUSIBLE_DIE_CELSIUS => celsius as f64,
+            _ => -1.0,
+        }
+    }
+
+    /// Latest (cpu_celsius, gpu_celsius), -1 where unavailable.
+    fn latest(&self) -> (f64, f64) {
+        *self.latest.lock().unwrap()
+    }
+}
+
+impl Drop for TemperatureSampler {
+    fn drop(&mut self) {
+        // The thread exits after its current interval
+        self.stop.store(true, Ordering::Relaxed);
+    }
+}
+
+/// macOS telemetry collector using powermetrics for power and macmon for temperature
 ///
 /// Uses monotonic energy tracking: stores baseline at init, reports delta from baseline.
 /// This matches the NVIDIA collector behavior and prevents energy undercounting from
@@ -30,6 +126,7 @@ pub struct MacOSCollector {
     ane_energy_accumulated_j: Arc<Mutex<f64>>,
     last_ane_power_w: Arc<Mutex<f64>>,
     available: Arc<Mutex<bool>>,
+    temperatures: TemperatureSampler,
     // Debug: track if we've logged processor keys
     logged_keys: Arc<Mutex<bool>>,
 }
@@ -87,6 +184,7 @@ impl MacOSCollector {
             ane_energy_accumulated_j: Arc::new(Mutex::new(0.0)),
             last_ane_power_w: Arc::new(Mutex::new(0.0)),
             available: Arc::new(Mutex::new(true)),
+            temperatures: TemperatureSampler::start(),
             logged_keys: Arc::new(Mutex::new(false)),
         })
     }
@@ -104,6 +202,7 @@ impl MacOSCollector {
             ane_energy_accumulated_j: Arc::new(Mutex::new(0.0)),
             last_ane_power_w: Arc::new(Mutex::new(0.0)),
             available: Arc::new(Mutex::new(false)),
+            temperatures: TemperatureSampler::start(),
             logged_keys: Arc::new(Mutex::new(false)),
         }
     }
@@ -372,6 +471,8 @@ impl TelemetryCollector for MacOSCollector {
             &self.ane_energy_accumulated_j,
         );
 
+        let (cpu_temperature_celsius, gpu_temperature_celsius) = self.temperatures.latest();
+
         let cpu_memory_usage_mb = {
             let mut sys = sysinfo::System::new();
             sys.refresh_memory();
@@ -382,7 +483,8 @@ impl TelemetryCollector for MacOSCollector {
         Ok(CollectorSample {
             power_watts: if gpu_power_watts >= 0.0 { gpu_power_watts } else { -1.0 },
             energy_joules: if gpu_energy_joules >= 0.0 { gpu_energy_joules } else { -1.0 },
-            temperature_celsius: -1.0,
+            temperature_celsius: gpu_temperature_celsius,
+            cpu_temperature_celsius,
             gpu_memory_usage_mb: -1.0,
             gpu_memory_total_mb: -1.0,
             cpu_memory_usage_mb,
@@ -416,5 +518,26 @@ impl Drop for MacOSCollector {
                 let _ = child.kill();
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::TemperatureSampler;
+
+    #[test]
+    fn real_readings_pass_through() {
+        assert_eq!(TemperatureSampler::celsius_or_unavailable(Some(61.5)), 61.5);
+    }
+
+    #[test]
+    fn gated_gpu_placeholder_is_unavailable() {
+        // macmon's value for a power-gated M1 Pro GPU
+        assert_eq!(TemperatureSampler::celsius_or_unavailable(Some(9.2)), -1.0);
+    }
+
+    #[test]
+    fn missing_sensor_is_unavailable() {
+        assert_eq!(TemperatureSampler::celsius_or_unavailable(None), -1.0);
     }
 }

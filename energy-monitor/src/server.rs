@@ -149,6 +149,7 @@ fn assemble_reading(
         power_watts: sample.power_watts,
         energy_joules: sample.energy_joules,
         temperature_celsius: sample.temperature_celsius,
+        cpu_temperature_celsius: sample.cpu_temperature_celsius,
         gpu_memory_usage_mb: sample.gpu_memory_usage_mb,
         gpu_memory_total_mb: sample.gpu_memory_total_mb,
         cpu_memory_usage_mb: sample.cpu_memory_usage_mb,

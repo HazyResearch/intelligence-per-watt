@@ -537,6 +537,7 @@ def run_cmd(
     from ipw.execution.exporters import export_artifacts_manifest, export_hf_dataset, export_jsonl, export_summary_json
     from ipw.execution.nvidia_smi_telemetry import NvidiaSmiTelemetrySession
     from ipw.execution.telemetry_session import TelemetrySession
+    from ipw.execution.telemetry_timeline import TIMELINE_FILENAME
     from ipw.telemetry import EnergyMonitorCollector
     from ipw.telemetry.events import EventRecorder
 
@@ -789,6 +790,7 @@ def run_cmd(
                 collector,
                 buffer_seconds=resolved_telemetry_buffer_seconds,
                 max_samples=telemetry_max_samples,
+                timeline_path=run_dir / TIMELINE_FILENAME,
             )
         with telemetry_context as telemetry:
             traces = _run_with_telemetry(telemetry)
