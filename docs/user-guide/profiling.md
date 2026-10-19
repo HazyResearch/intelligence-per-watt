@@ -285,7 +285,7 @@ unavailable). `temperature_celsius` is the GPU temperature. It is streamed to
 disk during the run, so it covers the whole run even when the in-memory
 telemetry buffer is smaller.
 
-Plot temperature and power against time, with query windows shaded:
+Plot temperature and power against time, with the warmup queries shaded:
 
 ```bash
 ipw plot runs/profile_<hardware>_<model>_<dataset> -v timeline

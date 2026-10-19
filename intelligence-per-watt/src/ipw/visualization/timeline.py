@@ -86,23 +86,27 @@ def _create_timeline_plot(
     )
     stats: dict[str, dict[str, float]] = {}
 
+    # One box spanning every warmup query; they are excluded from results.
+    # Measured queries run back to back, so per-query shading only adds noise.
+    warmup_span = None
+    if windows is not None:
+        warmup = windows[windows["warmup"].astype(bool)]
+        if not warmup.empty:
+            warmup_span = (
+                float(warmup["start_s"].min()) / scale,
+                float(warmup["end_s"].max()) / scale,
+            )
+
     for ax, panel in zip(axes[:, 0], panels):
         ylabel, series = _PANELS[panel]
-        if windows is not None:
-            for position, row in enumerate(windows.itertuples()):
-                if row.warmup:
-                    # Lightest: warmup queries are excluded from results
-                    alpha = 0.06
-                else:
-                    # Alternate so back-to-back queries stay distinguishable
-                    alpha = 0.20 if position % 2 == 0 else 0.11
-                ax.axvspan(
-                    row.start_s / scale,
-                    row.end_s / scale,
-                    color="#9a9a9a",
-                    alpha=alpha,
-                    linewidth=0,
-                )
+        if warmup_span is not None:
+            ax.axvspan(
+                *warmup_span,
+                color="#9a9a9a",
+                alpha=0.2,
+                linewidth=0,
+                label="Warmup",
+            )
         for column, label, color in series:
             if column not in plotted:
                 continue
@@ -116,7 +120,7 @@ def _create_timeline_plot(
         ax.set_ylabel(ylabel)
         ax.grid(alpha=0.3)
         if ax.get_legend_handles_labels()[0]:
-            ax.legend(loc="upper left", frameon=False, ncol=3)
+            ax.legend(loc="upper left", frameon=False, ncol=4)
         if panel == "power":
             ax.set_ylim(bottom=0)
 
@@ -134,8 +138,8 @@ def _create_timeline_plot(
 class TelemetryTimeline(VisualizationProvider):
     """Plot temperature and power over a run from ``telemetry_timeline.csv``.
 
-    Shaded bands mark query windows from ``query_windows.csv`` when present
-    (lighter for warmup queries).
+    A shaded box marks the warmup queries from ``query_windows.csv`` when
+    present.
 
     Options:
         panels: ``temperature``, ``power``, or ``both`` (default).
@@ -200,7 +204,10 @@ class TelemetryTimeline(VisualizationProvider):
         platform = timeline["platform"].dropna()
         platform_label = str(platform.iloc[0]) if not platform.empty else "unknown"
 
-        output_path = context.output_dir / "telemetry_timeline.png"
+        # Name the file after the panels drawn, so a temperature-only plot does
+        # not overwrite the combined one.
+        suffix = "" if len(panels) > 1 else f"_{panels[0]}"
+        output_path = context.output_dir / f"telemetry_timeline{suffix}.png"
         stats = _create_timeline_plot(
             timeline,
             windows,
