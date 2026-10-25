@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import os
 from contextlib import contextmanager
+from ipaddress import ip_address
 from typing import Iterable, Optional, Tuple
 
 import grpc
@@ -42,6 +43,28 @@ class EnergyMonitorCollector:
         self._channel_options = channel_options or ()
         self._timeout = timeout
         self._bundle = get_stub_bundle()
+
+    @property
+    def target(self) -> str:
+        """Normalized monitor endpoint for measurement provenance."""
+        return self._target
+
+    @property
+    def shares_controller_clock(self) -> bool:
+        """Whether the configured endpoint is local to the controller.
+
+        Remote timestamps require a separate clock-alignment protocol before
+        they can delimit controller-side measurement windows. A forwarded
+        remote monitor must likewise not be represented as a local endpoint.
+        """
+        host, _, _port = self._target.rpartition(":")
+        host = host.strip("[]").lower()
+        if host == "localhost":
+            return True
+        try:
+            return ip_address(host).is_loopback
+        except ValueError:
+            return False
 
     @contextmanager
     def start(self):

@@ -1,0 +1,711 @@
+"""Tests for execution/trace.py — TurnTrace and QueryTrace."""
+
+from __future__ import annotations
+
+import json
+from pathlib import Path
+
+import pytest
+
+from ipw.execution.trace import QueryTrace, TurnTrace
+
+
+class TestTurnTrace:
+    """Test TurnTrace construction and serialization."""
+
+    def test_creation_with_all_fields(self) -> None:
+        turn = TurnTrace(
+            turn_index=0,
+            input_tokens=100,
+            output_tokens=50,
+            tool_result_tokens=20,
+            tools_called=["calc", "search"],
+            tool_latencies_s={"calc": 0.1, "search": 0.5},
+            wall_clock_s=1.5,
+            error=None,
+            gpu_energy_joules=10.0,
+            cpu_energy_joules=3.0,
+            gpu_power_avg_watts=150.0,
+            cpu_power_avg_watts=45.0,
+            cost_usd=0.005,
+            tool_cost_usd=0.03,
+            tool_cost_complete=True,
+        )
+        assert turn.turn_index == 0
+        assert turn.input_tokens == 100
+        assert turn.tools_called == ["calc", "search"]
+        assert turn.gpu_energy_joules == 10.0
+
+    def test_to_dict_roundtrip(self) -> None:
+        turn = TurnTrace(
+            turn_index=2,
+            input_tokens=50,
+            output_tokens=25,
+            tools_called=["think"],
+            wall_clock_s=0.8,
+            gpu_energy_joules=5.0,
+            cost_usd=0.001,
+            tool_cost_usd=0.0,
+            tool_cost_complete=True,
+        )
+        d = turn.to_dict()
+        restored = TurnTrace.from_dict(d)
+        assert restored.turn_index == turn.turn_index
+        assert restored.input_tokens == turn.input_tokens
+        assert restored.output_tokens == turn.output_tokens
+        assert restored.tools_called == turn.tools_called
+        assert restored.wall_clock_s == turn.wall_clock_s
+        assert restored.gpu_energy_joules == turn.gpu_energy_joules
+        assert restored.cost_usd == turn.cost_usd
+        assert restored.tool_cost_usd == turn.tool_cost_usd
+        assert restored.tool_cost_complete is True
+        assert restored.total_cost_usd == pytest.approx(0.001)
+
+    def test_from_dict_defaults(self) -> None:
+        d = {"turn_index": 0}
+        turn = TurnTrace.from_dict(d)
+        assert turn.input_tokens == 0
+        assert turn.output_tokens == 0
+        assert turn.tools_called == []
+        assert turn.error is None
+
+
+class TestQueryTrace:
+    """Test QueryTrace construction, properties, and serialization."""
+
+    def _make_trace(self) -> QueryTrace:
+        turns = [
+            TurnTrace(
+                turn_index=0,
+                input_tokens=100,
+                output_tokens=50,
+                tools_called=["calc"],
+                wall_clock_s=1.0,
+                gpu_energy_joules=5.0,
+                cost_usd=0.002,
+                tool_cost_usd=0.0,
+                tool_cost_complete=True,
+            ),
+            TurnTrace(
+                turn_index=1,
+                input_tokens=80,
+                output_tokens=30,
+                tools_called=["search", "think"],
+                wall_clock_s=2.0,
+                gpu_energy_joules=8.0,
+                cost_usd=0.003,
+                tool_cost_usd=0.0,
+                tool_cost_complete=True,
+            ),
+        ]
+        return QueryTrace(
+            query_id="q0001",
+            workload_type="agentic",
+            query_text="What is 2+2?",
+            response_text="4",
+            turns=turns,
+            total_wall_clock_s=3.0,
+            completed=True,
+        )
+
+    def test_num_turns(self) -> None:
+        trace = self._make_trace()
+        assert trace.num_turns == 2
+
+    def test_total_input_tokens(self) -> None:
+        trace = self._make_trace()
+        assert trace.total_input_tokens == 180
+
+    def test_total_output_tokens(self) -> None:
+        trace = self._make_trace()
+        assert trace.total_output_tokens == 80
+
+    def test_total_tool_calls(self) -> None:
+        trace = self._make_trace()
+        assert trace.total_tool_calls == 3
+
+    def test_total_gpu_energy_joules(self) -> None:
+        trace = self._make_trace()
+        assert trace.total_gpu_energy_joules == 13.0
+        assert trace.complete_total_gpu_energy_joules == 13.0
+
+    def test_total_gpu_energy_joules_none_when_no_values(self) -> None:
+        trace = QueryTrace(
+            query_id="q0",
+            workload_type="test",
+            turns=[TurnTrace(turn_index=0)],
+        )
+        assert trace.total_gpu_energy_joules is None
+        assert trace.complete_total_gpu_energy_joules is None
+
+    def test_total_gpu_energy_joules_fails_closed_for_partial_turns(self) -> None:
+        trace = QueryTrace(
+            query_id="q0",
+            workload_type="test",
+            turns=[
+                TurnTrace(turn_index=0, gpu_energy_joules=5.0),
+                TurnTrace(turn_index=1, gpu_energy_joules=None),
+            ],
+        )
+
+        assert trace.total_gpu_energy_joules == 5.0
+        assert trace.complete_total_gpu_energy_joules is None
+
+    def test_total_cost_usd(self) -> None:
+        trace = self._make_trace()
+        assert trace.total_cost_usd == pytest.approx(0.005)
+        assert trace.complete_total_cost_usd == pytest.approx(0.005)
+
+    def test_total_cost_usd_none_when_no_values(self) -> None:
+        trace = QueryTrace(
+            query_id="q0",
+            workload_type="test",
+            turns=[TurnTrace(turn_index=0)],
+        )
+        assert trace.total_cost_usd is None
+        assert trace.complete_total_cost_usd is None
+
+    def test_total_cost_usd_none_when_known_and_unknown_are_mixed(self) -> None:
+        trace = QueryTrace(
+            query_id="q0",
+            workload_type="test",
+            turns=[
+                TurnTrace(turn_index=0, cost_usd=0.25),
+                TurnTrace(turn_index=1, cost_usd=None),
+            ],
+        )
+
+        assert trace.total_cost_usd == pytest.approx(0.25)
+        assert trace.complete_total_cost_usd is None
+        assert trace.cost_known_turns == 1
+        assert trace.cost_unknown_turns == 1
+        assert trace.cost_coverage == pytest.approx(0.5)
+
+    def test_total_cost_usd_includes_paid_tools(self) -> None:
+        trace = QueryTrace(
+            query_id="q0",
+            workload_type="test",
+            turns=[
+                TurnTrace(
+                    turn_index=0,
+                    cost_usd=0.01,
+                    tools_called=["paid-search"],
+                    tool_cost_usd=0.50,
+                    tool_cost_complete=True,
+                )
+            ],
+        )
+
+        assert trace.total_cost_usd == pytest.approx(0.01)
+        assert trace.complete_total_cost_usd == pytest.approx(0.51)
+        assert trace.cost_coverage == 1.0
+
+    def test_total_cost_usd_fails_closed_for_unknown_tool_cost(self) -> None:
+        trace = QueryTrace(
+            query_id="q0",
+            workload_type="test",
+            turns=[
+                TurnTrace(
+                    turn_index=0,
+                    cost_usd=0.01,
+                    tools_called=["paid-search"],
+                )
+            ],
+        )
+
+        assert trace.total_cost_usd == pytest.approx(0.01)
+        assert trace.complete_total_cost_usd is None
+        assert trace.cost_coverage == 0.0
+
+    def test_total_cost_usd_preserves_complete_zero(self) -> None:
+        trace = QueryTrace(
+            query_id="q0",
+            workload_type="test",
+            turns=[
+                TurnTrace(turn_index=0, cost_usd=0.0),
+                TurnTrace(turn_index=1, cost_usd=0.0),
+            ],
+        )
+
+        assert trace.total_cost_usd == 0.0
+        assert trace.complete_total_cost_usd == 0.0
+        assert trace.cost_known_turns == 2
+        assert trace.cost_unknown_turns == 0
+        assert trace.cost_coverage == 1.0
+
+    @pytest.mark.parametrize("invalid", [-1.0, float("inf"), float("nan"), True, "0.25"])
+    def test_invalid_cost_is_unknown_for_total_and_coverage(self, invalid: object) -> None:
+        trace = QueryTrace(
+            query_id="q0",
+            workload_type="test",
+            turns=[TurnTrace(turn_index=0, cost_usd=invalid)],
+        )
+
+        assert trace.total_cost_usd is None
+        assert trace.legacy_lm_only_cost_usd is None
+        assert trace.complete_total_cost_usd is None
+        assert trace.turns[0].legacy_lm_only_cost_usd is None
+        assert trace.cost_known_turns == 0
+        assert trace.cost_unknown_turns == 1
+        assert trace.cost_coverage == 0.0
+
+    def test_cost_coverage_is_serialized(self) -> None:
+        trace = QueryTrace(
+            query_id="q0",
+            workload_type="test",
+            turns=[TurnTrace(turn_index=0, cost_usd=None)],
+        )
+
+        serialized = trace.to_dict()
+        assert serialized["cost_known_turns"] == 0
+        assert serialized["cost_unknown_turns"] == 1
+        assert serialized["cost_coverage"] == 0.0
+
+    def test_query_level_gpu_energy_fallback(self) -> None:
+        """total_gpu_energy_joules falls back to query_gpu_energy_joules when no turns have energy."""
+        trace = QueryTrace(
+            query_id="q0",
+            workload_type="test",
+            turns=[TurnTrace(turn_index=0)],
+            query_gpu_energy_joules=42.0,
+        )
+        assert trace.total_gpu_energy_joules == 42.0
+        assert trace.complete_total_gpu_energy_joules == 42.0
+
+    def test_query_level_gpu_energy_used_when_turns_have_energy(self) -> None:
+        """Query-level energy is authoritative when available."""
+        trace = QueryTrace(
+            query_id="q0",
+            workload_type="test",
+            turns=[TurnTrace(turn_index=0, gpu_energy_joules=10.0)],
+            query_gpu_energy_joules=42.0,
+        )
+        assert trace.total_gpu_energy_joules == 42.0
+        assert trace.complete_total_gpu_energy_joules == 42.0
+
+    @pytest.mark.parametrize("invalid", [-1.0, float("inf"), float("nan"), True, "5.0"])
+    def test_invalid_query_level_gpu_energy_is_unknown(self, invalid: object) -> None:
+        trace = QueryTrace(
+            query_id="q0",
+            workload_type="test",
+            query_gpu_energy_joules=invalid,
+        )
+
+        assert trace.total_gpu_energy_joules is invalid
+        assert trace.complete_total_gpu_energy_joules is None
+
+    def test_total_cpu_energy_joules_from_turns(self) -> None:
+        trace = QueryTrace(
+            query_id="q0",
+            workload_type="test",
+            turns=[
+                TurnTrace(turn_index=0, cpu_energy_joules=3.0),
+                TurnTrace(turn_index=1, cpu_energy_joules=5.0),
+            ],
+        )
+        assert trace.total_cpu_energy_joules == 8.0
+        assert trace.complete_total_cpu_energy_joules == 8.0
+
+    def test_total_cpu_energy_joules_fallback(self) -> None:
+        """total_cpu_energy_joules falls back to query_cpu_energy_joules."""
+        trace = QueryTrace(
+            query_id="q0",
+            workload_type="test",
+            turns=[TurnTrace(turn_index=0)],
+            query_cpu_energy_joules=15.0,
+        )
+        assert trace.total_cpu_energy_joules == 15.0
+        assert trace.complete_total_cpu_energy_joules == 15.0
+
+    def test_total_cpu_energy_joules_none_when_empty(self) -> None:
+        trace = QueryTrace(
+            query_id="q0",
+            workload_type="test",
+            turns=[TurnTrace(turn_index=0)],
+        )
+        assert trace.total_cpu_energy_joules is None
+        assert trace.complete_total_cpu_energy_joules is None
+
+    def test_total_cpu_energy_joules_fails_closed_for_partial_turns(self) -> None:
+        trace = QueryTrace(
+            query_id="q0",
+            workload_type="test",
+            turns=[
+                TurnTrace(turn_index=0, cpu_energy_joules=2.0),
+                TurnTrace(turn_index=1, cpu_energy_joules=None),
+            ],
+        )
+
+        assert trace.total_cpu_energy_joules == 2.0
+        assert trace.complete_total_cpu_energy_joules is None
+
+    def test_query_energy_fields_in_to_dict(self) -> None:
+        trace = QueryTrace(
+            query_id="q0",
+            workload_type="test",
+            query_gpu_energy_joules=10.0,
+            query_cpu_energy_joules=5.0,
+            query_gpu_power_avg_watts=200.0,
+            query_cpu_power_avg_watts=80.0,
+            judge_gpu_energy_joules=2.0,
+            judge_cpu_energy_joules=1.0,
+            judge_gpu_power_avg_watts=150.0,
+            judge_cpu_power_avg_watts=60.0,
+            judge_wall_clock_s=0.5,
+        )
+        d = trace.to_dict()
+        assert d["query_gpu_energy_joules"] == 10.0
+        assert d["query_cpu_energy_joules"] == 5.0
+        assert d["query_gpu_power_avg_watts"] == 200.0
+        assert d["query_cpu_power_avg_watts"] == 80.0
+        assert d["judge_gpu_energy_joules"] == 2.0
+        assert d["judge_cpu_energy_joules"] == 1.0
+        assert d["judge_gpu_power_avg_watts"] == 150.0
+        assert d["judge_cpu_power_avg_watts"] == 60.0
+        assert d["judge_wall_clock_s"] == 0.5
+        assert d["total_task_gpu_energy_joules"] == 12.0
+
+    def test_query_energy_fields_roundtrip(self) -> None:
+        trace = QueryTrace(
+            query_id="q0",
+            workload_type="test",
+            query_gpu_energy_joules=10.0,
+            query_cpu_energy_joules=5.0,
+            query_gpu_power_avg_watts=200.0,
+            query_cpu_power_avg_watts=80.0,
+            judge_gpu_energy_joules=2.0,
+            judge_cpu_energy_joules=1.0,
+            judge_gpu_power_avg_watts=150.0,
+            judge_cpu_power_avg_watts=60.0,
+            judge_wall_clock_s=0.5,
+        )
+        restored = QueryTrace.from_dict(trace.to_dict())
+        assert restored.query_gpu_energy_joules == 10.0
+        assert restored.query_cpu_energy_joules == 5.0
+        assert restored.query_gpu_power_avg_watts == 200.0
+        assert restored.query_cpu_power_avg_watts == 80.0
+        assert restored.judge_gpu_energy_joules == 2.0
+        assert restored.judge_cpu_energy_joules == 1.0
+        assert restored.judge_gpu_power_avg_watts == 150.0
+        assert restored.judge_cpu_power_avg_watts == 60.0
+        assert restored.judge_wall_clock_s == 0.5
+        assert restored.total_task_gpu_energy_joules == 12.0
+
+    def test_rigorous_energy_metadata_roundtrip(self) -> None:
+        trace = QueryTrace(
+            query_id="q0",
+            workload_type="test",
+            query_gpu_energy_joules=10.0,
+            gpu_energy_complete=True,
+            gpu_energy_provenance="measured_dedicated",
+            accelerator_device_coverage_complete=True,
+            utility_complete=True,
+            utility_provenance="calibrated_judge",
+            utility_calibration_id="judge-calibration-v1",
+            utility_verifier_id="judge-verifier",
+            utility_verifier_version="1.2.3",
+            utility_task_manifest_id="test-manifest-v1",
+            utility_task_membership_id="fixture-task-0",
+            utility_task_manifest_size=1,
+        )
+
+        restored = QueryTrace.from_dict(trace.to_dict())
+
+        assert restored.gpu_energy_complete is True
+        assert restored.gpu_energy_provenance == "measured_dedicated"
+        assert restored.accelerator_device_coverage_complete is True
+        assert restored.rigorous_utility_eligible is True
+        assert restored.utility_calibration_id == "judge-calibration-v1"
+        assert restored.utility_verifier_id == "judge-verifier"
+        assert restored.utility_verifier_version == "1.2.3"
+        assert restored.utility_task_manifest_id == "test-manifest-v1"
+        assert restored.utility_task_membership_id == "fixture-task-0"
+        assert restored.utility_task_manifest_size == 1
+
+    @pytest.mark.parametrize(
+        ("provenance", "calibration_id"),
+        [
+            ("unknown", None),
+            ("calibrated_judge", None),
+            ("calibrated_judge", ""),
+            ("uncalibrated_judge", "judge-v1"),
+        ],
+    )
+    def test_rigorous_utility_rejects_missing_provenance_or_calibration(
+        self, provenance: str, calibration_id: str | None
+    ) -> None:
+        trace = QueryTrace(
+            query_id="q0",
+            workload_type="test",
+            is_resolved=True,
+            utility_complete=True,
+            utility_provenance=provenance,
+            utility_calibration_id=calibration_id,
+            utility_verifier_id="fixture-verifier",
+            utility_verifier_version="1.0.0",
+            utility_task_manifest_id="fixture-manifest-v1",
+            utility_task_membership_id="fixture-task-0",
+            utility_task_manifest_size=1,
+        )
+
+        assert trace.rigorous_utility_eligible is False
+
+    @pytest.mark.parametrize(
+        "missing_field",
+        [
+            "utility_verifier_id",
+            "utility_verifier_version",
+            "utility_task_manifest_id",
+            "utility_task_membership_id",
+            "utility_task_manifest_size",
+        ],
+    )
+    def test_rigorous_utility_rejects_missing_verifier_or_manifest_binding(self, missing_field: str) -> None:
+        evidence = {
+            "utility_verifier_id": "fixture-verifier",
+            "utility_verifier_version": "1.0.0",
+            "utility_task_manifest_id": "fixture-manifest-v1",
+            "utility_task_membership_id": "fixture-task-0",
+            "utility_task_manifest_size": 1,
+        }
+        evidence[missing_field] = " "
+        trace = QueryTrace(
+            query_id="q0",
+            workload_type="test",
+            is_resolved=True,
+            utility_complete=True,
+            utility_provenance="task_native_verifier",
+            **evidence,
+        )
+
+        assert trace.rigorous_utility_eligible is False
+
+    def test_to_dict_from_dict_roundtrip(self) -> None:
+        trace = self._make_trace()
+        d = trace.to_dict()
+        restored = QueryTrace.from_dict(d)
+        assert restored.query_id == trace.query_id
+        assert restored.workload_type == trace.workload_type
+        assert restored.num_turns == trace.num_turns
+        assert restored.total_input_tokens == trace.total_input_tokens
+        assert restored.completed == trace.completed
+
+    def test_jsonl_save_load_roundtrip(self, tmp_path: Path) -> None:
+        trace = self._make_trace()
+        jsonl_path = tmp_path / "traces.jsonl"
+
+        trace.save_jsonl(jsonl_path)
+        loaded = QueryTrace.load_jsonl(jsonl_path)
+
+        assert len(loaded) == 1
+        assert loaded[0].query_id == "q0001"
+        assert loaded[0].num_turns == 2
+        assert loaded[0].total_input_tokens == 180
+
+    def test_jsonl_multiple_traces(self, tmp_path: Path) -> None:
+        trace1 = self._make_trace()
+        trace2 = QueryTrace(
+            query_id="q0002",
+            workload_type="agentic",
+            query_text="Another question",
+            response_text="Another answer",
+            turns=[TurnTrace(turn_index=0, input_tokens=10, output_tokens=5)],
+            total_wall_clock_s=0.5,
+            completed=True,
+        )
+
+        jsonl_path = tmp_path / "traces.jsonl"
+        trace1.save_jsonl(jsonl_path)
+        trace2.save_jsonl(jsonl_path)
+
+        loaded = QueryTrace.load_jsonl(jsonl_path)
+        assert len(loaded) == 2
+        assert loaded[0].query_id == "q0001"
+        assert loaded[1].query_id == "q0002"
+
+    def test_is_resolved_in_to_dict(self) -> None:
+        trace = QueryTrace(
+            query_id="q0",
+            workload_type="test",
+            is_resolved=True,
+        )
+        d = trace.to_dict()
+        assert d["is_resolved"] is True
+
+    def test_is_resolved_roundtrip(self) -> None:
+        for val in (True, False, None):
+            trace = QueryTrace(
+                query_id="q0",
+                workload_type="test",
+                is_resolved=val,
+            )
+            restored = QueryTrace.from_dict(trace.to_dict())
+            assert restored.is_resolved is val
+
+    def test_is_resolved_none_by_default(self) -> None:
+        trace = QueryTrace(query_id="q0", workload_type="test")
+        assert trace.is_resolved is None
+
+    def test_timed_out_default_false(self) -> None:
+        trace = QueryTrace(query_id="q0", workload_type="test")
+        assert trace.timed_out is False
+
+    def test_timed_out_in_to_dict(self) -> None:
+        trace = QueryTrace(query_id="q0", workload_type="test", timed_out=True)
+        d = trace.to_dict()
+        assert d["timed_out"] is True
+
+    def test_timed_out_roundtrip(self) -> None:
+        for val in (True, False):
+            trace = QueryTrace(query_id="q0", workload_type="test", timed_out=val)
+            restored = QueryTrace.from_dict(trace.to_dict())
+            assert restored.timed_out is val
+
+    # --- New computed property tests ---
+
+    def test_total_tokens(self) -> None:
+        trace = self._make_trace()
+        assert trace.total_tokens == 260  # 180 + 80
+
+    def test_avg_gpu_power_watts_from_turns(self) -> None:
+        trace = QueryTrace(
+            query_id="q0",
+            workload_type="test",
+            turns=[
+                TurnTrace(turn_index=0, gpu_power_avg_watts=200.0),
+                TurnTrace(turn_index=1, gpu_power_avg_watts=300.0),
+            ],
+        )
+        assert trace.avg_gpu_power_watts == pytest.approx(250.0)
+
+    def test_avg_gpu_power_watts_fallback_to_query(self) -> None:
+        trace = QueryTrace(
+            query_id="q0",
+            workload_type="test",
+            turns=[TurnTrace(turn_index=0)],
+            query_gpu_power_avg_watts=180.0,
+        )
+        assert trace.avg_gpu_power_watts == pytest.approx(180.0)
+
+    def test_avg_gpu_power_watts_none(self) -> None:
+        trace = QueryTrace(
+            query_id="q0",
+            workload_type="test",
+            turns=[TurnTrace(turn_index=0)],
+        )
+        assert trace.avg_gpu_power_watts is None
+
+    def test_avg_cpu_power_watts_from_turns(self) -> None:
+        trace = QueryTrace(
+            query_id="q0",
+            workload_type="test",
+            turns=[
+                TurnTrace(turn_index=0, cpu_power_avg_watts=50.0),
+                TurnTrace(turn_index=1, cpu_power_avg_watts=70.0),
+            ],
+        )
+        assert trace.avg_cpu_power_watts == pytest.approx(60.0)
+
+    def test_avg_cpu_power_watts_fallback_to_query(self) -> None:
+        trace = QueryTrace(
+            query_id="q0",
+            workload_type="test",
+            turns=[TurnTrace(turn_index=0)],
+            query_cpu_power_avg_watts=90.0,
+        )
+        assert trace.avg_cpu_power_watts == pytest.approx(90.0)
+
+    def test_throughput_tokens_per_sec(self) -> None:
+        trace = self._make_trace()
+        # 80 output tokens / 3.0 seconds
+        assert trace.throughput_tokens_per_sec == pytest.approx(80.0 / 3.0)
+
+    def test_throughput_tokens_per_sec_none_zero_tokens(self) -> None:
+        trace = QueryTrace(
+            query_id="q0",
+            workload_type="test",
+            turns=[TurnTrace(turn_index=0)],
+            total_wall_clock_s=5.0,
+        )
+        assert trace.throughput_tokens_per_sec is None
+
+    def test_throughput_tokens_per_sec_none_zero_time(self) -> None:
+        trace = QueryTrace(
+            query_id="q0",
+            workload_type="test",
+            turns=[TurnTrace(turn_index=0, output_tokens=50)],
+            total_wall_clock_s=0.0,
+        )
+        assert trace.throughput_tokens_per_sec is None
+
+    def test_energy_per_token_joules(self) -> None:
+        trace = self._make_trace()
+        # total gpu energy = 13.0 J, output tokens = 80
+        assert trace.energy_per_token_joules == pytest.approx(13.0 / 80.0)
+
+    def test_energy_per_token_joules_none_no_energy(self) -> None:
+        trace = QueryTrace(
+            query_id="q0",
+            workload_type="test",
+            turns=[TurnTrace(turn_index=0, output_tokens=50)],
+        )
+        assert trace.energy_per_token_joules is None
+
+    def test_energy_per_token_joules_none_zero_tokens(self) -> None:
+        trace = QueryTrace(
+            query_id="q0",
+            workload_type="test",
+            turns=[TurnTrace(turn_index=0, gpu_energy_joules=10.0)],
+        )
+        assert trace.energy_per_token_joules is None
+
+    def test_mbu_fields_default_none(self) -> None:
+        trace = QueryTrace(query_id="q0", workload_type="test")
+        assert trace.query_mbu_avg_pct is None
+        assert trace.query_mbu_max_pct is None
+
+    def test_mbu_fields_in_to_dict(self) -> None:
+        trace = QueryTrace(
+            query_id="q0",
+            workload_type="test",
+            query_mbu_avg_pct=45.5,
+            query_mbu_max_pct=78.2,
+        )
+        d = trace.to_dict()
+        assert d["query_mbu_avg_pct"] == 45.5
+        assert d["query_mbu_max_pct"] == 78.2
+
+    def test_mbu_fields_roundtrip(self) -> None:
+        trace = QueryTrace(
+            query_id="q0",
+            workload_type="test",
+            query_mbu_avg_pct=33.3,
+            query_mbu_max_pct=99.9,
+        )
+        restored = QueryTrace.from_dict(trace.to_dict())
+        assert restored.query_mbu_avg_pct == pytest.approx(33.3)
+        assert restored.query_mbu_max_pct == pytest.approx(99.9)
+
+    def test_to_hf_dataset(self) -> None:
+        try:
+            from datasets import Dataset  # noqa: F401
+        except ImportError:
+            pytest.skip("datasets package not available")
+
+        trace = self._make_trace()
+        ds = QueryTrace.to_hf_dataset([trace])
+
+        assert len(ds) == 1
+        row = ds[0]
+        assert row["query_id"] == "q0001"
+        assert row["num_turns"] == 2
+        assert row["total_input_tokens"] == 180
+        assert row["total_output_tokens"] == 80
+        assert row["total_tool_calls"] == 3
+        assert row["total_tokens"] == 260
+        assert row["throughput_tokens_per_sec"] == pytest.approx(80.0 / 3.0)
+        assert row["energy_per_token_joules"] == pytest.approx(13.0 / 80.0)
+        assert row["completed"] is True
+        # trace_json should be valid JSON
+        parsed = json.loads(row["trace_json"])
+        assert parsed["query_id"] == "q0001"
