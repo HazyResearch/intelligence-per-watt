@@ -1,0 +1,6 @@
+{
+  "n_attempts": 1,
+  "n_concurrent_trials": 32,
+  "agents": [{"name": "terminus-2", "model_name": "openai/Qwen3.6-27B"}],
+  "datasets": [{"name": "terminal-bench/terminal-bench-2-1", "version": null, "ref": "sha256:7d7bdc1c"}]
+}

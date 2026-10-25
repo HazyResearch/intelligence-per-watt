@@ -1,0 +1,5 @@
+{"task_name": "terminal-bench/other-task",
+ "started_at": "2026-06-23T00:00:00.000000", "finished_at": "2026-06-23T00:30:00.000000",
+ "verifier_result": {"rewards": {"reward": 0.0}},
+ "agent_result": {"n_input_tokens": 500, "n_output_tokens": 50, "cost_usd": null},
+ "exception_info": {"exception_type": "AgentTimeoutError"}}

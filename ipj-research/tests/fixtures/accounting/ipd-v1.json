@@ -1,0 +1,93 @@
+{
+  "schema_version": "ipj.ipd.conformance.v1",
+  "cases": [
+    {
+      "name": "ratio_of_totals_differs_from_mean_of_ratios",
+      "observations": [
+        {
+          "utility": "1",
+          "cost": {
+            "api_usd": "1",
+            "electricity_usd": "0",
+            "hardware_amortization_usd": "0"
+          }
+        },
+        {
+          "utility": "0",
+          "cost": {
+            "api_usd": "3",
+            "electricity_usd": "0",
+            "hardware_amortization_usd": "0"
+          }
+        }
+      ],
+      "expected": {
+        "utility_total": "1",
+        "cost_total_usd": "4",
+        "intelligence_per_dollar": "0.25",
+        "known_cost_tasks": 2
+      }
+    },
+    {
+      "name": "hybrid_components_sum_exactly",
+      "observations": [
+        {
+          "utility": "0.3",
+          "cost": {
+            "api_usd": "0.1",
+            "electricity_usd": "0.05",
+            "hardware_amortization_usd": "0.15"
+          }
+        }
+      ],
+      "expected": {
+        "utility_total": "0.3",
+        "cost_total_usd": "0.30",
+        "intelligence_per_dollar": "1",
+        "known_cost_tasks": 1
+      }
+    },
+    {
+      "name": "unknown_task_cost_invalidates_workload",
+      "observations": [
+        {
+          "utility": "1",
+          "cost": {
+            "api_usd": "0.5",
+            "electricity_usd": "0",
+            "hardware_amortization_usd": "0"
+          }
+        },
+        {
+          "utility": "1",
+          "cost": null
+        }
+      ],
+      "expected": {
+        "utility_total": "2",
+        "cost_total_usd": null,
+        "intelligence_per_dollar": null,
+        "known_cost_tasks": 1
+      }
+    },
+    {
+      "name": "zero_denominator_is_unavailable",
+      "observations": [
+        {
+          "utility": "1",
+          "cost": {
+            "api_usd": "0",
+            "electricity_usd": "0",
+            "hardware_amortization_usd": "0"
+          }
+        }
+      ],
+      "expected": {
+        "utility_total": "1",
+        "cost_total_usd": "0",
+        "intelligence_per_dollar": null,
+        "known_cost_tasks": 1
+      }
+    }
+  ]
+}

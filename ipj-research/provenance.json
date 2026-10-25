@@ -1,0 +1,1501 @@
+{
+  "schema_version": 1,
+  "attribution": "ICP research contributors",
+  "license": "Apache-2.0; see repository LICENSE",
+  "source": "Author-supplied ICP research snapshot, selected for the 2026-10-24 local artifact",
+  "provenance": "Full private origin and revision ledger retained by the authors; no private Git ancestry imported.",
+  "scope": "Selected Python source and matching tests. Historical campaigns and the separate Rust service are not included in this paper artifact.",
+  "files": [
+    {
+      "path": "intelligence-per-watt/src/ipw/core/accounting.py",
+      "source_file": "intelligence-per-watt/src/ipw/core/accounting.py",
+      "source_sha256": "b5dd7d6f251fc5f0f35f5d6ecc76d3deb30c60c5e5e80bc5919e61c8874597b8",
+      "exported_sha256": "b5dd7d6f251fc5f0f35f5d6ecc76d3deb30c60c5e5e80bc5919e61c8874597b8",
+      "purpose": "shared prerequisite"
+    },
+    {
+      "path": "intelligence-per-watt/src/ipw/cost/__init__.py",
+      "source_file": "intelligence-per-watt/src/ipw/cost/__init__.py",
+      "source_sha256": "87ab9397cd16f4999772cac15ba59a4097170cb23706eaa0e461d405d9393011",
+      "exported_sha256": "87ab9397cd16f4999772cac15ba59a4097170cb23706eaa0e461d405d9393011",
+      "purpose": "shared prerequisite"
+    },
+    {
+      "path": "intelligence-per-watt/src/ipw/cost/aggregation.py",
+      "source_file": "intelligence-per-watt/src/ipw/cost/aggregation.py",
+      "source_sha256": "4437be72bab8f4eb67ebcfe89b9695f2fdb876706e528d7beb12f07948ac4575",
+      "exported_sha256": "4437be72bab8f4eb67ebcfe89b9695f2fdb876706e528d7beb12f07948ac4575",
+      "purpose": "shared prerequisite"
+    },
+    {
+      "path": "intelligence-per-watt/src/ipw/cost/pricing.py",
+      "source_file": "intelligence-per-watt/src/ipw/cost/pricing.py",
+      "source_sha256": "9512b4104ba94ac764b386e8a7a86466c27f5d66bcfa23516ca90d574a3df7b2",
+      "exported_sha256": "9512b4104ba94ac764b386e8a7a86466c27f5d66bcfa23516ca90d574a3df7b2",
+      "purpose": "shared prerequisite"
+    },
+    {
+      "path": "intelligence-per-watt/src/ipw/execution/__init__.py",
+      "source_file": "intelligence-per-watt/src/ipw/execution/__init__.py",
+      "source_sha256": "9cafc39013b4890bf9879e57949370ac971a2d0702b4497ce426b3086ee06411",
+      "exported_sha256": "9cafc39013b4890bf9879e57949370ac971a2d0702b4497ce426b3086ee06411",
+      "purpose": "shared prerequisite"
+    },
+    {
+      "path": "intelligence-per-watt/src/ipw/execution/trace.py",
+      "source_file": "intelligence-per-watt/src/ipw/execution/trace.py",
+      "source_sha256": "79623dd3410bebe45ffe8abe56365579bfbcf260d3f1f7f71d06160b62e9f684",
+      "exported_sha256": "79623dd3410bebe45ffe8abe56365579bfbcf260d3f1f7f71d06160b62e9f684",
+      "purpose": "shared prerequisite"
+    },
+    {
+      "path": "intelligence-per-watt/src/ipw/execution/exporters.py",
+      "source_file": "intelligence-per-watt/src/ipw/execution/exporters.py",
+      "source_sha256": "bc8d2221a7954288e59cd04e987b5eec5ae62e78ded067986a9725ad61dfb12f",
+      "exported_sha256": "bc8d2221a7954288e59cd04e987b5eec5ae62e78ded067986a9725ad61dfb12f",
+      "purpose": "shared prerequisite"
+    },
+    {
+      "path": "intelligence-per-watt/src/ipw/execution/public_artifact.py",
+      "source_file": "intelligence-per-watt/src/ipw/execution/public_artifact.py",
+      "source_sha256": "e9e4ebe74b26426e80e5c529c6979874fba4e279e71a64540ab50ce10a6478c9",
+      "exported_sha256": "e9e4ebe74b26426e80e5c529c6979874fba4e279e71a64540ab50ce10a6478c9",
+      "purpose": "shared prerequisite"
+    },
+    {
+      "path": "intelligence-per-watt/src/ipw/tests/core/test_icp_cost.py",
+      "source_file": "intelligence-per-watt/src/ipw/tests/core/test_cost.py",
+      "source_sha256": "5bc01aa85f9e701189551ddb3fe1ed26d20187a0cda30bb81edb5be7f9d8f759",
+      "exported_sha256": "5bc01aa85f9e701189551ddb3fe1ed26d20187a0cda30bb81edb5be7f9d8f759",
+      "purpose": "imported compatibility tests"
+    },
+    {
+      "path": "intelligence-per-watt/src/ipw/tests/core/test_icp_trace.py",
+      "source_file": "intelligence-per-watt/src/ipw/tests/core/test_trace.py",
+      "source_sha256": "821321aaaaa6f01b25655051f1d4512bdd179413ed0905a38e3a37b13547cffb",
+      "exported_sha256": "821321aaaaa6f01b25655051f1d4512bdd179413ed0905a38e3a37b13547cffb",
+      "purpose": "imported compatibility tests"
+    },
+    {
+      "path": "intelligence-per-watt/src/ipw/tests/core/test_trace_positional_compatibility.py",
+      "source_file": "intelligence-per-watt/src/ipw/tests/core/test_trace_positional_compatibility.py",
+      "source_sha256": "79babaf0e88926d994fff90c7a6c79ad771ab65c6a9545b7629661c78805783e",
+      "exported_sha256": "79babaf0e88926d994fff90c7a6c79ad771ab65c6a9545b7629661c78805783e",
+      "purpose": "imported compatibility tests"
+    },
+    {
+      "path": "intelligence-per-watt/src/ipw/tests/execution/test_icp_exporters.py",
+      "source_file": "intelligence-per-watt/src/ipw/tests/execution/test_exporters.py",
+      "source_sha256": "a08e094cc32f3422bacbec618716da4f10159e4205557540906c42000bb3395b",
+      "exported_sha256": "a08e094cc32f3422bacbec618716da4f10159e4205557540906c42000bb3395b",
+      "purpose": "imported compatibility tests"
+    },
+    {
+      "path": "intelligence-per-watt/src/ipw/tests/execution/test_public_artifact.py",
+      "source_file": "intelligence-per-watt/src/ipw/tests/execution/test_public_artifact.py",
+      "source_sha256": "d04b23b3e46319ab79ac0d3a214ff75c6c1f3349d3653a169e731570263a929f",
+      "exported_sha256": "d04b23b3e46319ab79ac0d3a214ff75c6c1f3349d3653a169e731570263a929f",
+      "purpose": "imported compatibility tests"
+    },
+    {
+      "path": "ipj-research/src/ipj/__init__.py",
+      "source_file": "ipj/src/ipj/__init__.py",
+      "source_sha256": "648d75b951c0dd03312655179a298aa2b1183638150ab6d2c28cef0af6c6f925",
+      "exported_sha256": "648d75b951c0dd03312655179a298aa2b1183638150ab6d2c28cef0af6c6f925",
+      "purpose": "research source"
+    },
+    {
+      "path": "ipj-research/src/ipj/cascade.py",
+      "source_file": "ipj/src/ipj/cascade.py",
+      "source_sha256": "6d037a6f27b23e92ea476eb2a26e1178fc791516994a47f99bdfc72470fc9cf3",
+      "exported_sha256": "6d037a6f27b23e92ea476eb2a26e1178fc791516994a47f99bdfc72470fc9cf3",
+      "purpose": "research source"
+    },
+    {
+      "path": "ipj-research/src/ipj/cell.py",
+      "source_file": "ipj/src/ipj/cell.py",
+      "source_sha256": "efb236e77862bb5d11b7bef5a892d1525ce214f56fd10776fb5670dc4858c738",
+      "exported_sha256": "efb236e77862bb5d11b7bef5a892d1525ce214f56fd10776fb5670dc4858c738",
+      "purpose": "research source"
+    },
+    {
+      "path": "ipj-research/src/ipj/cli.py",
+      "source_file": "ipj/src/ipj/cli.py",
+      "source_sha256": "f2e5a078a6fc79c464ba9040276a51a5a450efb3bed0b2494b4604024bb92612",
+      "exported_sha256": "f2e5a078a6fc79c464ba9040276a51a5a450efb3bed0b2494b4604024bb92612",
+      "purpose": "research source"
+    },
+    {
+      "path": "ipj-research/src/ipj/cost/__init__.py",
+      "source_file": "ipj/src/ipj/cost/__init__.py",
+      "source_sha256": "0d092450a14edc6767729c48ff921349f985890ccc3b32ad06a9513577a54829",
+      "exported_sha256": "0d092450a14edc6767729c48ff921349f985890ccc3b32ad06a9513577a54829",
+      "purpose": "research source"
+    },
+    {
+      "path": "ipj-research/src/ipj/cost/accounting.py",
+      "source_file": "ipj/src/ipj/cost/accounting.py",
+      "source_sha256": "e7b24dab7519540c192e327c5b1a729cc01a552aad826072506111d61e14afad",
+      "exported_sha256": "e7b24dab7519540c192e327c5b1a729cc01a552aad826072506111d61e14afad",
+      "purpose": "research source"
+    },
+    {
+      "path": "ipj-research/src/ipj/cost/pricing_overlay.py",
+      "source_file": "ipj/src/ipj/cost/pricing_overlay.py",
+      "source_sha256": "0eb39267aaa808ff1dd96227b9e78c3f0fc7f286f562b70d476ca04f9dfc189a",
+      "exported_sha256": "0eb39267aaa808ff1dd96227b9e78c3f0fc7f286f562b70d476ca04f9dfc189a",
+      "purpose": "research source"
+    },
+    {
+      "path": "ipj-research/src/ipj/efficiency/__init__.py",
+      "source_file": "ipj/src/ipj/efficiency/__init__.py",
+      "source_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "exported_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "purpose": "research source"
+    },
+    {
+      "path": "ipj-research/src/ipj/efficiency/cost.py",
+      "source_file": "ipj/src/ipj/efficiency/cost.py",
+      "source_sha256": "1aa20e6cd7148a73f77e63abd1cbaeb196ef2b99b4622f2be5b46360bd3e995c",
+      "exported_sha256": "1aa20e6cd7148a73f77e63abd1cbaeb196ef2b99b4622f2be5b46360bd3e995c",
+      "purpose": "research source"
+    },
+    {
+      "path": "ipj-research/src/ipj/efficiency/energy.py",
+      "source_file": "ipj/src/ipj/efficiency/energy.py",
+      "source_sha256": "1786ba0a4b9864e6684e44188d2e04265da3c19164a45f14c68f24d9a7ef467e",
+      "exported_sha256": "1786ba0a4b9864e6684e44188d2e04265da3c19164a45f14c68f24d9a7ef467e",
+      "purpose": "research source"
+    },
+    {
+      "path": "ipj-research/src/ipj/efficiency/extract.py",
+      "source_file": "ipj/src/ipj/efficiency/extract.py",
+      "source_sha256": "ac8bad43c59ddbc829eb1b490a76352aad77fa1255188f9bb8486de55f51b277",
+      "exported_sha256": "ac8bad43c59ddbc829eb1b490a76352aad77fa1255188f9bb8486de55f51b277",
+      "purpose": "research source"
+    },
+    {
+      "path": "ipj-research/src/ipj/efficiency/failure_modes.py",
+      "source_file": "ipj/src/ipj/efficiency/failure_modes.py",
+      "source_sha256": "0847c1fe3ee462ac8e8c805bf48ebf0331c832a485b67be655f3bea5848a4d58",
+      "exported_sha256": "0847c1fe3ee462ac8e8c805bf48ebf0331c832a485b67be655f3bea5848a4d58",
+      "purpose": "research source"
+    },
+    {
+      "path": "ipj-research/src/ipj/efficiency/flops.py",
+      "source_file": "ipj/src/ipj/efficiency/flops.py",
+      "source_sha256": "546b6ab130f352f3d8b743c74bbfbd864a77a5998e6ee82213a56f81a7c56330",
+      "exported_sha256": "546b6ab130f352f3d8b743c74bbfbd864a77a5998e6ee82213a56f81a7c56330",
+      "purpose": "research source"
+    },
+    {
+      "path": "ipj-research/src/ipj/efficiency/operating_curve.py",
+      "source_file": "ipj/src/ipj/efficiency/operating_curve.py",
+      "source_sha256": "3c70b5f6addbca8a33ceb838b18430f62f1d287b08ef675b55e8147a7930e83d",
+      "exported_sha256": "3c70b5f6addbca8a33ceb838b18430f62f1d287b08ef675b55e8147a7930e83d",
+      "purpose": "research source"
+    },
+    {
+      "path": "ipj-research/src/ipj/efficiency/plot.py",
+      "source_file": "ipj/src/ipj/efficiency/plot.py",
+      "source_sha256": "e16a72f1e334bce737a473beec4aab3b846b34470d6e0bb4b53bbb95ef940cc2",
+      "exported_sha256": "e16a72f1e334bce737a473beec4aab3b846b34470d6e0bb4b53bbb95ef940cc2",
+      "purpose": "research source"
+    },
+    {
+      "path": "ipj-research/src/ipj/efficiency/record.py",
+      "source_file": "ipj/src/ipj/efficiency/record.py",
+      "source_sha256": "52006eb47b888f0e9906421f9698de93e5555ef8894ce280ee2790d61c951b19",
+      "exported_sha256": "52006eb47b888f0e9906421f9698de93e5555ef8894ce280ee2790d61c951b19",
+      "purpose": "research source"
+    },
+    {
+      "path": "ipj-research/src/ipj/efficiency/stats.py",
+      "source_file": "ipj/src/ipj/efficiency/stats.py",
+      "source_sha256": "04732a7374806a6fd0bc72b384edc8e319381583f104866c62bbcfb7a6c43cb6",
+      "exported_sha256": "04732a7374806a6fd0bc72b384edc8e319381583f104866c62bbcfb7a6c43cb6",
+      "purpose": "research source"
+    },
+    {
+      "path": "ipj-research/src/ipj/efficiency/tb_metadata.py",
+      "source_file": "ipj/src/ipj/efficiency/tb_metadata.py",
+      "source_sha256": "ed162f78a380f7d195fda6b79ffed844afcb4ef41ce905c1b274c8febc353f19",
+      "exported_sha256": "ed162f78a380f7d195fda6b79ffed844afcb4ef41ce905c1b274c8febc353f19",
+      "purpose": "research source"
+    },
+    {
+      "path": "ipj-research/src/ipj/energy/__init__.py",
+      "source_file": "ipj/src/ipj/energy/__init__.py",
+      "source_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "exported_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "purpose": "research source"
+    },
+    {
+      "path": "ipj-research/src/ipj/energy/capture.py",
+      "source_file": "ipj/src/ipj/energy/capture.py",
+      "source_sha256": "3c81c24d69f6d92fed4f7f4a931535e1cf069a3af01476b5e20a9678da375aba",
+      "exported_sha256": "3c81c24d69f6d92fed4f7f4a931535e1cf069a3af01476b5e20a9678da375aba",
+      "purpose": "research source"
+    },
+    {
+      "path": "ipj-research/src/ipj/energy/estimate.py",
+      "source_file": "ipj/src/ipj/energy/estimate.py",
+      "source_sha256": "65063b02b11272ed4636a50d7affe8b4bf12058e702b3d68e557558c17468818",
+      "exported_sha256": "65063b02b11272ed4636a50d7affe8b4bf12058e702b3d68e557558c17468818",
+      "purpose": "research source"
+    },
+    {
+      "path": "ipj-research/src/ipj/energy/integrate.py",
+      "source_file": "ipj/src/ipj/energy/integrate.py",
+      "source_sha256": "b4f404e7be84ce31fe75af23c499a6d8397914c64519e81ff6fe427f185917e2",
+      "exported_sha256": "b4f404e7be84ce31fe75af23c499a6d8397914c64519e81ff6fe427f185917e2",
+      "purpose": "research source"
+    },
+    {
+      "path": "ipj-research/src/ipj/fast_measure.py",
+      "source_file": "ipj/src/ipj/fast_measure.py",
+      "source_sha256": "a11b84d1ebf1cf6cdc6bf14769422733c7ac25e696c0feedda1574289fcfaeb0",
+      "exported_sha256": "a11b84d1ebf1cf6cdc6bf14769422733c7ac25e696c0feedda1574289fcfaeb0",
+      "purpose": "research source"
+    },
+    {
+      "path": "ipj-research/src/ipj/flops.py",
+      "source_file": "ipj/src/ipj/flops.py",
+      "source_sha256": "b8ff64e534321355f33cba4c819bfc5c63062d2fbe51a3ef6701ec5c9d879076",
+      "exported_sha256": "b8ff64e534321355f33cba4c819bfc5c63062d2fbe51a3ef6701ec5c9d879076",
+      "purpose": "research source"
+    },
+    {
+      "path": "ipj-research/src/ipj/harbor/__init__.py",
+      "source_file": "ipj/src/ipj/harbor/__init__.py",
+      "source_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "exported_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "purpose": "research source"
+    },
+    {
+      "path": "ipj-research/src/ipj/harbor/per_task.py",
+      "source_file": "ipj/src/ipj/harbor/per_task.py",
+      "source_sha256": "9b9a88e64a6163ea9e743d6bb937186a6049e382d8a4ea8c53e2dbbcadffd372",
+      "exported_sha256": "9b9a88e64a6163ea9e743d6bb937186a6049e382d8a4ea8c53e2dbbcadffd372",
+      "purpose": "research source"
+    },
+    {
+      "path": "ipj-research/src/ipj/harbor/results.py",
+      "source_file": "ipj/src/ipj/harbor/results.py",
+      "source_sha256": "cd7fd59e4897fce72a57e62ba94fe19de548074d761998e272b3bfcdf1f4f253",
+      "exported_sha256": "cd7fd59e4897fce72a57e62ba94fe19de548074d761998e272b3bfcdf1f4f253",
+      "purpose": "research source"
+    },
+    {
+      "path": "ipj-research/src/ipj/harbor/run.py",
+      "source_file": "ipj/src/ipj/harbor/run.py",
+      "source_sha256": "95baca0b2f74746e37d5653be9a2992ae46e14112b5e4cf24f97c8352bcccba4",
+      "exported_sha256": "95baca0b2f74746e37d5653be9a2992ae46e14112b5e4cf24f97c8352bcccba4",
+      "purpose": "research source"
+    },
+    {
+      "path": "ipj-research/src/ipj/metrics.py",
+      "source_file": "ipj/src/ipj/metrics.py",
+      "source_sha256": "89f1b1049833438dde4156f1c54fc5f50389140e308d4aeceb27805c1e59e1b9",
+      "exported_sha256": "89f1b1049833438dde4156f1c54fc5f50389140e308d4aeceb27805c1e59e1b9",
+      "purpose": "research source"
+    },
+    {
+      "path": "ipj-research/src/ipj/orchestrate/__init__.py",
+      "source_file": "ipj/src/ipj/orchestrate/__init__.py",
+      "source_sha256": "fdb53fb75f2444f18e44a40bdcbb13ecd2b64a7e1be9e8cd23c640c62c2f351f",
+      "exported_sha256": "fdb53fb75f2444f18e44a40bdcbb13ecd2b64a7e1be9e8cd23c640c62c2f351f",
+      "purpose": "research source"
+    },
+    {
+      "path": "ipj-research/src/ipj/orchestrate/eval/__init__.py",
+      "source_file": "ipj/src/ipj/orchestrate/eval/__init__.py",
+      "source_sha256": "e63176d901b4880242e3ad3aaa8d85b1672dc2c231093cc238efe499bcd1322b",
+      "exported_sha256": "e63176d901b4880242e3ad3aaa8d85b1672dc2c231093cc238efe499bcd1322b",
+      "purpose": "research source"
+    },
+    {
+      "path": "ipj-research/src/ipj/orchestrate/eval/aggregate.py",
+      "source_file": "ipj/src/ipj/orchestrate/eval/aggregate.py",
+      "source_sha256": "9ab2fb68aa16a298fb32aad0bb4184711502b07a435dc5a1ac9ac48270e840bd",
+      "exported_sha256": "9ab2fb68aa16a298fb32aad0bb4184711502b07a435dc5a1ac9ac48270e840bd",
+      "purpose": "research source"
+    },
+    {
+      "path": "ipj-research/src/ipj/orchestrate/eval/arms.py",
+      "source_file": "ipj/src/ipj/orchestrate/eval/arms.py",
+      "source_sha256": "20b7fe1aefc1fe6530ac25d932e38819ed5e54b6a7ae9ac29db99c4e907cd8a1",
+      "exported_sha256": "20b7fe1aefc1fe6530ac25d932e38819ed5e54b6a7ae9ac29db99c4e907cd8a1",
+      "purpose": "research source"
+    },
+    {
+      "path": "ipj-research/src/ipj/orchestrate/filter/__init__.py",
+      "source_file": "ipj/src/ipj/orchestrate/filter/__init__.py",
+      "source_sha256": "f87ad60dbea28dfd063242544806902ebe3d80f27da67bab7c83e9c8ff0c05db",
+      "exported_sha256": "f87ad60dbea28dfd063242544806902ebe3d80f27da67bab7c83e9c8ff0c05db",
+      "purpose": "research source"
+    },
+    {
+      "path": "ipj-research/src/ipj/orchestrate/filter/filters.py",
+      "source_file": "ipj/src/ipj/orchestrate/filter/filters.py",
+      "source_sha256": "240768296af311f4ec4894eba39226507834a963843ed194fbb98e22f4a4a6e9",
+      "exported_sha256": "240768296af311f4ec4894eba39226507834a963843ed194fbb98e22f4a4a6e9",
+      "purpose": "research source"
+    },
+    {
+      "path": "ipj-research/src/ipj/orchestrate/filter/loader.py",
+      "source_file": "ipj/src/ipj/orchestrate/filter/loader.py",
+      "source_sha256": "142c991076e686467fad57fdf812efb4bf940476f3ed8d8c0c10cc708765c859",
+      "exported_sha256": "142c991076e686467fad57fdf812efb4bf940476f3ed8d8c0c10cc708765c859",
+      "purpose": "research source"
+    },
+    {
+      "path": "ipj-research/src/ipj/orchestrate/filter/pipeline.py",
+      "source_file": "ipj/src/ipj/orchestrate/filter/pipeline.py",
+      "source_sha256": "9c7a0412acf5e2376e21c0451734f31390a0896af31d72b0660a1ba55d473a5f",
+      "exported_sha256": "9c7a0412acf5e2376e21c0451734f31390a0896af31d72b0660a1ba55d473a5f",
+      "purpose": "research source"
+    },
+    {
+      "path": "ipj-research/src/ipj/orchestrate/filter/sft.py",
+      "source_file": "ipj/src/ipj/orchestrate/filter/sft.py",
+      "source_sha256": "0e939a398448e1f1eb5ae700c936c1a70c5a7934b05958c40b52468cc58328f8",
+      "exported_sha256": "0e939a398448e1f1eb5ae700c936c1a70c5a7934b05958c40b52468cc58328f8",
+      "purpose": "research source"
+    },
+    {
+      "path": "ipj-research/src/ipj/orchestrate/generate/__init__.py",
+      "source_file": "ipj/src/ipj/orchestrate/generate/__init__.py",
+      "source_sha256": "71d00fb9290a78b1e8bc6c666a549f585b972f9d8e5662168309c730d95e8dfc",
+      "exported_sha256": "71d00fb9290a78b1e8bc6c666a549f585b972f9d8e5662168309c730d95e8dfc",
+      "purpose": "research source"
+    },
+    {
+      "path": "ipj-research/src/ipj/orchestrate/generate/convert.py",
+      "source_file": "ipj/src/ipj/orchestrate/generate/convert.py",
+      "source_sha256": "e34aa94d48f0fde13975ad09e0e83a02d3ef61a972d8c0f99c0b85d14deb9384",
+      "exported_sha256": "e34aa94d48f0fde13975ad09e0e83a02d3ef61a972d8c0f99c0b85d14deb9384",
+      "purpose": "research source"
+    },
+    {
+      "path": "ipj-research/src/ipj/orchestrate/generate/driver.py",
+      "source_file": "ipj/src/ipj/orchestrate/generate/driver.py",
+      "source_sha256": "5f998e2a34ae5b9fd1c9fdeb0a0d816c8d5dbdd90e778b8743f18b6a3404fdfa",
+      "exported_sha256": "5f998e2a34ae5b9fd1c9fdeb0a0d816c8d5dbdd90e778b8743f18b6a3404fdfa",
+      "purpose": "research source"
+    },
+    {
+      "path": "ipj-research/src/ipj/orchestrate/generate/harbor_agent.py",
+      "source_file": "ipj/src/ipj/orchestrate/generate/harbor_agent.py",
+      "source_sha256": "1af6aeb8a1e27cb1d8b839020b611c2b20c72995ff34e599a9723b4a8f83f4d8",
+      "exported_sha256": "1af6aeb8a1e27cb1d8b839020b611c2b20c72995ff34e599a9723b4a8f83f4d8",
+      "purpose": "research source"
+    },
+    {
+      "path": "ipj-research/src/ipj/orchestrate/generate/session_tools.py",
+      "source_file": "ipj/src/ipj/orchestrate/generate/session_tools.py",
+      "source_sha256": "85c99c9b5ac018f51f3bee2187b7fed65cbf471a9c1ec8958f7b9859c4effdcd",
+      "exported_sha256": "85c99c9b5ac018f51f3bee2187b7fed65cbf471a9c1ec8958f7b9859c4effdcd",
+      "purpose": "research source"
+    },
+    {
+      "path": "ipj-research/src/ipj/orchestrate/generate/swe_tasks.py",
+      "source_file": "ipj/src/ipj/orchestrate/generate/swe_tasks.py",
+      "source_sha256": "b04d246d56534ef2fb5935dd60ceb418ad53221ef1f9730f4f7c974886e1320e",
+      "exported_sha256": "b04d246d56534ef2fb5935dd60ceb418ad53221ef1f9730f4f7c974886e1320e",
+      "purpose": "research source"
+    },
+    {
+      "path": "ipj-research/src/ipj/orchestrate/harness/__init__.py",
+      "source_file": "ipj/src/ipj/orchestrate/harness/__init__.py",
+      "source_sha256": "3c560249d12f64526fbb00517f6e4b687116bd02dca7225196a21c33715bd2d5",
+      "exported_sha256": "3c560249d12f64526fbb00517f6e4b687116bd02dca7225196a21c33715bd2d5",
+      "purpose": "research source"
+    },
+    {
+      "path": "ipj-research/src/ipj/orchestrate/harness/actions.py",
+      "source_file": "ipj/src/ipj/orchestrate/harness/actions.py",
+      "source_sha256": "8e28de7dcfd1ec6ec4c68333dd7772a40b85067d6c9987779543b406e23aeaa4",
+      "exported_sha256": "8e28de7dcfd1ec6ec4c68333dd7772a40b85067d6c9987779543b406e23aeaa4",
+      "purpose": "research source"
+    },
+    {
+      "path": "ipj-research/src/ipj/orchestrate/harness/brain.py",
+      "source_file": "ipj/src/ipj/orchestrate/harness/brain.py",
+      "source_sha256": "da1b54daab3e20a39b0a70c5dbb92b67bf2d06bcb2efeb7f04ffcae022cb0f37",
+      "exported_sha256": "da1b54daab3e20a39b0a70c5dbb92b67bf2d06bcb2efeb7f04ffcae022cb0f37",
+      "purpose": "research source"
+    },
+    {
+      "path": "ipj-research/src/ipj/orchestrate/harness/clients.py",
+      "source_file": "ipj/src/ipj/orchestrate/harness/clients.py",
+      "source_sha256": "e1d60e3cbc0685770d6d9c3719feb08c65b658521f4f3aea4b0ad830ec5738ef",
+      "exported_sha256": "e1d60e3cbc0685770d6d9c3719feb08c65b658521f4f3aea4b0ad830ec5738ef",
+      "purpose": "research source"
+    },
+    {
+      "path": "ipj-research/src/ipj/orchestrate/harness/delegation.py",
+      "source_file": "ipj/src/ipj/orchestrate/harness/delegation.py",
+      "source_sha256": "7efd4111797ffb932a6dbf24f3f234b6792ab31fbed758bc93b291ffe493d52b",
+      "exported_sha256": "7efd4111797ffb932a6dbf24f3f234b6792ab31fbed758bc93b291ffe493d52b",
+      "purpose": "research source"
+    },
+    {
+      "path": "ipj-research/src/ipj/orchestrate/harness/dispatch.py",
+      "source_file": "ipj/src/ipj/orchestrate/harness/dispatch.py",
+      "source_sha256": "f46c14b7814f4efb59db9bc07d96f285a90f80dfc81e19d3f998284896aa2047",
+      "exported_sha256": "f46c14b7814f4efb59db9bc07d96f285a90f80dfc81e19d3f998284896aa2047",
+      "purpose": "research source"
+    },
+    {
+      "path": "ipj-research/src/ipj/orchestrate/harness/ipw_glue.py",
+      "source_file": "ipj/src/ipj/orchestrate/harness/ipw_glue.py",
+      "source_sha256": "8930de9f74e6a7923caf3407d2f66b6a9a81d44c0627b64387255e94c6da46ad",
+      "exported_sha256": "8930de9f74e6a7923caf3407d2f66b6a9a81d44c0627b64387255e94c6da46ad",
+      "purpose": "research source"
+    },
+    {
+      "path": "ipj-research/src/ipj/orchestrate/harness/loop.py",
+      "source_file": "ipj/src/ipj/orchestrate/harness/loop.py",
+      "source_sha256": "b4d5c757bc4cf5f555d93fe796072c3ce0e5c84d1949046c5df33753eb6a1af5",
+      "exported_sha256": "b4d5c757bc4cf5f555d93fe796072c3ce0e5c84d1949046c5df33753eb6a1af5",
+      "purpose": "research source"
+    },
+    {
+      "path": "ipj-research/src/ipj/orchestrate/harness/prompt.py",
+      "source_file": "ipj/src/ipj/orchestrate/harness/prompt.py",
+      "source_sha256": "bdb1df570b9631849cc6859e443cd16a52dc8e4c54be8f7ec2208e0e9fe89df9",
+      "exported_sha256": "bdb1df570b9631849cc6859e443cd16a52dc8e4c54be8f7ec2208e0e9fe89df9",
+      "purpose": "research source"
+    },
+    {
+      "path": "ipj-research/src/ipj/orchestrate/harness/tasks.py",
+      "source_file": "ipj/src/ipj/orchestrate/harness/tasks.py",
+      "source_sha256": "34c97f5930a50eeb31d7cee41704b081644ab333ea9d0910e17782c941a67312",
+      "exported_sha256": "34c97f5930a50eeb31d7cee41704b081644ab333ea9d0910e17782c941a67312",
+      "purpose": "research source"
+    },
+    {
+      "path": "ipj-research/src/ipj/orchestrate/harness/tools.py",
+      "source_file": "ipj/src/ipj/orchestrate/harness/tools.py",
+      "source_sha256": "fe42a8e79620d5149b82303000e275f3810b51deee48ee10116842e47963b55a",
+      "exported_sha256": "fe42a8e79620d5149b82303000e275f3810b51deee48ee10116842e47963b55a",
+      "purpose": "research source"
+    },
+    {
+      "path": "ipj-research/src/ipj/orchestrate/harness/trace.py",
+      "source_file": "ipj/src/ipj/orchestrate/harness/trace.py",
+      "source_sha256": "eaaac78ca77c4bf2609ad7f7a003f90f7fd49b44355b00394f500d6e924157d9",
+      "exported_sha256": "eaaac78ca77c4bf2609ad7f7a003f90f7fd49b44355b00394f500d6e924157d9",
+      "purpose": "research source"
+    },
+    {
+      "path": "ipj-research/src/ipj/orchestrate/harness/trained_client.py",
+      "source_file": "ipj/src/ipj/orchestrate/harness/trained_client.py",
+      "source_sha256": "c086ca497ee143c8f41b2cbce739ec02af5069d49c3a0933602d875058d857fc",
+      "exported_sha256": "c086ca497ee143c8f41b2cbce739ec02af5069d49c3a0933602d875058d857fc",
+      "purpose": "research source"
+    },
+    {
+      "path": "ipj-research/src/ipj/orchestrate/harness/workers.py",
+      "source_file": "ipj/src/ipj/orchestrate/harness/workers.py",
+      "source_sha256": "b61fe61adb8b1e01cac066de40a89924384c4cd8d8acb8356e6944e5b1182018",
+      "exported_sha256": "b61fe61adb8b1e01cac066de40a89924384c4cd8d8acb8356e6944e5b1182018",
+      "purpose": "research source"
+    },
+    {
+      "path": "ipj-research/src/ipj/orchestrate/routing/__init__.py",
+      "source_file": "ipj/src/ipj/orchestrate/routing/__init__.py",
+      "source_sha256": "6b0db5a764b14c86f1e8fa05c13a53037fd9c29b145ecfda6df940ee930dbb74",
+      "exported_sha256": "6b0db5a764b14c86f1e8fa05c13a53037fd9c29b145ecfda6df940ee930dbb74",
+      "purpose": "research source"
+    },
+    {
+      "path": "ipj-research/src/ipj/orchestrate/routing/deferral.py",
+      "source_file": "ipj/src/ipj/orchestrate/routing/deferral.py",
+      "source_sha256": "a73401cb97bd19902c875c2d01249bd1d95787cb8dcbf948d53bef2d40f4f7f4",
+      "exported_sha256": "a73401cb97bd19902c875c2d01249bd1d95787cb8dcbf948d53bef2d40f4f7f4",
+      "purpose": "research source"
+    },
+    {
+      "path": "ipj-research/src/ipj/orchestrate/routing/signal.py",
+      "source_file": "ipj/src/ipj/orchestrate/routing/signal.py",
+      "source_sha256": "92b6c4dccdbc6980cf153451bffb7aaf27689d4cb83bb9e318b347463622158d",
+      "exported_sha256": "92b6c4dccdbc6980cf153451bffb7aaf27689d4cb83bb9e318b347463622158d",
+      "purpose": "research source"
+    },
+    {
+      "path": "ipj-research/src/ipj/orchestrate/routing/skill_router.py",
+      "source_file": "ipj/src/ipj/orchestrate/routing/skill_router.py",
+      "source_sha256": "c46db7aeef44c1e9339c998baddd00b303776629bd7b2c4f3697352bfe8fe634",
+      "exported_sha256": "c46db7aeef44c1e9339c998baddd00b303776629bd7b2c4f3697352bfe8fe634",
+      "purpose": "research source"
+    },
+    {
+      "path": "ipj-research/src/ipj/orchestrate/routing/v1_query.py",
+      "source_file": "ipj/src/ipj/orchestrate/routing/v1_query.py",
+      "source_sha256": "98378f3b8ed4dc2c21f35fe11c8958ee696ce3458cb63055b3387b3f0dfc6159",
+      "exported_sha256": "98378f3b8ed4dc2c21f35fe11c8958ee696ce3458cb63055b3387b3f0dfc6159",
+      "purpose": "research source"
+    },
+    {
+      "path": "ipj-research/src/ipj/orchestrate/routing/v2_proxy.py",
+      "source_file": "ipj/src/ipj/orchestrate/routing/v2_proxy.py",
+      "source_sha256": "448d1e2062db5dfc025aa68f69c53d67eb9da3b7d749f39ba28e3c6de2e59d37",
+      "exported_sha256": "448d1e2062db5dfc025aa68f69c53d67eb9da3b7d749f39ba28e3c6de2e59d37",
+      "purpose": "research source"
+    },
+    {
+      "path": "ipj-research/src/ipj/orchestrate/routing/v2_turn.py",
+      "source_file": "ipj/src/ipj/orchestrate/routing/v2_turn.py",
+      "source_sha256": "f80767a75ed76de4c25ec5aaaacf634019038f4a14fede5a645b1049753dd985",
+      "exported_sha256": "f80767a75ed76de4c25ec5aaaacf634019038f4a14fede5a645b1049753dd985",
+      "purpose": "research source"
+    },
+    {
+      "path": "ipj-research/src/ipj/percentile_amortize.py",
+      "source_file": "ipj/src/ipj/percentile_amortize.py",
+      "source_sha256": "5472ba04e042c2e768ed0d1244a79c70cbfe40cd96698722a411d9105ed190f4",
+      "exported_sha256": "5472ba04e042c2e768ed0d1244a79c70cbfe40cd96698722a411d9105ed190f4",
+      "purpose": "research source"
+    },
+    {
+      "path": "ipj-research/src/ipj/plot.py",
+      "source_file": "ipj/src/ipj/plot.py",
+      "source_sha256": "5450032a8096b4b1f928227735b91e090c91a11d38246df7c1a1302537fc59b8",
+      "exported_sha256": "5450032a8096b4b1f928227735b91e090c91a11d38246df7c1a1302537fc59b8",
+      "purpose": "research source"
+    },
+    {
+      "path": "ipj-research/src/ipj/registry/__init__.py",
+      "source_file": "ipj/src/ipj/registry/__init__.py",
+      "source_sha256": "5384bfdb2df380b6557cc7a71d16891415bccaa87699406e236f752c6415389f",
+      "exported_sha256": "5384bfdb2df380b6557cc7a71d16891415bccaa87699406e236f752c6415389f",
+      "purpose": "research source"
+    },
+    {
+      "path": "ipj-research/src/ipj/registry/artifact.py",
+      "source_file": "ipj/src/ipj/registry/artifact.py",
+      "source_sha256": "346fc1c146dab481b28dc6b65855f9614258b9406929747bbdf8464d5cb2c87e",
+      "exported_sha256": "346fc1c146dab481b28dc6b65855f9614258b9406929747bbdf8464d5cb2c87e",
+      "purpose": "research source"
+    },
+    {
+      "path": "ipj-research/src/ipj/registry/backfill.py",
+      "source_file": "ipj/src/ipj/registry/backfill.py",
+      "source_sha256": "d15d416e54b236e3ade6b1eaadbf716d5f2af9605668f855fe74b0016c8d7a53",
+      "exported_sha256": "d15d416e54b236e3ade6b1eaadbf716d5f2af9605668f855fe74b0016c8d7a53",
+      "purpose": "research source"
+    },
+    {
+      "path": "ipj-research/src/ipj/registry/capture.py",
+      "source_file": "ipj/src/ipj/registry/capture.py",
+      "source_sha256": "16718add3bcc252b6462f1ed9b85eb08e173d2a7eba854ca2d639aac5ca31c8e",
+      "exported_sha256": "16718add3bcc252b6462f1ed9b85eb08e173d2a7eba854ca2d639aac5ca31c8e",
+      "purpose": "research source"
+    },
+    {
+      "path": "ipj-research/src/ipj/registry/check.py",
+      "source_file": "ipj/src/ipj/registry/check.py",
+      "source_sha256": "76659af8c755e89a03b23f7eeec8fcc0524b54b798988bfd94b16f929bdf57e0",
+      "exported_sha256": "76659af8c755e89a03b23f7eeec8fcc0524b54b798988bfd94b16f929bdf57e0",
+      "purpose": "research source"
+    },
+    {
+      "path": "ipj-research/src/ipj/registry/cli.py",
+      "source_file": "ipj/src/ipj/registry/cli.py",
+      "source_sha256": "1eefea99dfe79da181008836177f08c3ded306c5845bb9a5f9a82e7e937cae39",
+      "exported_sha256": "1eefea99dfe79da181008836177f08c3ded306c5845bb9a5f9a82e7e937cae39",
+      "purpose": "research source"
+    },
+    {
+      "path": "ipj-research/src/ipj/registry/public_record.py",
+      "source_file": "ipj/src/ipj/registry/public_record.py",
+      "source_sha256": "77a574db9177d6f9f5ede42d3b795a44c7c4714bff0f5a7f1459dd9a2d93640a",
+      "exported_sha256": "77a574db9177d6f9f5ede42d3b795a44c7c4714bff0f5a7f1459dd9a2d93640a",
+      "purpose": "research source"
+    },
+    {
+      "path": "ipj-research/src/ipj/registry/record.py",
+      "source_file": "ipj/src/ipj/registry/record.py",
+      "source_sha256": "9d71fdfa355f967cd9039b80d7e7afce27d298f96e465ecd8058471def3076e9",
+      "exported_sha256": "9d71fdfa355f967cd9039b80d7e7afce27d298f96e465ecd8058471def3076e9",
+      "purpose": "research source"
+    },
+    {
+      "path": "ipj-research/src/ipj/registry/signature.py",
+      "source_file": "ipj/src/ipj/registry/signature.py",
+      "source_sha256": "267691a7cb0889f58ef045b5f5ad541457112d4038d99431f7294c5c48e6cc1e",
+      "exported_sha256": "267691a7cb0889f58ef045b5f5ad541457112d4038d99431f7294c5c48e6cc1e",
+      "purpose": "research source"
+    },
+    {
+      "path": "ipj-research/src/ipj/registry/store.py",
+      "source_file": "ipj/src/ipj/registry/store.py",
+      "source_sha256": "1f05c21bdadf1b010a8eaf12698a36453e0603087fde0aa1f0c9aa7629f68e4e",
+      "exported_sha256": "1f05c21bdadf1b010a8eaf12698a36453e0603087fde0aa1f0c9aa7629f68e4e",
+      "purpose": "research source"
+    },
+    {
+      "path": "ipj-research/src/ipj/rigor/__init__.py",
+      "source_file": "ipj/src/ipj/rigor/__init__.py",
+      "source_sha256": "6466e47a61d6faa8399091c08e131cb8d3a5d8eb9d4322fcdd7e30bfbb4bff72",
+      "exported_sha256": "6466e47a61d6faa8399091c08e131cb8d3a5d8eb9d4322fcdd7e30bfbb4bff72",
+      "purpose": "research source"
+    },
+    {
+      "path": "ipj-research/src/ipj/rigor/bootstrap.py",
+      "source_file": "ipj/src/ipj/rigor/bootstrap.py",
+      "source_sha256": "197322158a6668e5ba8fa248bb8dac9701ef99d2a45510cb9beed52b0d159538",
+      "exported_sha256": "197322158a6668e5ba8fa248bb8dac9701ef99d2a45510cb9beed52b0d159538",
+      "purpose": "research source"
+    },
+    {
+      "path": "ipj-research/src/ipj/rigor/estimators.py",
+      "source_file": "ipj/src/ipj/rigor/estimators.py",
+      "source_sha256": "430f631a0bc42761fafca3b06871fdc0895920f3e797ff89bdf994be0cd952bb",
+      "exported_sha256": "430f631a0bc42761fafca3b06871fdc0895920f3e797ff89bdf994be0cd952bb",
+      "purpose": "research source"
+    },
+    {
+      "path": "ipj-research/src/ipj/rigor/reporting.py",
+      "source_file": "ipj/src/ipj/rigor/reporting.py",
+      "source_sha256": "f84ec97f35fe76fc1dbc3928b4d23101466e47e85b3fc301bbcb40e522d9cb84",
+      "exported_sha256": "f84ec97f35fe76fc1dbc3928b4d23101466e47e85b3fc301bbcb40e522d9cb84",
+      "purpose": "research source"
+    },
+    {
+      "path": "ipj-research/src/ipj/rigor/trials.py",
+      "source_file": "ipj/src/ipj/rigor/trials.py",
+      "source_sha256": "2d73ce8a5449383e4f4a8069d7b478d6ddeac732e20b10c9f7297de46710920a",
+      "exported_sha256": "2d73ce8a5449383e4f4a8069d7b478d6ddeac732e20b10c9f7297de46710920a",
+      "purpose": "research source"
+    },
+    {
+      "path": "ipj-research/src/ipj/router/__init__.py",
+      "source_file": "ipj/src/ipj/router/__init__.py",
+      "source_sha256": "adc1cc74712e32f4018620ce7b734d31521f0fbbd8ae8a52eb1aa962f4472e3f",
+      "exported_sha256": "adc1cc74712e32f4018620ce7b734d31521f0fbbd8ae8a52eb1aa962f4472e3f",
+      "purpose": "research source"
+    },
+    {
+      "path": "ipj-research/src/ipj/router/classifier.py",
+      "source_file": "ipj/src/ipj/router/classifier.py",
+      "source_sha256": "755cb30a85a680b9aa3613ee75ed726ab464b4269d317608371dc16cc6d3438e",
+      "exported_sha256": "755cb30a85a680b9aa3613ee75ed726ab464b4269d317608371dc16cc6d3438e",
+      "purpose": "research source"
+    },
+    {
+      "path": "ipj-research/src/ipj/router/costaware.py",
+      "source_file": "ipj/src/ipj/router/costaware.py",
+      "source_sha256": "a8fb72269c78a123873590352104d571edb82727a384313b01ebea02cc78e36c",
+      "exported_sha256": "a8fb72269c78a123873590352104d571edb82727a384313b01ebea02cc78e36c",
+      "purpose": "research source"
+    },
+    {
+      "path": "ipj-research/src/ipj/router/dataset.py",
+      "source_file": "ipj/src/ipj/router/dataset.py",
+      "source_sha256": "875b873ce3fc2dd1ed2f54bdf5f9b30091ea1e829ab6a0ead8da106b36ad4987",
+      "exported_sha256": "875b873ce3fc2dd1ed2f54bdf5f9b30091ea1e829ab6a0ead8da106b36ad4987",
+      "purpose": "research source"
+    },
+    {
+      "path": "ipj-research/src/ipj/router/scorecache.py",
+      "source_file": "ipj/src/ipj/router/scorecache.py",
+      "source_sha256": "418c46aaa8efdbc5ed6a70035ae20291c26438e6330593daed3f0fb9946aec05",
+      "exported_sha256": "418c46aaa8efdbc5ed6a70035ae20291c26438e6330593daed3f0fb9946aec05",
+      "purpose": "research source"
+    },
+    {
+      "path": "ipj-research/src/ipj/serving_bench.py",
+      "source_file": "ipj/src/ipj/serving_bench.py",
+      "source_sha256": "20a6caa6d0a7e5377f78561aac0b4fc2acb119713da59e19cb018f3d407df6e7",
+      "exported_sha256": "20a6caa6d0a7e5377f78561aac0b4fc2acb119713da59e19cb018f3d407df6e7",
+      "purpose": "research source"
+    },
+    {
+      "path": "ipj-research/src/ipj/train/__init__.py",
+      "source_file": "ipj/src/ipj/train/__init__.py",
+      "source_sha256": "2d3372c2856909f949888225edca7a3e6c3838dc2d1fa95564dc57d11ac71cfa",
+      "exported_sha256": "2d3372c2856909f949888225edca7a3e6c3838dc2d1fa95564dc57d11ac71cfa",
+      "purpose": "research source"
+    },
+    {
+      "path": "ipj-research/src/ipj/train/config.py",
+      "source_file": "ipj/src/ipj/train/config.py",
+      "source_sha256": "2d3e369ea84ca7371761a91023c63272509def68399144dc74e8b55dff4e423b",
+      "exported_sha256": "2d3e369ea84ca7371761a91023c63272509def68399144dc74e8b55dff4e423b",
+      "purpose": "research source"
+    },
+    {
+      "path": "ipj-research/src/ipj/train/dataprep.py",
+      "source_file": "ipj/src/ipj/train/dataprep.py",
+      "source_sha256": "543073e921ad00557d2dc0afc1f5295287bc3249e59094d77bc7b6af2f8cde0a",
+      "exported_sha256": "543073e921ad00557d2dc0afc1f5295287bc3249e59094d77bc7b6af2f8cde0a",
+      "purpose": "research source"
+    },
+    {
+      "path": "ipj-research/src/ipj/train/train.py",
+      "source_file": "ipj/src/ipj/train/train.py",
+      "source_sha256": "87afd55c996c9b9d52f1c3de6b0b795ae07410aa18d89303c8f748259428b70c",
+      "exported_sha256": "87afd55c996c9b9d52f1c3de6b0b795ae07410aa18d89303c8f748259428b70c",
+      "purpose": "research source"
+    },
+    {
+      "path": "ipj-research/tests/__init__.py",
+      "source_file": "ipj/tests/__init__.py",
+      "source_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "exported_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "purpose": "research unit tests"
+    },
+    {
+      "path": "ipj-research/tests/efficiency/__init__.py",
+      "source_file": "ipj/tests/efficiency/__init__.py",
+      "source_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "exported_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "purpose": "research unit tests"
+    },
+    {
+      "path": "ipj-research/tests/efficiency/fixtures/run/alpha__a1/result.json",
+      "source_file": "ipj/tests/efficiency/fixtures/run/alpha__a1/result.json",
+      "source_sha256": "fd14f7f4763982163eea273b0c7a42ebdb3824d38face2cb75fe0b05f2c5545d",
+      "exported_sha256": "fd14f7f4763982163eea273b0c7a42ebdb3824d38face2cb75fe0b05f2c5545d",
+      "purpose": "research unit tests"
+    },
+    {
+      "path": "ipj-research/tests/efficiency/fixtures/run/beta__b2/result.json",
+      "source_file": "ipj/tests/efficiency/fixtures/run/beta__b2/result.json",
+      "source_sha256": "f434d38e3377b190df567b8638038b048cc3def54dc52967f0abbf79d4cdd795",
+      "exported_sha256": "f434d38e3377b190df567b8638038b048cc3def54dc52967f0abbf79d4cdd795",
+      "purpose": "research unit tests"
+    },
+    {
+      "path": "ipj-research/tests/efficiency/fixtures/sample-task/task.toml",
+      "source_file": "ipj/tests/efficiency/fixtures/sample-task/task.toml",
+      "source_sha256": "7fb1e58ed9279670a310c78996c7bff43f7732c53ec26baff291b3fd66967f99",
+      "exported_sha256": "7fb1e58ed9279670a310c78996c7bff43f7732c53ec26baff291b3fd66967f99",
+      "purpose": "research unit tests"
+    },
+    {
+      "path": "ipj-research/tests/efficiency/test_cost.py",
+      "source_file": "ipj/tests/efficiency/test_cost.py",
+      "source_sha256": "dff346f01be9befea52457e8bceb7dcdc3b55abde9b225204507305a3c12a7cf",
+      "exported_sha256": "dff346f01be9befea52457e8bceb7dcdc3b55abde9b225204507305a3c12a7cf",
+      "purpose": "research unit tests"
+    },
+    {
+      "path": "ipj-research/tests/efficiency/test_energy.py",
+      "source_file": "ipj/tests/efficiency/test_energy.py",
+      "source_sha256": "66966c33d4004ce5ef76f6f71af6fd22b86cbfadb758a6908577f718f7c2cd86",
+      "exported_sha256": "66966c33d4004ce5ef76f6f71af6fd22b86cbfadb758a6908577f718f7c2cd86",
+      "purpose": "research unit tests"
+    },
+    {
+      "path": "ipj-research/tests/efficiency/test_extract.py",
+      "source_file": "ipj/tests/efficiency/test_extract.py",
+      "source_sha256": "87d9d008b4d271007f92d566de4701602dc6c645911dcef1b097b152eb9827c7",
+      "exported_sha256": "87d9d008b4d271007f92d566de4701602dc6c645911dcef1b097b152eb9827c7",
+      "purpose": "research unit tests"
+    },
+    {
+      "path": "ipj-research/tests/efficiency/test_failure_modes.py",
+      "source_file": "ipj/tests/efficiency/test_failure_modes.py",
+      "source_sha256": "9b0861fb4a1ea254ba2974623ea43ba70d735095b5de333e6b7b1fd2e9b48bab",
+      "exported_sha256": "9b0861fb4a1ea254ba2974623ea43ba70d735095b5de333e6b7b1fd2e9b48bab",
+      "purpose": "research unit tests"
+    },
+    {
+      "path": "ipj-research/tests/efficiency/test_flops.py",
+      "source_file": "ipj/tests/efficiency/test_flops.py",
+      "source_sha256": "830fea0081870d8deed499544750560b6c105b26b8681a0a20866021d130411d",
+      "exported_sha256": "830fea0081870d8deed499544750560b6c105b26b8681a0a20866021d130411d",
+      "purpose": "research unit tests"
+    },
+    {
+      "path": "ipj-research/tests/efficiency/test_operating_curve.py",
+      "source_file": "ipj/tests/efficiency/test_operating_curve.py",
+      "source_sha256": "3dd88e953960cc74c2f194d8f063b934617f9d2f5478ba5f8080cf1ded2e2efd",
+      "exported_sha256": "3dd88e953960cc74c2f194d8f063b934617f9d2f5478ba5f8080cf1ded2e2efd",
+      "purpose": "research unit tests"
+    },
+    {
+      "path": "ipj-research/tests/efficiency/test_plot.py",
+      "source_file": "ipj/tests/efficiency/test_plot.py",
+      "source_sha256": "78a9713c49279c1b3160e6f41a0e5676ec0819968f3b5f0abca7471979b0a3b6",
+      "exported_sha256": "78a9713c49279c1b3160e6f41a0e5676ec0819968f3b5f0abca7471979b0a3b6",
+      "purpose": "research unit tests"
+    },
+    {
+      "path": "ipj-research/tests/efficiency/test_record.py",
+      "source_file": "ipj/tests/efficiency/test_record.py",
+      "source_sha256": "3df3723e9a4eb5511ce90f48c3f7a945efcf630ce512cb1970a73aa3098c12e5",
+      "exported_sha256": "3df3723e9a4eb5511ce90f48c3f7a945efcf630ce512cb1970a73aa3098c12e5",
+      "purpose": "research unit tests"
+    },
+    {
+      "path": "ipj-research/tests/efficiency/test_stats.py",
+      "source_file": "ipj/tests/efficiency/test_stats.py",
+      "source_sha256": "62b3c5bc9e1d77680bd31cc38ab9ac37520b7ed4fe7409dea1b3da8b7105f44f",
+      "exported_sha256": "62b3c5bc9e1d77680bd31cc38ab9ac37520b7ed4fe7409dea1b3da8b7105f44f",
+      "purpose": "research unit tests"
+    },
+    {
+      "path": "ipj-research/tests/efficiency/test_tb_metadata.py",
+      "source_file": "ipj/tests/efficiency/test_tb_metadata.py",
+      "source_sha256": "2cdb4f3522a70524caa3c07670974748fc6873cb16239e662f5dc54ac660c0a4",
+      "exported_sha256": "2cdb4f3522a70524caa3c07670974748fc6873cb16239e662f5dc54ac660c0a4",
+      "purpose": "research unit tests"
+    },
+    {
+      "path": "ipj-research/tests/fixtures/accounting/ipd-v1.json",
+      "source_file": "ipj/tests/fixtures/accounting/ipd-v1.json",
+      "source_sha256": "4eeeac473d332a2633aec86eb01f852997cd165bfefb86c4395db948907235da",
+      "exported_sha256": "4eeeac473d332a2633aec86eb01f852997cd165bfefb86c4395db948907235da",
+      "purpose": "research unit tests"
+    },
+    {
+      "path": "ipj-research/tests/fixtures/accounting/ipd-v2.json",
+      "source_file": "ipj/tests/fixtures/accounting/ipd-v2.json",
+      "source_sha256": "112b83ccb64b2e6596b146b3074c2e256ee004aceac8300c8814bfd076c284c9",
+      "exported_sha256": "112b83ccb64b2e6596b146b3074c2e256ee004aceac8300c8814bfd076c284c9",
+      "purpose": "research unit tests"
+    },
+    {
+      "path": "ipj-research/tests/fixtures/harbor_summary.json",
+      "source_file": "ipj/tests/fixtures/harbor_summary.json",
+      "source_sha256": "e7f3b0ca5e33ee6afb062f392553885cf21e1f32351582b1ac941abd9c4043c4",
+      "exported_sha256": "e7f3b0ca5e33ee6afb062f392553885cf21e1f32351582b1ac941abd9c4043c4",
+      "purpose": "research unit tests"
+    },
+    {
+      "path": "ipj-research/tests/orchestrate/__init__.py",
+      "source_file": "ipj/tests/orchestrate/__init__.py",
+      "source_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "exported_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "purpose": "research unit tests"
+    },
+    {
+      "path": "ipj-research/tests/orchestrate/conftest.py",
+      "source_file": "ipj/tests/orchestrate/conftest.py",
+      "source_sha256": "5a409ce43bafb5d060e7923309b94fa479a2446debe891b1edcf98bb03ccfe27",
+      "exported_sha256": "5a409ce43bafb5d060e7923309b94fa479a2446debe891b1edcf98bb03ccfe27",
+      "purpose": "research unit tests"
+    },
+    {
+      "path": "ipj-research/tests/orchestrate/eval/__init__.py",
+      "source_file": "ipj/tests/orchestrate/eval/__init__.py",
+      "source_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "exported_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "purpose": "research unit tests"
+    },
+    {
+      "path": "ipj-research/tests/orchestrate/eval/test_aggregate.py",
+      "source_file": "ipj/tests/orchestrate/eval/test_aggregate.py",
+      "source_sha256": "c4ccbbf547e22490a54614af9aa47b776227217be1045c60ea88530c8dbda470",
+      "exported_sha256": "c4ccbbf547e22490a54614af9aa47b776227217be1045c60ea88530c8dbda470",
+      "purpose": "research unit tests"
+    },
+    {
+      "path": "ipj-research/tests/orchestrate/eval/test_arms.py",
+      "source_file": "ipj/tests/orchestrate/eval/test_arms.py",
+      "source_sha256": "7c6cb6ca9c9ac99f2febf7c2af73d00e84ad839c9b0889f6d5c02b157f83f1b6",
+      "exported_sha256": "7c6cb6ca9c9ac99f2febf7c2af73d00e84ad839c9b0889f6d5c02b157f83f1b6",
+      "purpose": "research unit tests"
+    },
+    {
+      "path": "ipj-research/tests/orchestrate/filter/__init__.py",
+      "source_file": "ipj/tests/orchestrate/filter/__init__.py",
+      "source_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "exported_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "purpose": "research unit tests"
+    },
+    {
+      "path": "ipj-research/tests/orchestrate/filter/test_filters.py",
+      "source_file": "ipj/tests/orchestrate/filter/test_filters.py",
+      "source_sha256": "6f812108ab146f54292f49b04ab45f635c7d5b3ff736d07fe62dc813b753161d",
+      "exported_sha256": "6f812108ab146f54292f49b04ab45f635c7d5b3ff736d07fe62dc813b753161d",
+      "purpose": "research unit tests"
+    },
+    {
+      "path": "ipj-research/tests/orchestrate/filter/test_loader.py",
+      "source_file": "ipj/tests/orchestrate/filter/test_loader.py",
+      "source_sha256": "1e743c8bc043ac4d93be9c4c9c5cdeb0aa5e73ecca6e8cb7a87aa73219458f1e",
+      "exported_sha256": "1e743c8bc043ac4d93be9c4c9c5cdeb0aa5e73ecca6e8cb7a87aa73219458f1e",
+      "purpose": "research unit tests"
+    },
+    {
+      "path": "ipj-research/tests/orchestrate/filter/test_pipeline.py",
+      "source_file": "ipj/tests/orchestrate/filter/test_pipeline.py",
+      "source_sha256": "e722ee0707f648a41ebedb4491472b16bdf63ed1f4e44d3a3b0a40f3e988c9d6",
+      "exported_sha256": "e722ee0707f648a41ebedb4491472b16bdf63ed1f4e44d3a3b0a40f3e988c9d6",
+      "purpose": "research unit tests"
+    },
+    {
+      "path": "ipj-research/tests/orchestrate/filter/test_sft.py",
+      "source_file": "ipj/tests/orchestrate/filter/test_sft.py",
+      "source_sha256": "76a25bfb51667eccfe78d6895762a339daebdec317a1472740bb04ec6f537431",
+      "exported_sha256": "76a25bfb51667eccfe78d6895762a339daebdec317a1472740bb04ec6f537431",
+      "purpose": "research unit tests"
+    },
+    {
+      "path": "ipj-research/tests/orchestrate/generate/__init__.py",
+      "source_file": "ipj/tests/orchestrate/generate/__init__.py",
+      "source_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "exported_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "purpose": "research unit tests"
+    },
+    {
+      "path": "ipj-research/tests/orchestrate/generate/test_convert.py",
+      "source_file": "ipj/tests/orchestrate/generate/test_convert.py",
+      "source_sha256": "a9af0a8bc9261f689549444d62195337ee0162997403d4878c230f8e712e833e",
+      "exported_sha256": "a9af0a8bc9261f689549444d62195337ee0162997403d4878c230f8e712e833e",
+      "purpose": "research unit tests"
+    },
+    {
+      "path": "ipj-research/tests/orchestrate/generate/test_driver.py",
+      "source_file": "ipj/tests/orchestrate/generate/test_driver.py",
+      "source_sha256": "b84fb393848abf87d9e8fa5d1dd56f3ed2630f07d6e70e154e744a4b710dd4f9",
+      "exported_sha256": "b84fb393848abf87d9e8fa5d1dd56f3ed2630f07d6e70e154e744a4b710dd4f9",
+      "purpose": "research unit tests"
+    },
+    {
+      "path": "ipj-research/tests/orchestrate/generate/test_harbor_agent.py",
+      "source_file": "ipj/tests/orchestrate/generate/test_harbor_agent.py",
+      "source_sha256": "bb24da068a6d04979e5fa92157a5533bc0d446e430aa97515bfbc04922f3f664",
+      "exported_sha256": "bb24da068a6d04979e5fa92157a5533bc0d446e430aa97515bfbc04922f3f664",
+      "purpose": "research unit tests"
+    },
+    {
+      "path": "ipj-research/tests/orchestrate/generate/test_session_tools.py",
+      "source_file": "ipj/tests/orchestrate/generate/test_session_tools.py",
+      "source_sha256": "211c9e6731c35ec1283baedc397be7f26da4eed1e9585fdaba37c155b9867871",
+      "exported_sha256": "211c9e6731c35ec1283baedc397be7f26da4eed1e9585fdaba37c155b9867871",
+      "purpose": "research unit tests"
+    },
+    {
+      "path": "ipj-research/tests/orchestrate/generate/test_swe_tasks.py",
+      "source_file": "ipj/tests/orchestrate/generate/test_swe_tasks.py",
+      "source_sha256": "aed319e001f0b8d1fea86ef9c231ae51a0649a18f36748c0c54811186b6555a8",
+      "exported_sha256": "aed319e001f0b8d1fea86ef9c231ae51a0649a18f36748c0c54811186b6555a8",
+      "purpose": "research unit tests"
+    },
+    {
+      "path": "ipj-research/tests/orchestrate/harness/__init__.py",
+      "source_file": "ipj/tests/orchestrate/harness/__init__.py",
+      "source_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "exported_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "purpose": "research unit tests"
+    },
+    {
+      "path": "ipj-research/tests/orchestrate/harness/test_actions.py",
+      "source_file": "ipj/tests/orchestrate/harness/test_actions.py",
+      "source_sha256": "b72f85dca48f28c255d59f4bdddaade4d26a21634169c8e6728d1d47f2ef8efa",
+      "exported_sha256": "b72f85dca48f28c255d59f4bdddaade4d26a21634169c8e6728d1d47f2ef8efa",
+      "purpose": "research unit tests"
+    },
+    {
+      "path": "ipj-research/tests/orchestrate/harness/test_brain.py",
+      "source_file": "ipj/tests/orchestrate/harness/test_brain.py",
+      "source_sha256": "750b86747ae45240fb774b75f995f18cdc3eb641ae76878cdfce632c00ded9b2",
+      "exported_sha256": "750b86747ae45240fb774b75f995f18cdc3eb641ae76878cdfce632c00ded9b2",
+      "purpose": "research unit tests"
+    },
+    {
+      "path": "ipj-research/tests/orchestrate/harness/test_clients.py",
+      "source_file": "ipj/tests/orchestrate/harness/test_clients.py",
+      "source_sha256": "972fe87fe21f158ee20fca2350bceba03a6cf5a76c80c282403cac10d5f985fa",
+      "exported_sha256": "972fe87fe21f158ee20fca2350bceba03a6cf5a76c80c282403cac10d5f985fa",
+      "purpose": "research unit tests"
+    },
+    {
+      "path": "ipj-research/tests/orchestrate/harness/test_delegation.py",
+      "source_file": "ipj/tests/orchestrate/harness/test_delegation.py",
+      "source_sha256": "73679c42a53edb4146aa63db3af17b61975e474ffa21c57a733e4e7e3400d264",
+      "exported_sha256": "73679c42a53edb4146aa63db3af17b61975e474ffa21c57a733e4e7e3400d264",
+      "purpose": "research unit tests"
+    },
+    {
+      "path": "ipj-research/tests/orchestrate/harness/test_dispatch.py",
+      "source_file": "ipj/tests/orchestrate/harness/test_dispatch.py",
+      "source_sha256": "7f168e343ca387aee5b9078f923bfad1c6335771a079497e2e6d58eb4abdbe1e",
+      "exported_sha256": "7f168e343ca387aee5b9078f923bfad1c6335771a079497e2e6d58eb4abdbe1e",
+      "purpose": "research unit tests"
+    },
+    {
+      "path": "ipj-research/tests/orchestrate/harness/test_escalating_brain.py",
+      "source_file": "ipj/tests/orchestrate/harness/test_escalating_brain.py",
+      "source_sha256": "dc6b369af8e6a60c2f0c70d75ee9b740421154c8cf722d6af40fb48986414eaa",
+      "exported_sha256": "dc6b369af8e6a60c2f0c70d75ee9b740421154c8cf722d6af40fb48986414eaa",
+      "purpose": "research unit tests"
+    },
+    {
+      "path": "ipj-research/tests/orchestrate/harness/test_ipw_glue.py",
+      "source_file": "ipj/tests/orchestrate/harness/test_ipw_glue.py",
+      "source_sha256": "e745edfcfd0fd50498b01285e959abb6c5299090e43acf00a72d5b9ae3a80f30",
+      "exported_sha256": "e745edfcfd0fd50498b01285e959abb6c5299090e43acf00a72d5b9ae3a80f30",
+      "purpose": "research unit tests"
+    },
+    {
+      "path": "ipj-research/tests/orchestrate/harness/test_loop.py",
+      "source_file": "ipj/tests/orchestrate/harness/test_loop.py",
+      "source_sha256": "5ebe19e22eb3def6aac5377e8f191bfe6e5c9a17a3abdb0200a166941b7af180",
+      "exported_sha256": "5ebe19e22eb3def6aac5377e8f191bfe6e5c9a17a3abdb0200a166941b7af180",
+      "purpose": "research unit tests"
+    },
+    {
+      "path": "ipj-research/tests/orchestrate/harness/test_prompt.py",
+      "source_file": "ipj/tests/orchestrate/harness/test_prompt.py",
+      "source_sha256": "e21060ec4769ad5468c0ba44b03afb79b8f1df02a447fcad821720ee177d7ef0",
+      "exported_sha256": "e21060ec4769ad5468c0ba44b03afb79b8f1df02a447fcad821720ee177d7ef0",
+      "purpose": "research unit tests"
+    },
+    {
+      "path": "ipj-research/tests/orchestrate/harness/test_tasks.py",
+      "source_file": "ipj/tests/orchestrate/harness/test_tasks.py",
+      "source_sha256": "d95e54fba58b7aaa1d6b15d9ab0711f40206f4bd294469c0f337f870133adf5a",
+      "exported_sha256": "d95e54fba58b7aaa1d6b15d9ab0711f40206f4bd294469c0f337f870133adf5a",
+      "purpose": "research unit tests"
+    },
+    {
+      "path": "ipj-research/tests/orchestrate/harness/test_tools.py",
+      "source_file": "ipj/tests/orchestrate/harness/test_tools.py",
+      "source_sha256": "bcea0e175b0ce4abde42c2c3c6501d131d4d744eafd70b38654e67bd860c48a3",
+      "exported_sha256": "bcea0e175b0ce4abde42c2c3c6501d131d4d744eafd70b38654e67bd860c48a3",
+      "purpose": "research unit tests"
+    },
+    {
+      "path": "ipj-research/tests/orchestrate/harness/test_trace.py",
+      "source_file": "ipj/tests/orchestrate/harness/test_trace.py",
+      "source_sha256": "0186d0d13eec1bacb7a18e1a8b2383a88c7ed6e84da2cd32af2769e6a10351ac",
+      "exported_sha256": "0186d0d13eec1bacb7a18e1a8b2383a88c7ed6e84da2cd32af2769e6a10351ac",
+      "purpose": "research unit tests"
+    },
+    {
+      "path": "ipj-research/tests/orchestrate/harness/test_trained_client.py",
+      "source_file": "ipj/tests/orchestrate/harness/test_trained_client.py",
+      "source_sha256": "8b8b319604a1a740c34aac10436b9009f6142df780b4c0b38207bd3a7152aadf",
+      "exported_sha256": "8b8b319604a1a740c34aac10436b9009f6142df780b4c0b38207bd3a7152aadf",
+      "purpose": "research unit tests"
+    },
+    {
+      "path": "ipj-research/tests/orchestrate/harness/test_workers.py",
+      "source_file": "ipj/tests/orchestrate/harness/test_workers.py",
+      "source_sha256": "633f159a4b3424a561b955f1a5a7011ddc51cc8c12024c8f95b5c824b197baf0",
+      "exported_sha256": "633f159a4b3424a561b955f1a5a7011ddc51cc8c12024c8f95b5c824b197baf0",
+      "purpose": "research unit tests"
+    },
+    {
+      "path": "ipj-research/tests/orchestrate/routing/__init__.py",
+      "source_file": "ipj/tests/orchestrate/routing/__init__.py",
+      "source_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "exported_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "purpose": "research unit tests"
+    },
+    {
+      "path": "ipj-research/tests/orchestrate/routing/test_deferral.py",
+      "source_file": "ipj/tests/orchestrate/routing/test_deferral.py",
+      "source_sha256": "4d8e62649e0723bc5572888c08e154e5e9c8a68379499a30e05877ceb941b4f6",
+      "exported_sha256": "4d8e62649e0723bc5572888c08e154e5e9c8a68379499a30e05877ceb941b4f6",
+      "purpose": "research unit tests"
+    },
+    {
+      "path": "ipj-research/tests/orchestrate/routing/test_signal.py",
+      "source_file": "ipj/tests/orchestrate/routing/test_signal.py",
+      "source_sha256": "419d8a81089f636189e7402593db5947c64582f41ab2494e0893afab21f484d6",
+      "exported_sha256": "419d8a81089f636189e7402593db5947c64582f41ab2494e0893afab21f484d6",
+      "purpose": "research unit tests"
+    },
+    {
+      "path": "ipj-research/tests/orchestrate/routing/test_skill_router.py",
+      "source_file": "ipj/tests/orchestrate/routing/test_skill_router.py",
+      "source_sha256": "fcf27d400070302484de8a6509cab1c301f45f9e489f18b94365d7d22294b987",
+      "exported_sha256": "fcf27d400070302484de8a6509cab1c301f45f9e489f18b94365d7d22294b987",
+      "purpose": "research unit tests"
+    },
+    {
+      "path": "ipj-research/tests/orchestrate/routing/test_v1_query.py",
+      "source_file": "ipj/tests/orchestrate/routing/test_v1_query.py",
+      "source_sha256": "62a8676d1274f1d8a6135e66a5e7662484f79c90f5c5dcf932401be7f2c7da61",
+      "exported_sha256": "62a8676d1274f1d8a6135e66a5e7662484f79c90f5c5dcf932401be7f2c7da61",
+      "purpose": "research unit tests"
+    },
+    {
+      "path": "ipj-research/tests/orchestrate/routing/test_v2_proxy.py",
+      "source_file": "ipj/tests/orchestrate/routing/test_v2_proxy.py",
+      "source_sha256": "11efae5109878fc98c11f262099f42e999cfbd7c8c8255b2ab1d8d22cc63989c",
+      "exported_sha256": "11efae5109878fc98c11f262099f42e999cfbd7c8c8255b2ab1d8d22cc63989c",
+      "purpose": "research unit tests"
+    },
+    {
+      "path": "ipj-research/tests/orchestrate/routing/test_v2_turn.py",
+      "source_file": "ipj/tests/orchestrate/routing/test_v2_turn.py",
+      "source_sha256": "20c0102dee6c6feb26cfeae5c693cb9d8d08c29321f7be8582fc3100f53c5d7c",
+      "exported_sha256": "20c0102dee6c6feb26cfeae5c693cb9d8d08c29321f7be8582fc3100f53c5d7c",
+      "purpose": "research unit tests"
+    },
+    {
+      "path": "ipj-research/tests/registry/__init__.py",
+      "source_file": "ipj/tests/registry/__init__.py",
+      "source_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "exported_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "purpose": "research unit tests"
+    },
+    {
+      "path": "ipj-research/tests/registry/conftest.py",
+      "source_file": "ipj/tests/registry/conftest.py",
+      "source_sha256": "0dac242328ffcb76c5a980901eaf0d503543124593ced9352051f8ae90796a96",
+      "exported_sha256": "0dac242328ffcb76c5a980901eaf0d503543124593ced9352051f8ae90796a96",
+      "purpose": "research unit tests"
+    },
+    {
+      "path": "ipj-research/tests/registry/fixtures/run/config.json",
+      "source_file": "ipj/tests/registry/fixtures/run/config.json",
+      "source_sha256": "11da87b8fce0645797281d3eedb3ca6a9acd8e42aa3146b28892d6fc2495d630",
+      "exported_sha256": "11da87b8fce0645797281d3eedb3ca6a9acd8e42aa3146b28892d6fc2495d630",
+      "purpose": "research unit tests"
+    },
+    {
+      "path": "ipj-research/tests/registry/fixtures/run/result.json",
+      "source_file": "ipj/tests/registry/fixtures/run/result.json",
+      "source_sha256": "313a866c95c1058c3aa1d1f53c2916ba2176cbebc0daf24631366e0971fbb9a3",
+      "exported_sha256": "313a866c95c1058c3aa1d1f53c2916ba2176cbebc0daf24631366e0971fbb9a3",
+      "purpose": "research unit tests"
+    },
+    {
+      "path": "ipj-research/tests/registry/test_backfill.py",
+      "source_file": "ipj/tests/registry/test_backfill.py",
+      "source_sha256": "04105f97b69c56589eea3b909148f8069869b03f5120639cbd3dc8dcde9efaee",
+      "exported_sha256": "04105f97b69c56589eea3b909148f8069869b03f5120639cbd3dc8dcde9efaee",
+      "purpose": "research unit tests"
+    },
+    {
+      "path": "ipj-research/tests/registry/test_capture.py",
+      "source_file": "ipj/tests/registry/test_capture.py",
+      "source_sha256": "9cf5373b8ed4225271e0cbdca5403fbcaaac419ac4ea816530e592acde8033c9",
+      "exported_sha256": "9cf5373b8ed4225271e0cbdca5403fbcaaac419ac4ea816530e592acde8033c9",
+      "purpose": "research unit tests"
+    },
+    {
+      "path": "ipj-research/tests/registry/test_check.py",
+      "source_file": "ipj/tests/registry/test_check.py",
+      "source_sha256": "51e2011ef3882174da0259a090483f38a6f9b3f8a194154e71bf11d31917c088",
+      "exported_sha256": "51e2011ef3882174da0259a090483f38a6f9b3f8a194154e71bf11d31917c088",
+      "purpose": "research unit tests"
+    },
+    {
+      "path": "ipj-research/tests/registry/test_cli.py",
+      "source_file": "ipj/tests/registry/test_cli.py",
+      "source_sha256": "3fdcece9f3fa69f98f051ba9183a2e1970a144b7e9cd24521ddb67b5a3ae7bba",
+      "exported_sha256": "3fdcece9f3fa69f98f051ba9183a2e1970a144b7e9cd24521ddb67b5a3ae7bba",
+      "purpose": "research unit tests"
+    },
+    {
+      "path": "ipj-research/tests/registry/test_cli_check.py",
+      "source_file": "ipj/tests/registry/test_cli_check.py",
+      "source_sha256": "49c9b7106ff033b959702f73f2f9c8470a46b2dd5c5adb00bb57a453b1c363ad",
+      "exported_sha256": "49c9b7106ff033b959702f73f2f9c8470a46b2dd5c5adb00bb57a453b1c363ad",
+      "purpose": "research unit tests"
+    },
+    {
+      "path": "ipj-research/tests/registry/test_integration_hf.py",
+      "source_file": "ipj/tests/registry/test_integration_hf.py",
+      "source_sha256": "75f3c3a19590b6e91a2cdd0a601174fed130dd40df1616230dec8e499beda1c5",
+      "exported_sha256": "75f3c3a19590b6e91a2cdd0a601174fed130dd40df1616230dec8e499beda1c5",
+      "purpose": "research unit tests"
+    },
+    {
+      "path": "ipj-research/tests/registry/test_public_record.py",
+      "source_file": "ipj/tests/registry/test_public_record.py",
+      "source_sha256": "dd3f30436dba81bfdbccd38c234ae27d90ce40a9afa3ff001fee1aa00de21bfe",
+      "exported_sha256": "dd3f30436dba81bfdbccd38c234ae27d90ce40a9afa3ff001fee1aa00de21bfe",
+      "purpose": "research unit tests"
+    },
+    {
+      "path": "ipj-research/tests/registry/test_record.py",
+      "source_file": "ipj/tests/registry/test_record.py",
+      "source_sha256": "33d18be7c2fe44fcccd5bc804431ad8fbf8f5cdff1120bf96fd96020bfb6f393",
+      "exported_sha256": "33d18be7c2fe44fcccd5bc804431ad8fbf8f5cdff1120bf96fd96020bfb6f393",
+      "purpose": "research unit tests"
+    },
+    {
+      "path": "ipj-research/tests/registry/test_signature.py",
+      "source_file": "ipj/tests/registry/test_signature.py",
+      "source_sha256": "8df176a6fb21d6f219a6c98cf9642d410d6fc0e97addb87510a6befcc98fd20f",
+      "exported_sha256": "8df176a6fb21d6f219a6c98cf9642d410d6fc0e97addb87510a6befcc98fd20f",
+      "purpose": "research unit tests"
+    },
+    {
+      "path": "ipj-research/tests/registry/test_store.py",
+      "source_file": "ipj/tests/registry/test_store.py",
+      "source_sha256": "d857769d3feb11d716ddb613dde62192f3ec5a0a72353689a0a16e845be57165",
+      "exported_sha256": "d857769d3feb11d716ddb613dde62192f3ec5a0a72353689a0a16e845be57165",
+      "purpose": "research unit tests"
+    },
+    {
+      "path": "ipj-research/tests/registry/test_store_traces.py",
+      "source_file": "ipj/tests/registry/test_store_traces.py",
+      "source_sha256": "94cf8d1a466b1a6c73c18e6fba916eb558173f2276ce6f362e196693ba58d653",
+      "exported_sha256": "94cf8d1a466b1a6c73c18e6fba916eb558173f2276ce6f362e196693ba58d653",
+      "purpose": "research unit tests"
+    },
+    {
+      "path": "ipj-research/tests/rigor/__init__.py",
+      "source_file": "ipj/tests/rigor/__init__.py",
+      "source_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "exported_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "purpose": "research unit tests"
+    },
+    {
+      "path": "ipj-research/tests/rigor/test_bootstrap.py",
+      "source_file": "ipj/tests/rigor/test_bootstrap.py",
+      "source_sha256": "50fc051b8c6e442be1fe85e68253993354faf14842d30ac572d77f4c3985fb76",
+      "exported_sha256": "50fc051b8c6e442be1fe85e68253993354faf14842d30ac572d77f4c3985fb76",
+      "purpose": "research unit tests"
+    },
+    {
+      "path": "ipj-research/tests/rigor/test_estimators.py",
+      "source_file": "ipj/tests/rigor/test_estimators.py",
+      "source_sha256": "b7df88a34355866323b92069cc5b46117a97a597709feeae2693025e1efda5e3",
+      "exported_sha256": "b7df88a34355866323b92069cc5b46117a97a597709feeae2693025e1efda5e3",
+      "purpose": "research unit tests"
+    },
+    {
+      "path": "ipj-research/tests/rigor/test_reporting.py",
+      "source_file": "ipj/tests/rigor/test_reporting.py",
+      "source_sha256": "73c76a2e49c2f0a8331e4ffe74de96ea68c67553906c9a98b4682c6bd7899736",
+      "exported_sha256": "73c76a2e49c2f0a8331e4ffe74de96ea68c67553906c9a98b4682c6bd7899736",
+      "purpose": "research unit tests"
+    },
+    {
+      "path": "ipj-research/tests/rigor/test_trials.py",
+      "source_file": "ipj/tests/rigor/test_trials.py",
+      "source_sha256": "eeb056464f3faa6b515a78ff5f39bb31a2465add9c7d294577e3848b0240ffb2",
+      "exported_sha256": "eeb056464f3faa6b515a78ff5f39bb31a2465add9c7d294577e3848b0240ffb2",
+      "purpose": "research unit tests"
+    },
+    {
+      "path": "ipj-research/tests/router/__init__.py",
+      "source_file": "ipj/tests/router/__init__.py",
+      "source_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "exported_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "purpose": "research unit tests"
+    },
+    {
+      "path": "ipj-research/tests/router/test_classifier.py",
+      "source_file": "ipj/tests/router/test_classifier.py",
+      "source_sha256": "6f6442fed67315d686188c6732e9177f9db83ef16598b5efbca3ae25fa40bdf3",
+      "exported_sha256": "6f6442fed67315d686188c6732e9177f9db83ef16598b5efbca3ae25fa40bdf3",
+      "purpose": "research unit tests"
+    },
+    {
+      "path": "ipj-research/tests/router/test_costaware.py",
+      "source_file": "ipj/tests/router/test_costaware.py",
+      "source_sha256": "638e145b4036f3e186fa568ede89a76bfe40b7eb5720b2e5ec3743087d17b7ee",
+      "exported_sha256": "638e145b4036f3e186fa568ede89a76bfe40b7eb5720b2e5ec3743087d17b7ee",
+      "purpose": "research unit tests"
+    },
+    {
+      "path": "ipj-research/tests/router/test_dataset.py",
+      "source_file": "ipj/tests/router/test_dataset.py",
+      "source_sha256": "78c3092aadefddfdb9704f8b78547f85d4d9d5d8613b3314c4e9db12300fea0d",
+      "exported_sha256": "78c3092aadefddfdb9704f8b78547f85d4d9d5d8613b3314c4e9db12300fea0d",
+      "purpose": "research unit tests"
+    },
+    {
+      "path": "ipj-research/tests/router/test_scorecache.py",
+      "source_file": "ipj/tests/router/test_scorecache.py",
+      "source_sha256": "e9d33a9f3a5462e4a6fcf8174ff6d707dc380acd1090f786bcffe8d5a2e2a199",
+      "exported_sha256": "e9d33a9f3a5462e4a6fcf8174ff6d707dc380acd1090f786bcffe8d5a2e2a199",
+      "purpose": "research unit tests"
+    },
+    {
+      "path": "ipj-research/tests/test_amortize_standalone.py",
+      "source_file": "ipj/tests/test_amortize_standalone.py",
+      "source_sha256": "aa3538ba24842275dbdc0b6b49899d7898be33cc8b9fc9ecbf89e9368505cf31",
+      "exported_sha256": "aa3538ba24842275dbdc0b6b49899d7898be33cc8b9fc9ecbf89e9368505cf31",
+      "purpose": "research unit tests"
+    },
+    {
+      "path": "ipj-research/tests/test_capture.py",
+      "source_file": "ipj/tests/test_capture.py",
+      "source_sha256": "1c57f6bd95d156e623b2ac2ad925d932fe2334c6b9f8a62e064e2ff24bfdb8cf",
+      "exported_sha256": "1c57f6bd95d156e623b2ac2ad925d932fe2334c6b9f8a62e064e2ff24bfdb8cf",
+      "purpose": "research unit tests"
+    },
+    {
+      "path": "ipj-research/tests/test_cascade.py",
+      "source_file": "ipj/tests/test_cascade.py",
+      "source_sha256": "de3d290e918c53f0692429c5c3493a36f02601fd2d3e68af1349ceed7441c380",
+      "exported_sha256": "de3d290e918c53f0692429c5c3493a36f02601fd2d3e68af1349ceed7441c380",
+      "purpose": "research unit tests"
+    },
+    {
+      "path": "ipj-research/tests/test_cascade_escalate_when.py",
+      "source_file": "ipj/tests/test_cascade_escalate_when.py",
+      "source_sha256": "e9e7f906145b205c91c1c2447dd7be530a490af98f902a10cce345839e0fd57e",
+      "exported_sha256": "e9e7f906145b205c91c1c2447dd7be530a490af98f902a10cce345839e0fd57e",
+      "purpose": "research unit tests"
+    },
+    {
+      "path": "ipj-research/tests/test_cell.py",
+      "source_file": "ipj/tests/test_cell.py",
+      "source_sha256": "108aeb5ccfc600421dec0498d2410550f33d6baf4850917f3cc2f2806c8f9d32",
+      "exported_sha256": "108aeb5ccfc600421dec0498d2410550f33d6baf4850917f3cc2f2806c8f9d32",
+      "purpose": "research unit tests"
+    },
+    {
+      "path": "ipj-research/tests/test_cli.py",
+      "source_file": "ipj/tests/test_cli.py",
+      "source_sha256": "0983530d2aa9c752dd91f4059f1a5b1f477e3c10e9a12b49d9ed938e09d854a7",
+      "exported_sha256": "0983530d2aa9c752dd91f4059f1a5b1f477e3c10e9a12b49d9ed938e09d854a7",
+      "purpose": "research unit tests"
+    },
+    {
+      "path": "ipj-research/tests/test_cli_orchestrate.py",
+      "source_file": "ipj/tests/test_cli_orchestrate.py",
+      "source_sha256": "b4ca2e2d7f7ac65dec5f7ccefe5913ab98e0eaee03b9377f3d77758411aaeb8c",
+      "exported_sha256": "b4ca2e2d7f7ac65dec5f7ccefe5913ab98e0eaee03b9377f3d77758411aaeb8c",
+      "purpose": "research unit tests"
+    },
+    {
+      "path": "ipj-research/tests/test_cli_orchestrate_v2.py",
+      "source_file": "ipj/tests/test_cli_orchestrate_v2.py",
+      "source_sha256": "cd0973e0f91d2a682522a70ad7adf22be04c3b9479a57087dab1ee4423cbb86b",
+      "exported_sha256": "cd0973e0f91d2a682522a70ad7adf22be04c3b9479a57087dab1ee4423cbb86b",
+      "purpose": "research unit tests"
+    },
+    {
+      "path": "ipj-research/tests/test_cost.py",
+      "source_file": "ipj/tests/test_cost.py",
+      "source_sha256": "d64cf5fe12fdd8332ee47c7712b6bcf959e4a801d89b1004febe8fb613e0569f",
+      "exported_sha256": "d64cf5fe12fdd8332ee47c7712b6bcf959e4a801d89b1004febe8fb613e0569f",
+      "purpose": "research unit tests"
+    },
+    {
+      "path": "ipj-research/tests/test_estimate.py",
+      "source_file": "ipj/tests/test_estimate.py",
+      "source_sha256": "c1d2768f46cd2500459077691cb5ea1f8120830e1f00b09d4bf7f13dd78ba638",
+      "exported_sha256": "c1d2768f46cd2500459077691cb5ea1f8120830e1f00b09d4bf7f13dd78ba638",
+      "purpose": "research unit tests"
+    },
+    {
+      "path": "ipj-research/tests/test_fast_measure.py",
+      "source_file": "ipj/tests/test_fast_measure.py",
+      "source_sha256": "4d005c5e838bdb16a45fdb96101153bcd861886616087440c62c60264345761e",
+      "exported_sha256": "4d005c5e838bdb16a45fdb96101153bcd861886616087440c62c60264345761e",
+      "purpose": "research unit tests"
+    },
+    {
+      "path": "ipj-research/tests/test_fast_measure_guards.py",
+      "source_file": "ipj/tests/test_fast_measure_guards.py",
+      "source_sha256": "5f73b225e04203ff44453ef0e744d3a7779d5a9faec276ee10988860a8a82ef7",
+      "exported_sha256": "5f73b225e04203ff44453ef0e744d3a7779d5a9faec276ee10988860a8a82ef7",
+      "purpose": "research unit tests"
+    },
+    {
+      "path": "ipj-research/tests/test_flops.py",
+      "source_file": "ipj/tests/test_flops.py",
+      "source_sha256": "1416d8823e4f07ec821d25c90470d8e0c05b5ec73e3f6617aebefcf534df7e23",
+      "exported_sha256": "1416d8823e4f07ec821d25c90470d8e0c05b5ec73e3f6617aebefcf534df7e23",
+      "purpose": "research unit tests"
+    },
+    {
+      "path": "ipj-research/tests/test_integrate.py",
+      "source_file": "ipj/tests/test_integrate.py",
+      "source_sha256": "e34b14fb5413ad93b8f2e686f6b10711f4e5c8e9b4308057758214b3d531afc1",
+      "exported_sha256": "e34b14fb5413ad93b8f2e686f6b10711f4e5c8e9b4308057758214b3d531afc1",
+      "purpose": "research unit tests"
+    },
+    {
+      "path": "ipj-research/tests/test_metrics.py",
+      "source_file": "ipj/tests/test_metrics.py",
+      "source_sha256": "212e389d35eafcd55f6f78ea62829627eee5fdecde67256d6e82f273efb56222",
+      "exported_sha256": "212e389d35eafcd55f6f78ea62829627eee5fdecde67256d6e82f273efb56222",
+      "purpose": "research unit tests"
+    },
+    {
+      "path": "ipj-research/tests/test_per_task.py",
+      "source_file": "ipj/tests/test_per_task.py",
+      "source_sha256": "811b78f01739d330fd20e6f19516e620987ec9a3cc38575ecbbda9c80fcc5c85",
+      "exported_sha256": "811b78f01739d330fd20e6f19516e620987ec9a3cc38575ecbbda9c80fcc5c85",
+      "purpose": "research unit tests"
+    },
+    {
+      "path": "ipj-research/tests/test_percentile_amortize.py",
+      "source_file": "ipj/tests/test_percentile_amortize.py",
+      "source_sha256": "d7ed1fe32d12ec2c0f00a388198cfa21b4e28b916dbd6c95e975871e605dd9f0",
+      "exported_sha256": "d7ed1fe32d12ec2c0f00a388198cfa21b4e28b916dbd6c95e975871e605dd9f0",
+      "purpose": "research unit tests"
+    },
+    {
+      "path": "ipj-research/tests/test_plot.py",
+      "source_file": "ipj/tests/test_plot.py",
+      "source_sha256": "dfc689825fe50c3584f6cc0c4da59b25f1e68e5f8e0afcb67a2b225c414231d0",
+      "exported_sha256": "dfc689825fe50c3584f6cc0c4da59b25f1e68e5f8e0afcb67a2b225c414231d0",
+      "purpose": "research unit tests"
+    },
+    {
+      "path": "ipj-research/tests/test_results.py",
+      "source_file": "ipj/tests/test_results.py",
+      "source_sha256": "dfda6c68b8b8075700936bc374d7280f25602e7585649704e048b377df8dd871",
+      "exported_sha256": "dfda6c68b8b8075700936bc374d7280f25602e7585649704e048b377df8dd871",
+      "purpose": "research unit tests"
+    },
+    {
+      "path": "ipj-research/tests/test_run.py",
+      "source_file": "ipj/tests/test_run.py",
+      "source_sha256": "c5542a3790cc5c0dc05b7bbc756d7e0a72d23d6997e2f127f93f5f20e8320fa5",
+      "exported_sha256": "c5542a3790cc5c0dc05b7bbc756d7e0a72d23d6997e2f127f93f5f20e8320fa5",
+      "purpose": "research unit tests"
+    },
+    {
+      "path": "ipj-research/tests/test_serving_bench.py",
+      "source_file": "ipj/tests/test_serving_bench.py",
+      "source_sha256": "993a0b286dcddd371abd48bba31c7c92a6844b7b93bb718b8aad1b545e2c0fae",
+      "exported_sha256": "993a0b286dcddd371abd48bba31c7c92a6844b7b93bb718b8aad1b545e2c0fae",
+      "purpose": "research unit tests"
+    },
+    {
+      "path": "ipj-research/tests/train/__init__.py",
+      "source_file": "ipj/tests/train/__init__.py",
+      "source_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "exported_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "purpose": "research unit tests"
+    },
+    {
+      "path": "ipj-research/tests/train/test_config.py",
+      "source_file": "ipj/tests/train/test_config.py",
+      "source_sha256": "8d5ff8ed45a1e3ee8758dd4c7bbc5136417084feaedec63bf32423bdcf49de49",
+      "exported_sha256": "8d5ff8ed45a1e3ee8758dd4c7bbc5136417084feaedec63bf32423bdcf49de49",
+      "purpose": "research unit tests"
+    },
+    {
+      "path": "ipj-research/tests/train/test_dataprep.py",
+      "source_file": "ipj/tests/train/test_dataprep.py",
+      "source_sha256": "bc50ce57d4512cf5c2a22c242dbe18d42791c753d6a611c68f3cd15c40145265",
+      "exported_sha256": "bc50ce57d4512cf5c2a22c242dbe18d42791c753d6a611c68f3cd15c40145265",
+      "purpose": "research unit tests"
+    },
+    {
+      "path": "ipj-research/experiments/fast-rerun/amortize_run.py",
+      "source_file": "ipj/experiments/fast-rerun/amortize_run.py",
+      "source_sha256": "837de6e583d0dc0e43c5a8529a4b945a5b02370e1aae929cd7584f57e09202cf",
+      "exported_sha256": "837de6e583d0dc0e43c5a8529a4b945a5b02370e1aae929cd7584f57e09202cf",
+      "purpose": "amortization test dependency"
+    },
+    {
+      "path": "ipj-research/experiments/fast-rerun/amortize_standalone.py",
+      "source_file": "ipj/experiments/fast-rerun/amortize_standalone.py",
+      "source_sha256": "8d7e8750aeaecf53b40d1a4ae14e0742a92523e0c081e03451e3b6202eff4626",
+      "exported_sha256": "8d7e8750aeaecf53b40d1a4ae14e0742a92523e0c081e03451e3b6202eff4626",
+      "purpose": "amortization test dependency"
+    },
+    {
+      "path": "ipj-research/tests/train/fixtures/dummy_sft.jsonl",
+      "source_file": "ipj/tests/train/fixtures/dummy_sft.jsonl",
+      "source_sha256": "dcebf0ccaf957af5b8182e3496f241133b62b352406eafe92c5a18a849158272",
+      "exported_sha256": "dcebf0ccaf957af5b8182e3496f241133b62b352406eafe92c5a18a849158272",
+      "purpose": "synthetic training test fixture"
+    }
+  ]
+}

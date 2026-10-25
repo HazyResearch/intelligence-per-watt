@@ -1,0 +1,9 @@
+schema_version = "1.1"
+[task]
+name = "terminal-bench/sample-task"
+[metadata]
+difficulty = "hard"
+category = "scientific-computing"
+tags = ["biology", "cloning"]
+expert_time_estimate_min = 60.0
+junior_time_estimate_min = 300.0

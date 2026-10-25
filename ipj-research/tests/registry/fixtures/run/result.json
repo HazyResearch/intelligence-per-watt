@@ -1,0 +1,12 @@
+{
+  "id": "abc",
+  "started_at": "2026-07-08T05:26:08",
+  "finished_at": "2026-07-08T05:29:15",
+  "n_total_trials": 89,
+  "stats": {
+    "cost_usd": null,
+    "n_input_tokens": 1000,
+    "n_output_tokens": 2000,
+    "evals": {"terminus-2__Qwen3.6-27B__terminal-bench/terminal-bench-2-1": {"metrics": [{"mean": 0.76}]}}
+  }
+}

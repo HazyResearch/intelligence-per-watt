@@ -1,0 +1,155 @@
+{
+  "schema_version": "ipj.ipd.conformance.v2",
+  "cases": [
+    {
+      "name": "ratio_of_totals_differs_from_mean_of_ratios",
+      "observations": [
+        {
+          "utility": "1",
+          "utility_complete": true,
+          "utility_provenance": "task_native_verifier",
+          "utility_verifier_id": "fixture-native-verifier",
+          "utility_verifier_version": "1.0.0",
+          "utility_task_manifest_id": "fixture-task-manifest-v1",
+          "utility_task_membership_id": "fixture-task-0",
+          "utility_task_manifest_size": 2,
+          "cost": {
+            "api_usd": "1",
+            "snapshot_id": "cost-fixture-v2",
+            "provenance": "fixture://ipd-v2",
+            "accounting_view": "provider_billed",
+            "api_charge_kind": "provider_reported_or_settled",
+            "causal_components_complete": true
+          }
+        },
+        {
+          "utility": "0",
+          "utility_complete": true,
+          "utility_provenance": "task_native_verifier",
+          "utility_verifier_id": "fixture-native-verifier",
+          "utility_verifier_version": "1.0.0",
+          "utility_task_manifest_id": "fixture-task-manifest-v1",
+          "utility_task_membership_id": "fixture-task-1",
+          "utility_task_manifest_size": 2,
+          "cost": {
+            "api_usd": "3",
+            "snapshot_id": "cost-fixture-v2",
+            "provenance": "fixture://ipd-v2",
+            "accounting_view": "provider_billed",
+            "api_charge_kind": "provider_reported_or_settled",
+            "causal_components_complete": true
+          }
+        }
+      ],
+      "expected": {
+        "utility_total": "1",
+        "cost_total_usd": "4",
+        "intelligence_per_dollar": "0.25",
+        "known_cost_tasks": 2,
+        "eligible_tasks": 2
+      }
+    },
+    {
+      "name": "local_electricity_and_hardware_components_sum_exactly",
+      "observations": [
+        {
+          "utility": "0.3",
+          "utility_complete": true,
+          "utility_provenance": "task_native_verifier",
+          "utility_verifier_id": "fixture-native-verifier",
+          "utility_verifier_version": "1.0.0",
+          "utility_task_manifest_id": "fixture-task-manifest-v1",
+          "utility_task_membership_id": "fixture-task-0",
+          "utility_task_manifest_size": 1,
+          "cost": {
+            "api_usd": "0.1",
+            "electricity_usd": "0.05",
+            "hardware_amortization_usd": "0.15",
+            "snapshot_id": "cost-fixture-v2",
+            "provenance": "fixture://ipd-v2",
+            "accounting_view": "fully_loaded_electricity_and_hardware",
+            "api_charge_kind": "catalog_quoted",
+            "causal_components_complete": true
+          }
+        }
+      ],
+      "expected": {
+        "utility_total": "0.3",
+        "cost_total_usd": "0.30",
+        "intelligence_per_dollar": "1",
+        "known_cost_tasks": 1,
+        "eligible_tasks": 1
+      }
+    },
+    {
+      "name": "unknown_task_cost_invalidates_workload",
+      "observations": [
+        {
+          "utility": "1",
+          "utility_complete": true,
+          "utility_provenance": "task_native_verifier",
+          "utility_verifier_id": "fixture-native-verifier",
+          "utility_verifier_version": "1.0.0",
+          "utility_task_manifest_id": "fixture-task-manifest-v1",
+          "utility_task_membership_id": "fixture-task-0",
+          "utility_task_manifest_size": 2,
+          "cost": {
+            "api_usd": "0.5",
+            "snapshot_id": "cost-fixture-v2",
+            "provenance": "fixture://ipd-v2",
+            "accounting_view": "provider_billed",
+            "api_charge_kind": "provider_reported_or_settled",
+            "causal_components_complete": true
+          }
+        },
+        {
+          "utility": "1",
+          "utility_complete": true,
+          "utility_provenance": "task_native_verifier",
+          "utility_verifier_id": "fixture-native-verifier",
+          "utility_verifier_version": "1.0.0",
+          "utility_task_manifest_id": "fixture-task-manifest-v1",
+          "utility_task_membership_id": "fixture-task-1",
+          "utility_task_manifest_size": 2,
+          "cost": null
+        }
+      ],
+      "expected": {
+        "utility_total": "2",
+        "cost_total_usd": null,
+        "intelligence_per_dollar": null,
+        "known_cost_tasks": 1,
+        "eligible_tasks": 1
+      }
+    },
+    {
+      "name": "zero_denominator_is_complete_but_ratio_unavailable",
+      "observations": [
+        {
+          "utility": "1",
+          "utility_complete": true,
+          "utility_provenance": "task_native_verifier",
+          "utility_verifier_id": "fixture-native-verifier",
+          "utility_verifier_version": "1.0.0",
+          "utility_task_manifest_id": "fixture-task-manifest-v1",
+          "utility_task_membership_id": "fixture-task-0",
+          "utility_task_manifest_size": 1,
+          "cost": {
+            "snapshot_id": "cost-fixture-v2",
+            "provenance": "fixture://ipd-v2",
+            "accounting_view": "provider_billed",
+            "api_charge_kind": "provider_reported_or_settled",
+            "causal_components_complete": true
+          }
+        }
+      ],
+      "expected": {
+        "utility_total": "1",
+        "cost_total_usd": "0",
+        "intelligence_per_dollar": null,
+        "known_cost_tasks": 1,
+        "eligible_tasks": 1
+      }
+    }
+  ]
+}

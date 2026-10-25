@@ -1,0 +1,46 @@
+{
+    "id": "b762803f-11fe-4aa8-8fbd-c823ec2b291c",
+    "started_at": "2026-06-17T01:06:06.320523",
+    "updated_at": "2026-06-17T01:07:06.587111",
+    "finished_at": "2026-06-17T01:07:06.587111",
+    "n_total_trials": 5,
+    "stats": {
+        "n_completed_trials": 5,
+        "n_errored_trials": 4,
+        "n_running_trials": 0,
+        "n_pending_trials": 0,
+        "n_cancelled_trials": 0,
+        "n_retries": 0,
+        "evals": {
+            "oracle__terminal-bench/terminal-bench-2-1": {
+                "n_trials": 1,
+                "n_errors": 4,
+                "metrics": [
+                    {
+                        "mean": 0.2
+                    }
+                ],
+                "pass_at_k": {},
+                "reward_stats": {
+                    "reward": {
+                        "1.0": [
+                            "write-compressor__wEbaGzB"
+                        ]
+                    }
+                },
+                "exception_stats": {
+                    "RuntimeError": [
+                        "torch-tensor-parallelism__nty9Vau",
+                        "schemelike-metacircular-eval__MeWeuFY",
+                        "kv-store-grpc__R4AVPpu",
+                        "pypi-server__y8ykiKd"
+                    ]
+                }
+            }
+        },
+        "n_input_tokens": null,
+        "n_cache_tokens": null,
+        "n_output_tokens": null,
+        "cost_usd": null
+    }
+}
