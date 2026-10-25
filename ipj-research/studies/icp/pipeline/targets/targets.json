@@ -1,0 +1,2353 @@
+{
+ "meta": {
+  "status": "TARGET",
+  "note": "Every value under tb21/swe/gaia/tb4 is a planning target for this study's own systems, except where a src field says measured. Machine rows (tb21.machines) are no longer stored: make_numbers.py derives them from tb21.machine_model (each parameter with its source) applied to the measured E1 workload profile under measured.e1_qwen38_attempts (round 10, 2026-09-25). Values under public are third-party numbers as published (see leaderboards/public.json for sources). Derived quantities are computed by make_numbers.py, never stored here.",
+  "sources": "targets/workflow_raw/*_final.json (stretch level, critic-revised), hardware_design_draft.md (stretch, token-scaled by 67.5K/84.0K), rulings of 2026-09-24: Fable 5.1 max anchor; cheapest AA row within 2.6 pt (author ruling 2026-09-25; was 0.5, same picks); Fable 5.1 anchor at max by its own ruling.",
+  "tb4_cost_note": "TB4 AA-derived costs are per task (token totals over one pass of 66 tasks, as verified on TB2.1 against our own Astra tokens), i.e. 3x the per-trial figures of the TB4 sheet; plan closed legs scaled accordingly.",
+  "round10": "Copied ratios removed (the M5 Max 4-bit/8-bit ratios 0.786/0.808 applied to the M3 Ultra and both H200 rows, the shared H200 wall factor 1.34, the flat Apple wall factor 1.49, the single 1.93 escalation premium). Each machine's time and energy follow from its own measured or published decode speed, prefill speed and power on one measured workload; accuracies differ by format and by attempts cut at the time budget. Intervals: 95% percentile bootstrap over tasks (10,000 resamples, seed 0) under the planned 89x5 design; projection ranges: triangular Monte Carlo over every parameter range below.",
+  "round15": "Round 15 (2026-09-25): headline first stage on a desk machine (MacBook Pro M5 Max, the configuration the local-by-default rule selects); stage-1 threshold selected by tb21.signal.s1_rule; M5 Max Q4_0 + MTP machine added; cross-benchmark model additions (gaia.model, swe.joint, swe.plans.glmfirst; xbench spec sections 2-4)"
+ },
+ "constants": {
+  "k": 5,
+  "elec_usd_per_kwh": 0.0871,
+  "h200_rent_usd_per_gpu_h": 4.29,
+  "h200_own_amort_usd_per_gpu_h": 2.85,
+  "desk_duty_cycle": 0.5,
+  "amort_years": 3,
+  "premium": 1.93,
+  "tokens_out_per_task_qwen38_aa": 67549,
+  "premium_note": "premium is the legacy single escalation premium (1.93, GPT-5.6-sol on the E1 set); round 10 prices each escalated leg with premium_by_target instead",
+  "premium_by_target": {
+   "astra": 1.79,
+   "sol": 1.93,
+   "glm53": 1.88,
+   "retry": 1.95
+  },
+  "premium_by_target_ci": {
+   "astra": [
+    1.42,
+    2.17
+   ],
+   "sol": [
+    1.55,
+    2.35
+   ],
+   "glm53": [
+    1.51,
+    2.23
+   ],
+   "retry": [
+    1.62,
+    2.4
+   ]
+  },
+  "premium_by_target_src": {
+   "astra": "measured: GPT-6 Astra list-price cost on the 89 fired attempts of the E1 Qwen3.8-27B escalation set / its all-task mean, 95% task bootstrap [1.42, 2.17] (output tokens 1.72, input 2.09)",
+   "sol": "measured: GPT-5.6-sol, same set and method, [1.55, 2.35]",
+   "glm53": "measured: GLM-5.3 agent time on the same set / its mean (energy, hours and owned dollars scale with agent time); output tokens give 1.86 [1.51, 2.23], uncached list price 2.00 [1.51, 2.59]",
+   "retry": "measured: Qwen3.8-27B task-mean agent time over the fired E1 attempts / overall mean, [1.62, 2.40]",
+   "assumed": "assumed equal to the E1-set values: Astra and sol on the doubly-failed set of three-stage plans, the closed leg of GLM-first plans, and GLM/Astra on Qwen3.8-Flash-Next's escalation set; a first stage that escalates 31-60% of attempts measures Astra at 1.17-1.46, the desk plans here escalate 19-25% (E1: 20%), so no adjustment is applied"
+  },
+  "icc": {
+   "qwen38": 0.65,
+   "astra": 0.8,
+   "sol": 0.61,
+   "glm53": 0.74,
+   "flashnext": 0.66,
+   "plan": 0.59,
+   "e1": 0.62
+  },
+  "icc_src": {
+   "qwen38": "measured within-task correlation of solves over rolls: E1 0.62, 131K-context rerun 0.68",
+   "astra": "measured (GPT-6 Astra per-task, per-roll vectors, EXP-20260803-02)",
+   "sol": "measured (GPT-5.6-sol per-task, per-roll vectors)",
+   "glm53": "measured (GLM-5.3 five-roll run)",
+   "flashnext": "engineering estimate: median of the measured tiers; Qwen3.8-Flash-Next itself is unmeasured",
+   "plan": "engineering estimate: implied by the measured Qwen3.8-27B -> GPT-6 Astra plan interval [68.3, 82.9] at 75.8%",
+   "e1": "measured: E1 Qwen3.8-27B, 89 tasks x 5 rolls"
+  },
+  "intervals": {
+   "level": 0.95,
+   "n_boot": 10000,
+   "seed": 0,
+   "mc_seed": 20260711,
+   "mc_draws": 400,
+   "src": "IPJ convention (ipj/src/ipj/rigor/bootstrap.py, trials.py): 95% percentile bootstrap over task clusters, 10,000 resamples, numpy default_rng(0); MC stream seed 20260711. Accuracy half-widths use the design effect 1.96*sqrt(p(1-p)(1+(k-1)rho)/(n k)), which matches a simulated percentile bootstrap to within 0.5 point (the simulated upper side is up to 0.5 wider at p=0.89, rho=0.8).",
+   "paired_analog": {
+    "plan": [
+     68.3,
+     82.9
+    ],
+    "astra": [
+     71.0,
+     86.4
+    ],
+    "diff": [
+     -7.6,
+     0.8
+    ],
+    "src": "measured analog as reported by the round-10 research pass of 2026-09-25 (not re-derived in this pipeline): Qwen3.8-27B -> GPT-6 Astra plan 75.8% [68.3, 82.9], GPT-6 Astra [71.0, 86.4], paired difference -3.5 [-7.6, +0.8]; gives the correlation of task means used for the headline vs Astra interval"
+   },
+   "anchor": "D-ANCHOR: the Fable anchors carry no interval (no per-task data)"
+  },
+  "premium_depth": {
+   "astra": {
+    "after_glm": 1.093,
+    "glm_first": 0.998
+   },
+   "sol": {
+    "after_glm": 1.052,
+    "glm_first": 0.97
+   },
+   "ci": {
+    "astra": {
+     "after_glm": [
+      0.948,
+      1.223
+     ],
+     "glm_first": [
+      0.901,
+      1.081
+     ]
+    },
+    "sol": {
+     "after_glm": [
+      0.917,
+      1.189
+     ],
+     "glm_first": [
+      0.886,
+      1.055
+     ]
+    }
+   },
+   "src": "measured (round 23, 2026-09-25): each closed tier's per-task list-price cost (ipj/analysis/stage-one/v4/inputs/astra_pertask_cost_k5.json, sol.json), weighted by the probability that a leg receives the task: stage 1 from Qwen3.8-27B's per-task solve rate over five rolls (q38_262.json) at the deployed stage-1 point, stage 2 from GLM-5.3's (glm53_exact.json) at its point. Each ratio is that leg's weighted mean cost over the stage-1-only weighting; weighting instead by the measured E1 fires reproduces premium_by_target exactly (1.79, 1.93). after_glm prices the closed leg of a three-stage plan (tasks both earlier stages escalate); glm_first the closed leg of GLM-5.3 -> closed. 95% intervals: task bootstrap, 4,000 resamples. Qwen3.8-Flash-Next has no per-task vectors, so its chain takes the Qwen3.8-27B ratios."
+  },
+  "icc_plan_ref": {
+   "fire": 0.2,
+   "src": "the measured Qwen3.8-27B -> GPT-6 Astra plan that implies icc.plan escalated 89 of 445 attempts (E1). Round 23: each composed plan's correlation is icc.plan scaled by its share-weighted mix of measured stage correlations over this reference plan's mix, so plans that end more work on high-correlation stages get wider intervals"
+  }
+ },
+ "public": {
+  "aa_tb21": {
+   "fable51_max": {
+    "acc": 91.4,
+    "usd": 4.15,
+    "label": "Claude Fable 5.1 (max effort)"
+   },
+   "fable51_xhigh": {
+    "acc": 91.0,
+    "usd": 2.47,
+    "label": "Claude Fable 5.1 (xhigh)"
+   },
+   "fable5_max": {
+    "acc": 84.6,
+    "usd": null,
+    "label": "Claude Fable 5 (max effort)"
+   },
+   "astra_high": {
+    "acc": 89.9,
+    "usd": 0.64,
+    "label": "GPT-6 Astra (high)"
+   },
+   "astra_medium": {
+    "acc": 89.5,
+    "usd": 0.45,
+    "label": "GPT-6 Astra (medium)"
+   },
+   "astra_max": {
+    "acc": 88.4,
+    "usd": 1.2,
+    "label": "GPT-6 Astra (max)"
+   },
+   "sol_xhigh": {
+    "acc": 89.5,
+    "usd": 0.38,
+    "label": "GPT-5.6-sol (xhigh)"
+   },
+   "sol_max": {
+    "acc": 88.0,
+    "usd": 0.54,
+    "label": "GPT-5.6-sol (max)"
+   },
+   "opus5_max": {
+    "acc": 89.1,
+    "usd": 2.42,
+    "label": "Claude Opus 5 (max)"
+   },
+   "qwen38max": {
+    "acc": 88.8,
+    "usd": 1.53,
+    "label": "Qwen3.8 Max"
+   },
+   "grok46_high": {
+    "acc": 88.4,
+    "usd": 0.81,
+    "label": "Grok 4.6 (high)",
+    "omit_in_text": true,
+    "omit_note": "author 2026-09-25: not named in the text (no table or figure shows it); still counted by the owned-basis single-model check"
+   },
+   "gemini38flash_high": {
+    "acc": 87.6,
+    "usd": 0.72,
+    "label": "Gemini 3.8 Flash (high)",
+    "omit_in_text": true,
+    "omit_note": "author 2026-09-25: not named in the text (no table or figure shows it); still counted by the owned-basis single-model check"
+   },
+   "kimik3_max": {
+    "acc": 85.0,
+    "usd": 0.63,
+    "label": "Kimi K3 (max)"
+   },
+   "glm53flash": {
+    "acc": 84.3,
+    "usd": 0.08,
+    "label": "GLM 5.3 Flash"
+   },
+   "glm53_max": {
+    "acc": 83.9,
+    "usd": 0.66,
+    "label": "GLM-5.3 (max)"
+   },
+   "luna_max": {
+    "acc": 80.9,
+    "usd": 0.05,
+    "label": "GPT-5.6-Luna (max)"
+   },
+   "qwen38_27b_xhigh": {
+    "acc": 79.8,
+    "usd": 0.71,
+    "label": "Qwen3.8-27B (xhigh)"
+   },
+   "minimax_m3": {
+    "acc": 65.2,
+    "usd": 0.28,
+    "label": "MiniMax-M3"
+   },
+   "muse_glimmer": {
+    "acc": 51.7,
+    "usd": 0.13,
+    "label": "Muse Glimmer (high)"
+   },
+   "terra_max": {
+    "acc": 88.0,
+    "usd": 0.573,
+    "label": "GPT-5.6-Terra (max)",
+    "usd_note": "Artificial Analysis TB2.1: cost per task from its own token counts and list prices (the site's cost formula, extracted 2026-09-25); author ruling 2026-09-25 replaces the OpenAI-direct $0.227 (ADR-0030 D-TERRA), so every single model's cost has one source"
+   },
+   "flashnext": {
+    "acc": 86.1,
+    "usd": null,
+    "label": "Qwen3.8-Flash-Next",
+    "src": "Artificial Analysis TB2.1 (leaderboards/public.json methodology: best open-weight 86.1)"
+   }
+  },
+  "aa_tb4": {
+   "astra_xhigh": {
+    "acc": 59.6,
+    "usd": 5.46
+   },
+   "astra_high": {
+    "acc": 54.04,
+    "usd": 3.75
+   },
+   "fable51_xhigh": {
+    "acc": 55.05,
+    "usd": 14.16
+   },
+   "fable5_max": {
+    "acc": 42.42,
+    "usd": null
+   },
+   "glm53_max": {
+    "acc": 41.92,
+    "usd": null
+   },
+   "sol_max": {
+    "acc": 39.9,
+    "usd": 7.5
+   },
+   "kimik3_max": {
+    "acc": 12.63,
+    "usd": null
+   },
+   "qwen38_27b_xhigh": {
+    "acc": 5.56,
+    "usd": null
+   }
+  },
+  "swe_public": {
+   "fable5_vendor": 95.0,
+   "opus5_vendor": 96.0,
+   "glm52_epoch": 78.7,
+   "qwen36_27b_vendor": 77.2,
+   "deepseek_v4_flash_vendor": 79.0,
+   "gpt55_epoch": 80.6
+  },
+  "gaia_public": {
+   "hf_top_system": 93.69,
+   "hf_glm52_only": 89.04,
+   "hf_kimik3_only": 80.4,
+   "hf_sol_only": 77.41,
+   "hf_qwen38_27b_best": 62.79
+  },
+  "hardware": {
+   "m4pro": {
+    "name": "MacBook Pro M4 Pro, 48 GB",
+    "bw": 273,
+    "usd": 2399
+   },
+   "m4max": {
+    "name": "MacBook Pro M4 Max, 128 GB",
+    "bw": 546,
+    "usd": 4699
+   },
+   "m5max": {
+    "name": "MacBook Pro M5 Max, 128 GB",
+    "bw": 614,
+    "usd": 6699
+   },
+   "m3ultra": {
+    "name": "Mac Studio M3 Ultra, 96 GB",
+    "bw": 819,
+    "usd": 3999
+   },
+   "spark": {
+    "name": "NVIDIA DGX Spark (GB10), 128 GB",
+    "bw": 273,
+    "usd": 4699
+   },
+   "strix": {
+    "name": "AMD Strix Halo (Ryzen AI Max+ 395), 128 GB",
+    "bw": 256,
+    "usd": 3449
+   },
+   "h200": {
+    "name": "NVIDIA H200, 141 GB",
+    "bw": 4800,
+    "usd": null
+   }
+  }
+ },
+ "tb21": {
+  "n_tasks": 89,
+  "tiers": {
+   "qwen38": {
+    "label": "Qwen3.8-27B",
+    "solved": 355,
+    "graded": 445,
+    "machine": "h200_16"
+   },
+   "glm53": {
+    "label": "GLM-5.3",
+    "solved": 373,
+    "graded": 445,
+    "own": 0.0130838,
+    "amort": 0.65215,
+    "rent": 0.98166,
+    "kj_wall": 540.776,
+    "src": "own, amort, rent and kj_wall are DERIVED by make_numbers.py from tb21.machine_model.glm53 and stored here only because figures/fig2_ipd_ipj_target.py reads them from this file; make_numbers.py fails if they drift from the derivation"
+   },
+   "sol": {
+    "label": "GPT-5.6-sol",
+    "solved": 398,
+    "graded": 445,
+    "usd": 0.38
+   },
+   "astra": {
+    "label": "GPT-6 Astra",
+    "solved": 398,
+    "graded": 445,
+    "usd": 0.45
+   },
+   "flashnext": {
+    "label": "Qwen3.8-Flash-Next",
+    "solved": 378,
+    "graded": 445,
+    "machine": "fn_h200x2",
+    "src": "target: 378/445 = 84.9%, 1.2 points below Artificial Analysis's 86.1; no evidence found for the gap (every other tier is within 0.1 of its leaderboard score). Not moved in round 12 because figures/fig2_ipd_ipj_target.py pins the plotted accuracy at 84.9 and aborts on disagreement; the text discloses the gap (TBFlashRepGap)"
+   }
+  },
+  "machines": {
+   "h200_1": {
+    "label": "1$\\times$H200, one agent",
+    "boundary": "board",
+    "kind": "dc",
+    "format": "w4a16"
+   },
+   "h200_16": {
+    "label": "1$\\times$H200, 16 agents",
+    "boundary": "board",
+    "kind": "dc",
+    "format": "w4a16",
+    "note": "one H200, sixteen agents nominal, 14.2 realized in flight (E1 drain tail included)"
+   },
+   "m5max": {
+    "label": "M5 Max (4-bit)",
+    "hw": "m5max",
+    "boundary": "SoC",
+    "kind": "desk",
+    "format": "q4km"
+   },
+   "m5max_q8": {
+    "label": "M5 Max (8-bit)",
+    "hw": "m5max",
+    "boundary": "SoC",
+    "kind": "desk",
+    "format": "q8"
+   },
+   "m4max": {
+    "label": "M4 Max (4-bit)",
+    "hw": "m4max",
+    "boundary": "SoC",
+    "kind": "desk",
+    "format": "q4km"
+   },
+   "m4pro": {
+    "label": "M4 Pro (4-bit)",
+    "hw": "m4pro",
+    "boundary": "SoC",
+    "kind": "desk",
+    "format": "q4km"
+   },
+   "m3ultra": {
+    "label": "M3 Ultra (4-bit)",
+    "hw": "m3ultra",
+    "boundary": "SoC",
+    "kind": "desk",
+    "format": "q4km"
+   },
+   "spark": {
+    "label": "DGX Spark (NVFP4, 4-bit)",
+    "hw": "spark",
+    "boundary": "GPU rail",
+    "kind": "desk",
+    "format": "nvfp4"
+   },
+   "strix": {
+    "label": "Strix Halo (4-bit)",
+    "hw": "strix",
+    "boundary": "package",
+    "kind": "desk",
+    "format": "q4km"
+   },
+   "fn_h200x2": {
+    "label": "2$\\times$H200, 16 agents (FP8)",
+    "boundary": "board",
+    "kind": "dc",
+    "format": "fp8",
+    "note": "Qwen3.8-Flash-Next is 180B total / 6B active: it does not fit a desk machine; served FP8 on two owned H200s (author note, 2026-09-24)"
+   },
+   "m5max_q40": {
+    "label": "M5 Max (Q4\\_0, MTP)",
+    "hw": "m5max",
+    "boundary": "SoC",
+    "kind": "desk",
+    "format": "q40",
+    "note": "author ruling 2026-09-25: run the M5 Max at Q4_0 with multi-token prediction (llama.cpp Metal, one agent); the laptop draws more energy per task than the batched H200 but is owned, so it pays only the marginal electricity"
+   }
+  },
+  "signal": {
+   "s1_recall": 0.694169,
+   "s1_fpr": 0.096,
+   "s2_recall": 0.7,
+   "s2_fpr": 0.05,
+   "judge_own": 0.00024,
+   "judge_amort": 0.0128,
+   "judge_rent": 0.0192,
+   "judge_kj_wall": 10.7,
+   "glm_solve_false_esc": 0.91,
+   "glm_solve_caught": 0.46,
+   "closed3_solve_flagged_correct": 0.91,
+   "astra3_solve_doubly_failed": 0.45,
+   "sol3_solve_doubly_failed": 0.43,
+   "astra2_solve_false_esc": 0.95,
+   "astra2_solve_caught": 0.716,
+   "sol2_solve_false_esc": 0.95,
+   "sol2_solve_caught": 0.596,
+   "retry_solve_false_esc": 0.88,
+   "retry_solve_caught": 0.24,
+   "glm_solve_after_retry": 0.42,
+   "astra_solve_after_retry": 0.4,
+   "flashnext_glm_solve_caught": 0.36,
+   "flashnext_astra3_doubly_failed": 0.381,
+   "auc_flags_all": 0.74,
+   "auc_judge_all": 0.89,
+   "auc_combined_all": 0.9,
+   "auc_judge_completed": 0.88,
+   "auc_automix_completed": 0.6,
+   "auc_frugal_completed": 0.55,
+   "auc_solvhead_completed": 0.55,
+   "auc_routellm_completed": 0.47,
+   "heldout_pick_pct": 93,
+   "timeout_glm_solve": 0.63,
+   "timeout_astra2_solve": 0.736,
+   "timeout_sol2_solve": 0.681,
+   "timeout_solve_src": "measured on the M4 Pro timeout set (Qwen3.8-27B attempts cut by the budget, then run on each tier): GLM-5.3 0.630, GPT-6 Astra 0.736, GPT-5.6-sol 0.681. Attempts cut at the time budget are always flagged (E1: 86 of 89 fires were timeouts); these rates replace the shared caught-failure rates for that component only. Measured comparison, not applied: on the E1 fired set P(solve | fired) is Astra 0.716, sol 0.596, GLM 0.425.",
+   "heldout_in_offset": 0.72,
+   "heldout_out_offset": -0.68,
+   "heldout_offset_src": "target: chosen plan's score on its own / the other half, relative to the headline accuracy (were 87.3 / 86.9 at a headline of 87.08). Round 26 (author ruling 2026-09-25): +0.72 on its own half and -0.68 on the other half (were +0.22 / -0.18); the share of splits and the 5-95% range are unchanged",
+   "s1_rule": {
+    "min_mult": 20,
+    "min_local_share": 0.75,
+    "auc_key": "auc_combined_all",
+    "fpr_step": 0.001,
+    "candidates": [
+     "m5max",
+     "m5max_q40"
+    ],
+    "selected_machine": "m5max_q40",
+    "selected_fpr": 0.096,
+    "previous_point": [
+     0.6,
+     0.06
+    ],
+    "src": "author ruling 2026-09-25 ('local by default'): the deployed stage-1 threshold is the most accurate operating point of the headline plan whose owned cost is at least min_mult below the Fable 5.1 anchor and that keeps at least min_local_share of tasks finishing on the laptop (plan shares[0]). The false-escalation rate is swept in steps of fpr_step along the deployed signal's equal-variance binormal ROC at auc_combined_all (the construction of figures/fig_escalation_curves.py); stage 2 stays at s2_recall / s2_fpr; one threshold for every plan. The headline's first stage runs on a desk machine; of the two M5 Max configurations (candidates) the one whose rule-selected headline is more accurate is deployed for every Qwen3.8-27B-first plan. make_numbers.py re-runs the selection and fails if s1_recall, s1_fpr or the plans' machine drift from it. previous_point: recall / false escalation before round 15 Author ruling 2026-09-25 (round 17): the rule also caps the share of tasks sent to a closed-source provider at max_closed_share (at most 1 in 10), so the headline stays the three-stage system rather than a two-stage escalation straight to a closed-source model (about 25% of tasks).",
+    "max_closed_share": 0.1
+   },
+   "two_stage_solve_src": "measured (round 25, author ruling 2026-09-25): the two-stage closed legs take P(solve | fired) on the E1 fired set, GPT-6 Astra 0.716 and GPT-5.6-sol 0.596 (targets were 0.65 and 0.63). Qwen3.8-27B -> GPT-5.6-sol then falls below the headline's accuracy, so 3.2's rented-basis pick at that accuracy is Qwen3.8-27B -> GPT-6 Astra. The three-stage legs keep their targets."
+  },
+  "plans": {
+   "headline": {
+    "kind": "three",
+    "local": "qwen38",
+    "machine": "m5max_q40",
+    "closed": "astra"
+   },
+   "desk": {
+    "kind": "three",
+    "local": "qwen38",
+    "machine": "m5max",
+    "closed": "astra",
+    "note": "the headline plan with its first stage on the M5 Max at Q4_K_M without MTP (the configuration the rule compares against)"
+   },
+   "solvar": {
+    "kind": "three",
+    "local": "qwen38",
+    "machine": "m5max_q40",
+    "closed": "sol"
+   },
+   "openonly": {
+    "kind": "open",
+    "local": "qwen38",
+    "machine": "m5max_q40"
+   },
+   "desk_open": {
+    "kind": "open",
+    "local": "qwen38",
+    "machine": "m5max",
+    "note": "Qwen3.8-27B -> GLM-5.3 with its first stage on the M5 Max at Q4_K_M without MTP"
+   },
+   "two_astra": {
+    "kind": "two",
+    "local": "qwen38",
+    "machine": "m5max_q40",
+    "closed": "astra"
+   },
+   "two_sol": {
+    "kind": "two",
+    "local": "qwen38",
+    "machine": "m5max_q40",
+    "closed": "sol"
+   },
+   "retry": {
+    "kind": "retry",
+    "local": "qwen38",
+    "machine": "m5max_q40",
+    "closed": "astra"
+   },
+   "flashnext": {
+    "kind": "three",
+    "local": "flashnext",
+    "machine": "fn_h200x2",
+    "closed": "astra"
+   },
+   "head_dc": {
+    "kind": "three",
+    "local": "qwen38",
+    "machine": "h200_16",
+    "closed": "astra",
+    "note": "datacenter comparison: the headline plan with its first stage on one owned H200 serving sixteen agents (not in the plan space)"
+   },
+   "open_dc": {
+    "kind": "open",
+    "local": "qwen38",
+    "machine": "h200_16",
+    "note": "datacenter comparison for Qwen3.8-27B -> GLM-5.3 (not in the plan space)"
+   }
+  },
+  "machine_model": {
+   "note": "Per attempt i of the 445 measured E1 attempts, scaled to AA's output tokens: t_dec = O/(r0*mtp*eff*f(D)), t_pre = U/(pp0/(1+D/dh)), t_tool measured, overhead measured; agent time capped at max(7200 s, task timeout); boundary energy = P_dec*t_dec + P_pre*t_pre + P_tool*(t_tool+t_over); wall energy per phase with each platform's own conversion. Every parameter: central c, range [min, max] for the projection Monte Carlo, and its source. Scratch prototype and full derivations: scratchpad/grounded/grounded_model.py.",
+   "workload": {
+    "c0_first_prompt": {
+     "c": 1500.0,
+     "range": [
+      1500.0,
+      1500.0
+     ],
+     "src": "engineering estimate: uncached prefill per attempt U = 2*I/R - c0 (mean 28.1K scaled): Qwen3.x chat templates drop earlier turns' thinking, so the prefix cache holds up to the previous prompt and each turn prefills the previous visible reply plus the new observation; consistent with 1,149 read tokens per turn on the M4 Pro smoke run (EXP-20260921-01); c0 is the smallest E1 first prompts (2-request attempts start at about 1.5K). E1 records n_cache_tokens = 0, so the cached share is not measured"
+    },
+    "budget_floor_s": {
+     "c": 7200,
+     "src": "AA protocol: agent time <= max(7200 s, task timeout)"
+    },
+    "partial_solve_after_cut": {
+     "c": 0.0809,
+     "src": "measured: a cut attempt still passes with probability 11/136: E1 7/86 timed-out attempts, and the M4 Pro run (EXP-20260921-01 energy_87.json) 4 of its 50 graded AgentTimeoutError attempts. Round 10 used 11/113, counting only the M4 Pro timeouts on 900-s tasks (4/27), a subset with no stated reason"
+    },
+    "scale_note": "engineering estimate: output tokens, uncached tokens, prompt depth and tool time are scaled together by s = 67,549 / 84,017 (AA tokens / E1 mean); trial overhead (setup, verifier) is not scaled",
+    "depth_factor": {
+     "pts": [
+      [
+       0,
+       1.0
+      ],
+      [
+       8192,
+       0.9865591397849461
+      ],
+      [
+       32768,
+       0.9139784946236559
+      ],
+      [
+       65536,
+       0.8301564027370478
+      ],
+      [
+       81920,
+       0.7939882697947214
+      ],
+      [
+       131072,
+       0.7008797653958944
+      ],
+      [
+       262144,
+       0.5381231671554252
+      ]
+     ],
+     "src": "measured: Qwen3.8-27B UD-Q4_K_XL llama-bench tg32 at depth on 2x RTX 3090 (llama.cpp #27623), 40.92 tok/s at 0. Machines differ around it: Spark NVFP4 0.948 @32K and 0.852 @100K (Kubesimplify; the curve gives 0.91 and 0.76), Strix Qwen3.6 Q8 0.94 @32K (kyuz0), M4 Max Qwen3.6 Q8+MTP 0.96 @32K (#29075) sit above it; M3 Ultra Q8_0+MTP 17.06/32.5 = 0.52 raw @89.6K, about 0.62 after its MTP acceptance drop (#29110; curve 0.78), and stared M5 Max Q8_0 17.0/18.4 = 0.924 @8K (curve 0.987) sit below it. The spread is carried by common.depth_gamma. Not applied to the batched datacenter rows, whose per-agent rates are in-campaign rates that already include depth"
+    },
+    "tool_src": "measured: E1 raw result.json, agent time minus summed request times (16.6 s per turn; GLM-5.3 rerun 16.3 s); Modal sandboxes rather than local Docker, difference unmeasured"
+   },
+   "common": {
+    "mtp": {
+     "c": 1.6,
+     "range": [
+      1.3,
+      2.0
+     ],
+     "src": "CUDA and ROCm/Vulkan engines (DGX Spark vLLM, Strix Halo llama.cpp, H200 at one agent): measured batch-1 MTP speedups on Qwen3.6/3.8-27B: Spark vLLM 1.61-2.15 (NVIDIA forum study thread 381102, helge 380244), Strix llama.cpp 1.63-2.41 (Coffie 12.1 -> 21.2 tok/s at n=3; sudoingX). These are probe prompts: on CUDA the prose prompt gains 1.30-1.34x against 1.69-1.82x overall (sudoingX RTX 3090 control, same GGUF and build), and an agentic attempt is mostly reasoning prose, so the central sits at the low end of the measured cluster (engineering estimate). Round 10 also cited 'about 30% acceptance' from Kubesimplify; that figure is a DSpark k=7 drafter, not MTP, and is dropped"
+    },
+    "mtp_power": {
+     "c": 1.1,
+     "range": [
+      1.0,
+      1.3
+     ],
+     "src": "engineering estimate: decode power with MTP on CUDA/ROCm engines: Strix +1-2.5% (Beelink Qwen3.6 Q8 PPT 111.9-117.1 W without, 114.7-118.6 W with MTP); upper bound from Spark DSpark serving at 56-63 W against 43-45 W for plain dense decode"
+    },
+    "eff": {
+     "c": 0.82,
+     "range": [
+      0.75,
+      0.95
+     ],
+     "src": "measured, n = 1 task: M4 Pro decodes 10.6 tok/s inside a task against 13.0 tok/s at short context on the same machine and build (EXP-20260921-01 smoke); depth explains about 1% of the gap. Applied to every rate taken from a synthetic benchmark (desk machines, H200 with one agent)"
+    },
+    "vrm": {
+     "c": 0.1,
+     "range": [
+      0.05,
+      0.18
+     ],
+     "src": "engineering estimate: Apple regulator and board loss as a share of SoC power (assumed)"
+    },
+    "dram_prefill_frac": {
+     "c": 0.05,
+     "range": [
+      0.0,
+      0.15
+     ],
+     "src": "prefill DRAM increment as a share of the decode increment: #22745 shows RAM 3.7-5.5 W in prefill against ~4 W before, i.e. 0 to 1.5 W of the 11.7 W decode increment"
+    },
+    "eta_desk": {
+     "c": 0.88,
+     "range": [
+      0.85,
+      0.92
+     ],
+     "src": "engineering estimate: Apple charger / PSU efficiency (assumed; no measurement found)"
+    },
+    "host_scale": {
+     "c": 1.0,
+     "range": [
+      0.85,
+      1.15
+     ],
+     "src": "engineering estimate: uncertainty on the H200 host share below"
+    },
+    "host_note": "H200 host share per GPU slot of an 8-GPU node, W: H(P) = 158 + 0.221*(P_board - 75), from Latif et al. (arXiv 2412.08602) Table 1: an 8xH100 node at the PDU draws 1.86 kW idle and 7.97 kW under GPU burn; less the H200 idle floor of 75 W per GPU ('Illusion of Power Capping'), 8x. Google's active host share gives 1.43 at 16 agents. PUE excluded: 'at the wall' is the node",
+    "host_w_idle": 158.0,
+    "host_w_burn": 296.0,
+    "gpu_idle_w": 75.0,
+    "gpu_burn_w": 700.0,
+    "weights_gb": {
+     "q4": 17.1,
+     "q8": 29.0,
+     "src": "GB read per decoded token, Qwen3.8-27B GGUF file sizes (Quesma): Q4_K_M 17.1 GB, Q8_0 29.0 GB. Round 10 used the Qwen3.6-27B Q4_K_M file (16,817,244,384 B, the IPJ M4 Pro GGUF). Q4_0 16.0 GB: Qwen3.8-27B Q8_0 29.0 GB (Quesma) x the Unsloth Qwen3.8-27B Q4_0/Q8_0 size ratio 14.69/26.62 (ByteShape, 14 Sep 2026); cross-check Qwen3.6-27B Q4_0 16.1 GB (Quesma, 27 Jul 2026)",
+     "q40": 16.0
+    },
+    "mtp_metal_kquant": {
+     "c": 1.0,
+     "range": [
+      1.0,
+      1.2
+     ],
+     "src": "Apple Metal llama.cpp with K-quants (the Q4_K_M Apple rows): MTP buys little. M3 Ultra 96 GB Q6_K: 22.8 -> 24.2 tok/s (+6.1%) at n-max 2 over mixed probe prompts, prose -11.8%, deeper drafts slower; Apple M4 Q3_K_XL: parity (-3.4% / +1.7%) (sudoingX/qwen38-mtp sweeps/apple-silicon.md). Quantized batch-8 decode amortizes 1.22x on Metal against 3.34x on CUDA, and K-quants reach the small-batch kernel only at ne11 >= 4 (same source); llama.cpp PR #29110's multi-column kernels cover Q4_0/Q8_0 only, the K-quant branch is #27776 (open). With MTP on, Metal prefill also slows (0.70-0.92x, stared M5 Max Q8_0). Central 1.0: MTP off, the configuration these measurements favour; the range allows MTP on at the measured mixed-probe gain and K-quant kernels landing (1.2, engineering estimate). Round 10 applied 1.6 here, from Q8_0 (#29110) and MLX (mlx-lm #990) measurements"
+    },
+    "mtp_power_metal_kquant": {
+     "c": 1.0,
+     "range": [
+      1.0,
+      1.05
+     ],
+     "src": "engineering estimate: decode power with MTP off (on: at most the Strix +2.5% at its cap)"
+    },
+    "mtp_metal_q8": {
+     "c": 1.6,
+     "range": [
+      1.3,
+      1.75
+     ],
+     "src": "Apple Metal llama.cpp Q8_0 (M5 Max 8-bit row): measured 1.56 (M3 Ultra, PR #29110 master at n_max 1: 34.2 llama-server against 21.91 batched-bench) and 1.68-1.78 (stared M5 Max: 31.7/18.4, 30.8/18.3, 31.5/17.7, 29.9/17.0 at 128/1K/4K/8K); lower end as for prose on CUDA (engineering estimate)"
+    },
+    "mtp_prefill_metal_q8": {
+     "c": 0.83,
+     "range": [
+      0.7,
+      0.92
+     ],
+     "src": "measured: prefill rate with MTP on over off, llama.cpp Metal Q8_0, stared M5 Max: 248/355, 470/628, 541/648, 521/567 at 128/1K/4K/8K (0.70-0.92, mean over 1K-8K 0.83)"
+    },
+    "depth_gamma": {
+     "c": 1.0,
+     "range": [
+      0.6,
+      1.9
+     ],
+     "src": "exponent on the measured depth curve, f(D)^gamma, carrying the spread across machines: gamma = ln(0.852)/ln(0.76) = 0.58 for the Spark at 100K and ln(0.62)/ln(0.78) = 1.9 for the M3 Ultra at 89.6K (workload.depth_factor)"
+    },
+    "kdram_inc": {
+     "c": 0.0285,
+     "range": [
+      0.025,
+      0.036
+     ],
+     "src": "Apple DRAM power outside the powermetrics boundary, increment per GB/s of decode weight traffic: M4 Max Mac Studio RAM power rises from ~4 W to 15.7 W in decode (llama.cpp #22745, Stats.app, Gemma-4-31B Q8_0, about 32.9 GB of weights). The issue gives no decode rate: engineering estimate 12.5 tok/s [10, 14] (the M4 Pro's measured 79% of peak bandwidth on the M4 Max's 546 GB/s gives 13.1), i.e. 11.7 W over 411 GB/s. Traffic = r0 x eff x weight bytes (MTP does not raise weight reads)"
+    },
+    "dram_idle_w_per_gb": {
+     "c": 0.03,
+     "range": [
+      0.0275,
+      0.031
+     ],
+     "src": "Apple DRAM idle power per GB of installed LPDDR: M1 Pro DRAM0 0.44 W for 16 GB (0.0275 W/GB); M4 Max RAM ~4 W for 128 GB before decode (#22745; 0.031 W/GB). Added in every phase on the Apple rows; on Strix Halo the idle DRAM is inside the platform term (Framework Desktop wall idle)"
+    },
+    "apple_cross_check": "not applied: #22745 also reports Stats.app 'System Total' 109 W in decode and 145-152 W in prefill on a Mac Studio M4 Max (Apple support 102027 lists that machine's maximum as 145 W). The reported components (GPU 37 W, RAM 15.7 W) leave 56 W in decode unattributed, and the IPJ M4 Pro TerminalBench run measured 12.3 W for CPU and GPU together under llama.cpp, so a CPU draw of that size is not seen in our own runs; different model and format (Gemma-4-31B Q8_0, about 1.9x the bytes per token) and chassis. Unreconciled; if it transferred, the Apple wall conversion would be low by up to that amount",
+    "mtp_metal_q40": {
+     "c": 1.5,
+     "range": [
+      1.2,
+      1.75
+     ],
+     "src": "engineering estimate from the evidence behind mtp_metal_q8. llama.cpp PR #29110's multi-column Metal mat-vec kernels (ne11 = 2..8, the MTP verification batch) cover Q4_0 and Q8_0 only, so Q4_0 verifies drafts on the same fast path as Q8_0 (K-quants do not: mtp_metal_kquant). Measured Q8_0 MTP speedups on Metal: 1.56 (M3 Ultra, n_max 1, #29110) and 1.68-1.78 (stared M5 Max, n_max 3). For Q4_0, #29110's op-level timings at the 27B-class FFN shape (17408 x 5120, M3 Ultra) are 112.8 / 172.8 / 233.9 us at 2 / 3 / 4 columns, against about 106 us per matrix for one token of an in-model Q4_0 decode (21.91 x 29.0/16.0 x 0.742 = 29.5 tok/s on that chip): 1.06 / 1.63 / 2.21 decode steps, against 1.13 / 1.25 / 1.56 for Q8_0 model-level (#29110 batched-bench). With #29110's acceptance (0.891 at n_max 1, 0.836 at n_max 2) Q4_0's best depth is n_max 1 at about 1.78 before the draft head, Q8_0's n_max 2 at 2.02 (measured 2.03): ratio 0.88, so the Q8_0 central 1.6 becomes 1.41 on the M3 Ultra's kernel costs; central 1.5 because the M5 Max decodes Q4_0 nearer its bandwidth bound (7B Q4_0/Q8_0 efficiency 0.884 against the M3 Ultra's 0.742, #4167), leaving more compute for the extra columns. Range: 1.3 x 0.88 (rounded to 1.2) to the Q8_0 high end 1.75. Prefill with MTP on takes common.mtp_prefill_metal_q8 (measured on Q8_0; the draft head's prompt pass does not depend on the weight format), decode power common.mtp_power"
+    }
+   },
+   "acc_q": {
+    "q4km": {
+     "c": -1.0,
+     "range": [
+      -3.5,
+      1.5
+     ],
+     "src": "Q4_K_M (llama.cpp): Quesma TB2.1 63/89 at both BF16 and Q4_K_M; KLD slope gives -1.2; ByteShape aggregate 97.0-98.8% of BF16. engineering estimate: low confidence"
+    },
+    "nvfp4": {
+     "c": -1.54,
+     "range": [
+      -3.5,
+      1.5
+     ],
+     "src": "NVFP4 (NVIDIA/Red Hat mixed recipe with FP8 attention): nvidia/Qwen3.8-27B-NVFP4 card TB2.1 75.56 -> 74.02; Red Hat SWE 78.8 -> 78.0; across 12 NVFP4 cards the TB2.1 change averages -0.14 (SD 1.23). Widen to [-6, +1] for a pure W4A4 checkpoint that also quantizes linear attention. Round 23 (2026-09-25): central moved from -1.0 to this model's own TerminalBench V2.1 card value, -1.54, the most specific evidence (it was set equal to Q4_K_M's central, which tied the DGX Spark and Strix Halo rows)"
+    },
+    "w4a16": {
+     "c": -1.5,
+     "range": [
+      -4.0,
+      1.0
+     ],
+     "src": "W4A16 (AWQ+GPTQ g128, Marlin): RedHatAI/Qwen3.8-27B-INT4 static mean -0.55; LiveCodeBench proxy pool -2.1; tau2 on Qwen3.6 AWQ flat; no agentic run exists. engineering estimate: low confidence"
+    },
+    "q8": {
+     "c": 0.0,
+     "range": [
+      -1.0,
+      1.0
+     ],
+     "src": "Q8_0 / FP8: Qwen FP8 card; Kurtic et al. (arXiv 2411.02355); Quesma Q8_0 KLD 0.001"
+    },
+    "fp8": {
+     "c": 0.0,
+     "range": [
+      -1.0,
+      1.0
+     ],
+     "src": "FP8 (Qwen3.8-Flash-Next on two H200s): as Q8_0"
+    },
+    "note": "AA_base is treated as full precision (AA's serving precision is unknown). The format deltas are not statistically resolvable from one another; the text does not rank machines on quantization",
+    "q40": {
+     "c": -2.3,
+     "range": [
+      -4.8,
+      0.2
+     ],
+     "src": "Q4_0 (llama.cpp legacy 4-bit: round to nearest, one scale per 32 weights, no K-quant tensor mix). engineering estimate: the Q4_K_M central (-1.0) plus the KLD-slope increment for Q4_0's larger divergence. Qwen3.8-27B Q4_K_M mean KLD 0.014 (Quesma, 26 Aug 2026); Quesma did not measure Q4_0 on Qwen3.8, so it is scaled by the Qwen3.6-27B ratio Q4_0/Q4_K_M = 0.035/0.017 = 2.06 (Quesma, 27 Jul 2026) to 0.029; at the Qwen3.8 TB2.1 dose-response slope of -85 points per nat (2-bit: 57 vs 63 of 89 at KLD 0.079), -85 x (0.029 - 0.014) = -1.3 points beyond Q4_K_M, i.e. -2.3 against BF16. Range: Q4_K_M's range shifted by the same increment. Consistent: ByteShape's Qwen3.8-27B KLD on response tokens, Q4_0 0.0193 against UD-Q4_K_M 0.0071 (2.7x); Qwen3.6-27B Q4_0 against Q4_K_M: top-1 agreement 93.0 vs 95.1%, wikitext-2 perplexity 6.55 vs 6.45 (BF16 6.40), AIME-120 77 vs 79 of 120 (BF16 85; not significant) (Quesma). No agentic run of Q4_0 exists"
+    }
+   },
+   "machines": {
+    "m4pro": {
+     "kind": "apple",
+     "weights": "q4",
+     "box": "macbook",
+     "r0": {
+      "c": 12.8,
+      "range": [
+       12.6,
+       13.0
+      ],
+      "src": "measured (IPJ EXP-20260921-01): Qwen3.6-27B Q4_K_M 12.9-13.2 tok/s decode on this M4 Pro (llama.cpp Metal, no MTP), scaled by weight bytes to Qwen3.8-27B Q4_K_M: x 16.82/17.1 = 12.7-13.0. MLX 4-bit 15.7 (mlx-lm #990) is another engine and is not used"
+     },
+     "pp0": {
+      "c": 110.0,
+      "range": [
+       100.0,
+       118.0
+      ],
+      "src": "measured (IPJ EXP-20260921-01 smoke): 100-118 tok/s prefill on 699-2,176-token prompts"
+     },
+     "dh": {
+      "c": 150000.0,
+      "range": [
+       40000.0,
+       1250000.0
+      ],
+      "src": "Metal on non-M5 chips: fit to #29110's 209 tok/s over an 89.6K-token prompt against 268 at short prompts; that point was measured with MTP on (n_max 2), so 150K is the steepest fall-off the data allow; with the Metal MTP prefill factor 0.83 the same point implies about 1.25M (almost flat); low end engineering estimate"
+     },
+     "p_dec": {
+      "c": 14.0,
+      "range": [
+       12.0,
+       16.0
+      ],
+      "src": "solved from the IPJ measurement on this machine (EXP-20260921-01 energy_87.json): 12.33 W energy-weighted CPU+GPU over 87 TerminalBench tasks, with the smoke run's 72/9/19% decode/prefill/tool split and a prefill:decode power ratio of 1.6 (#22745 GPU 58-60 W vs 37 W)"
+     },
+     "p_pre": {
+      "c": 22.0,
+      "range": [
+       18.0,
+       26.0
+      ],
+      "src": "as p_dec"
+     },
+     "p_tool": {
+      "c": 2.0,
+      "range": [
+       0.5,
+       3.0
+      ],
+      "src": "engineering estimate: CPU+GPU between turns while the task container runs commands (Docker's Linux VM runs on the CPU); floor: the run's loaded idle 0.108 W (EXP-20260921-01, CPU 108 mW, GPU 0). Round 10 cited 0.57 W from EXP-20260914-01; that artifact's idle baseline is 17.5 J over 120 s (0.15 W) and has no between-turn figure"
+     },
+     "plat": {
+      "c": 3.0,
+      "range": [
+       2.0,
+       8.0
+      ],
+      "src": "engineering estimate: MacBook platform power outside SoC and DRAM (SSD, I/O, display dimmed to on), at the wall. Round 10 cited a Notebookcheck idle wall figure of 4.2 W; that page could not be retrieved (Cloudflare / HTTP 403), so the value stands as an estimate"
+     },
+     "fan": {
+      "c": 2.0,
+      "range": [
+       1.0,
+       3.0
+      ],
+      "src": "engineering estimate: MacBook fan under sustained load"
+     },
+     "mem_gb": 48,
+     "mtp_class": "metal_kquant"
+    },
+    "m4max": {
+     "kind": "apple",
+     "weights": "q4",
+     "box": "macbook",
+     "r0": {
+      "c": 21.0,
+      "range": [
+       16.6,
+       21.9
+      ],
+      "src": "M4 Pro 12.8 x 1.64 (40-core M4 Max over 20-core M4 Pro, 7B Q4_0 tg128, llama.cpp discussion #4167 at 8e672ef; same format, so no byte adjustment); cross-checks Gemma-3-27B Q4 on a 32-core M4 Max 18.71 x 1.19; Ollama 16.56"
+     },
+     "pp0": {
+      "c": 221.0,
+      "range": [
+       200.0,
+       250.0
+      ],
+      "src": "engineering estimate: M4 Pro 110 x 2.01 (7B Q4_0 pp512, 40-core M4 Max 885.68 vs 20-core M4 Pro 439.78 tok/s, #4167 at 8e672ef) = 221"
+     },
+     "dh": {
+      "c": 150000.0,
+      "range": [
+       40000.0,
+       1250000.0
+      ],
+      "src": "Metal on non-M5 chips: fit to #29110's 209 tok/s over an 89.6K-token prompt against 268 at short prompts; that point was measured with MTP on (n_max 2), so 150K is the steepest fall-off the data allow; with the Metal MTP prefill factor 0.83 the same point implies about 1.25M (almost flat); low end engineering estimate"
+     },
+     "p_dec": {
+      "c": 47.8,
+      "range": [
+       37.0,
+       50.0
+      ],
+      "src": "IPJ Apple board (EXP-20260907-01, apple_silicon_board.json, Qwen3.8-27B Q4_K_M): one mapping for every Apple row: decode = pinchbench power (multi-turn agentic, generation-heavy), prefill = toolcall15 power (short tool-call queries, prefill-heavy). The board records no engine or boundary; its 'ipw' benchmark is the IPW harness, whose macOS collector samples powermetrics cpu_power, gpu_power and ane_power (energy-monitor/src/collectors/macos.rs), which excludes DRAM, so the DRAM term does not double count; if the board's power_w is IPW's GPU-only power_watts, CPU power (a few W) is missing: pinchbench 47.8 W on the board's M4 Max (a Mac Studio) for Qwen3.5-27B Q4_K_M, the same-size proxy (Qwen3.8-27B was not run on pinchbench there); low end: #22745 GPU 37 W in decode (Stats.app, Mac Studio). Per-query energy ratios on the board (M3 Ultra / M5 Max 2.15 ipw, 4.11 pinchbench, 2.73 toolcall15) do not transfer to a TerminalBench attempt: pinchbench takes 2.08x longer per query on the M3 Ultra because the M5 Max prefills 2.3x faster, while a TerminalBench attempt is decode-dominated; the power ratios (1.97 pinchbench, 1.40 toolcall15) are what the model takes"
+     },
+     "p_pre": {
+      "c": 45.2,
+      "range": [
+       45.0,
+       62.0
+      ],
+      "src": "IPJ Apple board (EXP-20260907-01, apple_silicon_board.json, Qwen3.8-27B Q4_K_M): one mapping for every Apple row: decode = pinchbench power (multi-turn agentic, generation-heavy), prefill = toolcall15 power (short tool-call queries, prefill-heavy). The board records no engine or boundary; its 'ipw' benchmark is the IPW harness, whose macOS collector samples powermetrics cpu_power, gpu_power and ane_power (energy-monitor/src/collectors/macos.rs), which excludes DRAM, so the DRAM term does not double count; if the board's power_w is IPW's GPU-only power_watts, CPU power (a few W) is missing: toolcall15 45.2 W (Qwen3.8-27B); toolcall15 queries last about 4 s here, so sustained prefill may draw more: high end #22745 GPU 58-60 W in prefill plus CPU"
+     },
+     "p_tool": {
+      "c": 2.5,
+      "range": [
+       1.5,
+       4.0
+      ],
+      "src": "engineering estimate: CPU+GPU between turns (as m4pro, larger SoC)"
+     },
+     "plat": {
+      "c": 3.0,
+      "range": [
+       2.0,
+       8.0
+      ],
+      "src": "engineering estimate: MacBook platform power outside SoC and DRAM (SSD, I/O, display dimmed to on), at the wall. Round 10 cited a Notebookcheck idle wall figure of 4.2 W; that page could not be retrieved (Cloudflare / HTTP 403), so the value stands as an estimate"
+     },
+     "fan": {
+      "c": 2.0,
+      "range": [
+       1.0,
+       3.0
+      ],
+      "src": "engineering estimate: MacBook fan under sustained load"
+     },
+     "mem_gb": 128,
+     "mtp_class": "metal_kquant"
+    },
+    "m5max": {
+     "kind": "apple",
+     "weights": "q4",
+     "box": "macbook",
+     "r0": {
+      "c": 27.4,
+      "range": [
+       26.0,
+       31.0
+      ],
+      "src": "Q8_0 measured 18.3 tok/s (stared, 1K prompt) x byte ratio 29.0/17.1 = 1.696 x the 7B Q4_0-over-Q8_0 bandwidth efficiency on this chip, 1.656/1.874 = 0.884 (#4167 at c1d0e7a: tg 119.92 vs 72.42; files 3.56 vs 6.67 GiB) = 27.4; high end the byte ratio at full efficiency (31.0). MLX 4-bit 33.3 (dflash-mlx) is another engine and is not used. Round 10 used 18.3 x 1.656 = 30.3 without the byte adjustment"
+     },
+     "pp0": {
+      "c": 620.0,
+      "range": [
+       570.0,
+       670.0
+      ],
+      "src": "stared llama.cpp 27B Q8_0 prefill 567-648 tok/s at 1K-8K prompts, taken for 4-bit (prefill is compute-bound)"
+     },
+     "dh": {
+      "c": 25000.0,
+      "range": [
+       12000.0,
+       37000.0
+      ],
+      "src": "M5 Max: fit to stared's llama.cpp Q8_0 prefill without MTP, 647.7 tok/s at 4K and 567.3 at 8K (dh = 24K), and MLX (Neural Accelerators speed the matrix multiplies, not attention)"
+     },
+     "p_dec": {
+      "c": 45.2,
+      "range": [
+       44.0,
+       50.0
+      ],
+      "src": "IPJ Apple board (EXP-20260907-01, apple_silicon_board.json, Qwen3.8-27B Q4_K_M): one mapping for every Apple row: decode = pinchbench power (multi-turn agentic, generation-heavy), prefill = toolcall15 power (short tool-call queries, prefill-heavy). The board records no engine or boundary; its 'ipw' benchmark is the IPW harness, whose macOS collector samples powermetrics cpu_power, gpu_power and ane_power (energy-monitor/src/collectors/macos.rs), which excludes DRAM, so the DRAM term does not double count; if the board's power_w is IPW's GPU-only power_watts, CPU power (a few W) is missing: pinchbench 45.2 W. The board machine's chassis is not recorded; a 14-inch M5 Max sustains about 44 W CPU+GPU (Notebookcheck), the range's low end"
+     },
+     "p_pre": {
+      "c": 67.7,
+      "range": [
+       44.0,
+       72.0
+      ],
+      "src": "IPJ Apple board (EXP-20260907-01, apple_silicon_board.json, Qwen3.8-27B Q4_K_M): one mapping for every Apple row: decode = pinchbench power (multi-turn agentic, generation-heavy), prefill = toolcall15 power (short tool-call queries, prefill-heavy). The board records no engine or boundary; its 'ipw' benchmark is the IPW harness, whose macOS collector samples powermetrics cpu_power, gpu_power and ane_power (energy-monitor/src/collectors/macos.rs), which excludes DRAM, so the DRAM term does not double count; if the board's power_w is IPW's GPU-only power_watts, CPU power (a few W) is missing: toolcall15 67.7 W; low end the 14-inch sustained cap. Per-query energy ratios on the board (M3 Ultra / M5 Max 2.15 ipw, 4.11 pinchbench, 2.73 toolcall15) do not transfer to a TerminalBench attempt: pinchbench takes 2.08x longer per query on the M3 Ultra because the M5 Max prefills 2.3x faster, while a TerminalBench attempt is decode-dominated; the power ratios (1.97 pinchbench, 1.40 toolcall15) are what the model takes"
+     },
+     "p_tool": {
+      "c": 2.5,
+      "range": [
+       1.5,
+       4.0
+      ],
+      "src": "engineering estimate: idle CPU+GPU between turns"
+     },
+     "plat": {
+      "c": 3.0,
+      "range": [
+       2.0,
+       8.0
+      ],
+      "src": "engineering estimate: MacBook platform power outside SoC and DRAM (SSD, I/O, display dimmed to on), at the wall. Round 10 cited a Notebookcheck idle wall figure of 4.2 W; that page could not be retrieved (Cloudflare / HTTP 403), so the value stands as an estimate"
+     },
+     "fan": {
+      "c": 2.0,
+      "range": [
+       1.0,
+       3.0
+      ],
+      "src": "engineering estimate: MacBook fan under sustained load"
+     },
+     "mem_gb": 128,
+     "mtp_class": "metal_kquant"
+    },
+    "m5max_q8": {
+     "kind": "apple",
+     "weights": "q8",
+     "box": "macbook",
+     "r0": {
+      "c": 18.3,
+      "range": [
+       17.0,
+       18.4
+      ],
+      "src": "Q8_0 decode measured (stared): 18.4 / 18.3 / 17.7 / 17.0 tok/s at 128 / 1K / 4K / 8K"
+     },
+     "pp0": {
+      "c": 630.0,
+      "range": [
+       567.0,
+       648.0
+      ],
+      "src": "Q8_0 prefill measured (stared): 627.8 / 647.7 / 567.3 tok/s at 1K / 4K / 8K"
+     },
+     "dh": {
+      "c": 25000.0,
+      "range": [
+       12000.0,
+       37000.0
+      ],
+      "src": "M5 Max: fit to stared's llama.cpp Q8_0 prefill without MTP, 647.7 tok/s at 4K and 567.3 at 8K (dh = 24K), and MLX (Neural Accelerators speed the matrix multiplies, not attention)"
+     },
+     "p_dec": {
+      "c": 45.2,
+      "range": [
+       44.0,
+       50.0
+      ],
+      "src": "as m5max"
+     },
+     "p_pre": {
+      "c": 67.7,
+      "range": [
+       44.0,
+       72.0
+      ],
+      "src": "as m5max"
+     },
+     "p_tool": {
+      "c": 2.5,
+      "range": [
+       1.5,
+       4.0
+      ],
+      "src": "as m5max"
+     },
+     "plat": {
+      "c": 3.0,
+      "range": [
+       2.0,
+       8.0
+      ],
+      "src": "engineering estimate: MacBook platform power outside SoC and DRAM (SSD, I/O, display dimmed to on), at the wall. Round 10 cited a Notebookcheck idle wall figure of 4.2 W; that page could not be retrieved (Cloudflare / HTTP 403), so the value stands as an estimate"
+     },
+     "fan": {
+      "c": 2.0,
+      "range": [
+       1.0,
+       3.0
+      ],
+      "src": "engineering estimate: MacBook fan under sustained load"
+     },
+     "mem_gb": 128,
+     "mtp_class": "metal_q8"
+    },
+    "m3ultra": {
+     "kind": "apple",
+     "weights": "q4",
+     "box": "studio",
+     "r0": {
+      "c": 27.6,
+      "range": [
+       26.5,
+       30.0
+      ],
+      "src": "Qwen3.8-27B Q8_0 measured 21.91 tok/s (llama.cpp #29110, batched-bench B=1, M3 Ultra 60-core 96 GB) x byte ratio 1.696 x the 7B Q4_0-over-Q8_0 bandwidth efficiency on this chip, 1.391/1.874 = 0.742 (#4167 60-core: tg 88.40 vs 63.55) = 27.6; independent check: M3 Ultra 96 GB Q6_K 22.8 tok/s (sudoingX, 21 GB file) x 21/17.1 = 28.0. Round 10 used 21.91 x 1.39 = 30.0 without the byte adjustment and a Qwen3-32B cross-check from the 80-core part, which could not be verified"
+     },
+     "pp0": {
+      "c": 268.0,
+      "range": [
+       245.0,
+       300.0
+      ],
+      "src": "engineering estimate: #4167 M3 Ultra 60-core 7B Q4_0 pp512 1,073.09 tok/s x 6.74B/27B = 268 (prefill scales with parameters); consistent with #29110's 209-210 tok/s over an 89.6K-token prompt (Q8_0, MTP on)"
+     },
+     "dh": {
+      "c": 150000.0,
+      "range": [
+       40000.0,
+       1250000.0
+      ],
+      "src": "Metal on non-M5 chips: fit to #29110's 209 tok/s over an 89.6K-token prompt against 268 at short prompts; that point was measured with MTP on (n_max 2), so 150K is the steepest fall-off the data allow; with the Metal MTP prefill factor 0.83 the same point implies about 1.25M (almost flat); low end engineering estimate"
+     },
+     "p_dec": {
+      "c": 89.1,
+      "range": [
+       70.0,
+       95.0
+      ],
+      "src": "IPJ Apple board (EXP-20260907-01, apple_silicon_board.json, Qwen3.8-27B Q4_K_M): one mapping for every Apple row: decode = pinchbench power (multi-turn agentic, generation-heavy), prefill = toolcall15 power (short tool-call queries, prefill-heavy). The board records no engine or boundary; its 'ipw' benchmark is the IPW harness, whose macOS collector samples powermetrics cpu_power, gpu_power and ane_power (energy-monitor/src/collectors/macos.rs), which excludes DRAM, so the DRAM term does not double count; if the board's power_w is IPW's GPU-only power_watts, CPU power (a few W) is missing: pinchbench 89.1 W. Round 10 used 80 W, citing TerminalBytes GPU 64 W + CPU 6 W, which could not be verified; kept as the low end. Per-query energy ratios on the board (M3 Ultra / M5 Max 2.15 ipw, 4.11 pinchbench, 2.73 toolcall15) do not transfer to a TerminalBench attempt: pinchbench takes 2.08x longer per query on the M3 Ultra because the M5 Max prefills 2.3x faster, while a TerminalBench attempt is decode-dominated; the power ratios (1.97 pinchbench, 1.40 toolcall15) are what the model takes"
+     },
+     "p_pre": {
+      "c": 94.9,
+      "range": [
+       89.0,
+       110.0
+      ],
+      "src": "IPJ Apple board (EXP-20260907-01, apple_silicon_board.json, Qwen3.8-27B Q4_K_M): one mapping for every Apple row: decode = pinchbench power (multi-turn agentic, generation-heavy), prefill = toolcall15 power (short tool-call queries, prefill-heavy). The board records no engine or boundary; its 'ipw' benchmark is the IPW harness, whose macOS collector samples powermetrics cpu_power, gpu_power and ane_power (energy-monitor/src/collectors/macos.rs), which excludes DRAM, so the DRAM term does not double count; if the board's power_w is IPW's GPU-only power_watts, CPU power (a few W) is missing: toolcall15 94.9 W"
+     },
+     "p_tool": {
+      "c": 4.0,
+      "range": [
+       3.0,
+       6.0
+      ],
+      "src": "engineering estimate: idle CPU+GPU between turns"
+     },
+     "plat": {
+      "c": 3.5,
+      "range": [
+       2.0,
+       6.0
+      ],
+      "src": "engineering estimate: Mac Studio platform power outside SoC and DRAM, at the wall: Apple support 102027 lists 9 W whole-system idle at the wall for the M3 Ultra Mac Studio (2025); 9 W x 0.88 less DRAM idle (96 GB x 0.03 = 2.9 W) less SoC idle (about 1.5 W) = 3.5 W. Round 10 used 7 W, treating the 9 W as platform-only"
+     },
+     "fan": {
+      "c": 3.0,
+      "range": [
+       2.0,
+       5.0
+      ],
+      "src": "engineering estimate: Mac Studio fan under load"
+     },
+     "mem_gb": 96,
+     "mtp_class": "metal_kquant"
+    },
+    "spark": {
+     "kind": "spark",
+     "r0": {
+      "c": 11.5,
+      "range": [
+       9.7,
+       11.9
+      ],
+      "src": "Qwen3.8-27B NVFP4 on vLLM, batch 1: 9.7-11.55 tok/s (Kubesimplify 11.5, madeye, NVIDIA forum study thread)"
+     },
+     "pp0": {
+      "c": 1800.0,
+      "range": [
+       1700.0,
+       1950.0
+      ],
+      "src": "measured: Qwen3.8-27B NVFP4 vLLM pp2048 at c=1, 1,794 tok/s (Kubesimplify)"
+     },
+     "dh": {
+      "c": 19000.0,
+      "range": [
+       15000.0,
+       25000.0
+      ],
+      "src": "vLLM on Spark and H200: fit to helge's unique-prefix whole-prompt rates"
+     },
+     "p_dec": {
+      "c": 43.0,
+      "range": [
+       35.0,
+       45.0
+      ],
+      "src": "GPU rail (nvidia-smi, GPU rail only): IPJ gemma4:31b dense Q4 decode 43 W at 10.4 tok/s and 45 W at c=1 (EXP-20260620-02); ~35 W for a single prompt (NVIDIA forum 361294). Round 10's 'Qwen3.6 FP8 vLLM 33.7 W' was not found in the IPJ repo and is dropped"
+     },
+     "p_pre": {
+      "c": 75.0,
+      "range": [
+       60.0,
+       95.0
+      ],
+      "src": "engineering estimate: rail during prefill: prefill spikes to 75 W (Wild Pines, MiniMax M2.7 on two GX10s, nvidia-smi); 89 W on the rail at 8 concurrent decodes (IPJ EXP-20260620-02); GPU cap 120 W (NVIDIA)"
+     },
+     "p_tool": {
+      "c": 12.0,
+      "range": [
+       10.5,
+       13.3
+      ],
+      "src": "measured: rail idle with a model loaded 10.5-13.3 W (IPJ spark cell idle_loaded_W 13.29; forum 380257 SGLang 12.1 -> 10.5 W)"
+     },
+     "rest": {
+      "c": 30.0,
+      "range": [
+       20.0,
+       42.0
+      ],
+      "src": "rest of system during active phases, W: wall = (rail + rest)/eta. Check that passes: 83 W at the wall for a 43 W rail against ServeTheHome's 60-90 W for LLM inference. Check that fails: a graphics load of 87 W on the rail against 170 W at the wall (and Tom's ~160 W at the wall under GPU load) needs rest of about 66 W; non-GPU power depends on the load (CPU, NIC), so the LLM check sets the range; engineering estimate"
+     },
+     "wall_tool": {
+      "c": 37.0,
+      "range": [
+       24.0,
+       49.0
+      ],
+      "src": "wall power during tool phases: 35 W with vLLM loaded (forum user alef204); 22 W headless after the Feb 2026 firmware (Tom's Hardware); 47 W with SGLang spinning"
+     },
+     "eta": {
+      "c": 0.9,
+      "range": [
+       0.88,
+       0.92
+      ],
+      "src": "engineering estimate: PSU efficiency"
+     }
+    },
+    "strix": {
+     "kind": "strix",
+     "weights": "q4",
+     "r0": {
+      "c": 11.5,
+      "range": [
+       10.5,
+       12.1
+      ],
+      "src": "Qwen3.8 UD-Q4_K_XL 11.5 tok/s (strix-halo-guide); Qwen3.6 Q4_K_M 12.1 (Coffie)"
+     },
+     "pp0": {
+      "c": 340.0,
+      "range": [
+       300.0,
+       374.0
+      ],
+      "src": "kyuz0 llama-bench pp512: Qwen3.6-27B NVFP4 374 (Vulkan), Qwen3.6-27B Q8 275 Vulkan / 367 ROCm, Gemma-4-31B Q4 301.5 Vulkan / 322.7 ROCm (docs/results.json)"
+     },
+     "dh": {
+      "c": 26000.0,
+      "range": [
+       15000.0,
+       38000.0
+      ],
+      "src": "fits to kyuz0 pp2048-at-depth: Qwen3.6 Q8 ROCm 37.5K (32K) and 26K (64K), Vulkan 26K and 19K; Gemma-4-31B Q4 30K and 26K; median 26K. Steeper: Qwen3.8 Q4_K_M whole-prompt via Ollama Vulkan, 260 tok/s at 14K and 114 at 50K (strix-halo-guide), fits about 7K; a different engine configuration, so it widens the range's low end only to 15K"
+     },
+     "p_dec": {
+      "c": 84.4,
+      "range": [
+       84.0,
+       117.0
+      ],
+      "src": "IPJ Strix Halo Q4_K_M 84.38 W package PPT (strix_8060s_jtok_cell.json, GMKtec EVO-X2), measured at --parallel 4, 16 requests of 256 tokens, 36.3 tok/s aggregate: batch 4, not batch 1, so it is an upper figure for that box at batch 1; high end the Beelink GTR9 Pro performance profile at batch 1, 111.9-117.1 W (Qwen3.6-27B Q8_0, strix-halo-guide)"
+     },
+     "p_pre": {
+      "c": 90.0,
+      "range": [
+       84.0,
+       120.0
+      ],
+      "src": "as p_dec (prefill on this APU runs at the package cap)"
+     },
+     "p_tool": {
+      "c": 5.0,
+      "range": [
+       3.1,
+       8.0
+      ],
+      "src": "measured: IPJ idle 3.08 W (strix_8060s_jtok_cell.json); engineering estimate for between-turn activity"
+     },
+     "plat": {
+      "c": 8.0,
+      "range": [
+       6.0,
+       10.0
+      ],
+      "src": "board and idle DRAM at the wall: Framework Desktop idles at 12 W at the wall against about 4 W on the SoC (Phoronix)"
+     },
+     "eta": {
+      "c": 0.9,
+      "range": [
+       0.87,
+       0.92
+      ],
+      "src": "engineering estimate: PSU efficiency. Check: decode wall power against Tom's ~112 W under LLM inference for a Corsair AI Workstation 300 (a different Strix Halo box; the community Zigbee readings on the same Corsair box show 137-174 W in token generation on MoE rows)"
+     }
+    },
+    "h200_1": {
+     "kind": "h200",
+     "fp8_b1": {
+      "c": 89.19,
+      "src": "proxy, measured: IPJ R5, Qwen3.6-27B FP8 batch-1 decode on one (shared) H200, 89.19 tok/s over 20 sequential 512-token requests (vLLM); Qwen3.8-27B not measured at batch 1"
+     },
+     "w4_time_ratio": {
+      "c": 0.87,
+      "range": [
+       0.85,
+       0.89
+      ],
+      "src": "W4A16/FP8 decode time ratio at batch 1: Kurtic et al. (arXiv 2411.02355) Table 5, 0.852-0.884. Round 10's upper 0.97 (Qwen3-32B on H20) could not be verified and is dropped"
+     },
+     "pp0": {
+      "c": 9000.0,
+      "range": [
+       7000.0,
+       14000.0
+      ],
+      "src": "engineering estimate: single-stream prefill on vLLM"
+     },
+     "dh": {
+      "c": 19000.0,
+      "range": [
+       15000.0,
+       25000.0
+      ],
+      "src": "vLLM on Spark and H200: fit to helge's unique-prefix whole-prompt rates"
+     },
+     "p_dec": {
+      "c": 500.0,
+      "range": [
+       430.0,
+       500.0
+      ],
+      "src": "proxy, measured: IPJ R5 board 500.5 W (5.611 J per output token x 89.19 tok/s, Qwen3.6-27B FP8, batch 1). Cross-check, not a decode figure: E-C at C=1 (Qwen3.6-27B, 5 TerminalBench tasks, one in flight) averages 471.0 W over its whole window, tool phases included (ipj/analysis/stage-one/concurrency_occupancy.json)"
+     },
+     "p_pre": {
+      "c": 650.0,
+      "range": [
+       600.0,
+       700.0
+      ],
+      "src": "engineering estimate: board during prefill, below the 700 W cap"
+     },
+     "p_tool": {
+      "c": 122.0,
+      "range": [
+       75.0,
+       123.0
+      ],
+      "src": "measured: loaded idle 120.7 W (IPJ R5) and 122.94 W (E-C idle_loaded_W); low end the H200 idle floor of 75 W ('Illusion of Power Capping'). Round 10's 78 W could not be found and is dropped"
+     }
+    },
+    "h200_16": {
+     "kind": "h200_batch",
+     "r16": {
+      "c": 39.0,
+      "range": [
+       28.0,
+       50.0
+      ],
+      "src": "engineering estimate, per-agent decode at FP8 without MTP at 14.2 in flight, from two IPJ 1xH200 campaigns run with the same fast-cell script (nominal 16): (a) Qwen3.6-27B FP8, job 16811726: 1,755,167 output tokens, 84,403 agent-seconds over 89 tasks, 18.1 episodes per task, realized 7.38 in flight (ipj/analysis/stage-one/concurrency_occupancy.json; per_task_vectors_v2.json); with E1's 16.6 s of tool time per turn and 76 s of trial overhead, 34.5 tok/s per model-second; (b) Qwen3.8-27B FP8, cell 16805201: 3,374,537 output tokens in a 13,003 s campaign (259.5 tok/s aggregate); its realized occupancy is not recorded: at (a)'s 7.38 in flight and E1's 2,988 output tokens per turn, 47.9 tok/s per model-second (37 at 9 in flight). Both scaled to 14.2 in flight by ML.ENERGY's +5-7% latency per token from batch 8 to 16 (/1.06): 32.6 and 45.2; central their midpoint. Low end (a) with no overhead deduction (28.7); high end (b) at no batch penalty. Round 10 used 36 citing (a) as 34.6 without this derivation"
+     },
+     "w4": {
+      "c": 1.0,
+      "range": [
+       0.88,
+       1.1
+      ],
+      "src": "engineering estimate: W4A16 speed factor at 16 agents: NVIDIA TRT-LLM rates W4A16 gains 'Low' at batch >= 16; Kurtic INT4/FP8 max-throughput ratio 0.876; IPJ NVFP4-emulated/FP8 window ratio 0.973"
+     },
+     "mtp16": {
+      "c": 1.25,
+      "range": [
+       1.0,
+       1.5
+      ],
+      "src": "engineering estimate: MTP at 16 agents: Spark vLLM NVFP4+MTP aggregate 105.8 vs 84.3 without at c=10 (Kubesimplify)"
+     },
+     "inflight": {
+      "c": 14.2,
+      "range": [
+       14.2,
+       16.0
+      ],
+      "src": "measured: E1 realized tasks in flight at nominal 16, drain tail included (ipj/analysis/stage-one/v4/sensitivities.json); sets both the energy and the rent share"
+     },
+     "p_board": {
+      "c": 650.0,
+      "range": [
+       600.0,
+       690.0
+      ],
+      "src": "measured: IPJ 1xH200 nominal-16 campaigns, 643 W (Qwen3.6) and 653 W (Qwen3.8)"
+     },
+     "pp0": {
+      "c": 9000.0,
+      "range": [
+       7000.0,
+       14000.0
+      ],
+      "src": "engineering estimate: as h200_1"
+     },
+     "dh": {
+      "c": 19000.0,
+      "range": [
+       15000.0,
+       25000.0
+      ],
+      "src": "vLLM on Spark and H200: fit to helge's unique-prefix whole-prompt rates"
+     }
+    },
+    "fn_h200x2": {
+     "kind": "h200_batch",
+     "ngpu": 2,
+     "rfn": {
+      "c": 48.0,
+      "range": [
+       33.0,
+       77.0
+      ],
+      "src": "engineering estimate: per-agent decode, MTP included: InferenceX AgentX on 4xH200 TP4 at 16 concurrent, mean inter-token latency 16.9 ms (59 tok/s), median 129 tok/s at contexts of about 100K; x1.3 for TB's ~15K depth, /1.6 for TP2. No measurement on 2xH200; TB tokens per Flash-Next attempt are not published, assumed equal to Qwen3.8-27B's"
+     },
+     "inflight": {
+      "c": 14.2,
+      "range": [
+       14.2,
+       16.0
+      ],
+      "src": "engineering estimate: as h200_16"
+     },
+     "p_board": {
+      "c": 550.0,
+      "range": [
+       450.0,
+       650.0
+      ],
+      "src": "engineering estimate: InferenceX 4xH200: 363 W per GPU at 16 concurrent; TP2 carries twice the load per GPU"
+     },
+     "pp0": {
+      "c": 20000.0,
+      "range": [
+       12000.0,
+       30000.0
+      ],
+      "src": "engineering estimate: TP2 prefill"
+     },
+     "dh": {
+      "c": 19000.0,
+      "range": [
+       15000.0,
+       25000.0
+      ],
+      "src": "vLLM on Spark and H200: fit to helge's unique-prefix whole-prompt rates"
+     }
+    },
+    "m5max_q40": {
+     "kind": "apple",
+     "weights": "q40",
+     "box": "macbook",
+     "r0": {
+      "c": 29.3,
+      "range": [
+       27.2,
+       33.2
+      ],
+      "src": "MTP off: Q8_0 measured 18.3 tok/s (stared, 1K prompt) x byte ratio 29.0/16.0 = 1.8125 x the 7B Q4_0-over-Q8_0 bandwidth efficiency on this chip, 1.656/1.874 = 0.884 (#4167 at c1d0e7a: tg 119.92 vs 72.42; files 3.56 vs 6.67 GiB), a Q4_0 measurement, so it applies as measured: 29.3; low end the 8K-prompt Q8_0 rate 17.0 (27.2), high end the byte ratio at full efficiency (33.2). Cross-check: Qwen3.6-27B Q4_0 generates 34.7 against Q4_K_M 32.7 tok/s on one machine (Quesma), 1.061x, the file ratio 17.1/16.1 = 1.062; m5max's 27.4 x 17.1/16.0 = 29.3"
+     },
+     "pp0": {
+      "c": 620.0,
+      "range": [
+       570.0,
+       670.0
+      ],
+      "src": "as m5max (same machine; the weight format changes neither the compute-bound prefill nor the board's power mapping)"
+     },
+     "dh": {
+      "c": 25000.0,
+      "range": [
+       12000.0,
+       37000.0
+      ],
+      "src": "as m5max (same machine; the weight format changes neither the compute-bound prefill nor the board's power mapping)"
+     },
+     "p_dec": {
+      "c": 45.2,
+      "range": [
+       44.0,
+       50.0
+      ],
+      "src": "as m5max (same machine; the weight format changes neither the compute-bound prefill nor the board's power mapping)"
+     },
+     "p_pre": {
+      "c": 67.7,
+      "range": [
+       44.0,
+       72.0
+      ],
+      "src": "as m5max (same machine; the weight format changes neither the compute-bound prefill nor the board's power mapping)"
+     },
+     "p_tool": {
+      "c": 2.5,
+      "range": [
+       1.5,
+       4.0
+      ],
+      "src": "as m5max (same machine; the weight format changes neither the compute-bound prefill nor the board's power mapping)"
+     },
+     "plat": {
+      "c": 3.0,
+      "range": [
+       2.0,
+       8.0
+      ],
+      "src": "engineering estimate: MacBook platform power outside SoC and DRAM (SSD, I/O, display dimmed to on), at the wall. Round 10 cited a Notebookcheck idle wall figure of 4.2 W; that page could not be retrieved (Cloudflare / HTTP 403), so the value stands as an estimate"
+     },
+     "fan": {
+      "c": 2.0,
+      "range": [
+       1.0,
+       3.0
+      ],
+      "src": "engineering estimate: MacBook fan under sustained load"
+     },
+     "mem_gb": 128,
+     "mtp_class": "metal_q40"
+    }
+   },
+   "glm53": {
+    "note": "GLM-5.3 tier served FP8 on eight owned H200s: time and energy per attempt from its own measured k=5 campaign (ipj/analysis/stage-one/v4/inputs/glm53_exact.json, sensitivities.json glm53_occupancy): node seconds per attempt = mean agent time x token scale / tasks in flight; board energy = node board power x node seconds; wall adds the host share per GPU slot (common.host_*); rented and amortized dollars = 8 GPUs x node seconds x the GPU-hour rates. Replaces the round-10 stored target (201 kJ at the wall, $0.36 rented), which implied 38 node-seconds per attempt, 2.8x below the measured 105",
+    "ngpu": 8,
+    "agent_s": {
+     "c": 1117.1,
+     "src": "measured: GLM-5.3 k=5 rerun (mlen 131072, 2x timeouts, 445 attempts): mean agent time 497,112 s / 445 (v4/sensitivities.json glm53_occupancy)"
+    },
+    "token_scale": {
+     "c": 0.978,
+     "range": [
+      0.978,
+      1.05
+     ],
+     "src": "Artificial Analysis TB2.1 GLM-5.3 (max) output tokens per task 39,901 over the measured rerun's 40,787 per attempt (3.55M / 89; scratch g53_attempts.json from the rerun's result.json); high end allows longer attempts under AA's max(7200 s, timeout) budget, which cut 68 of 445 attempts at 2x (engineering estimate)"
+    },
+    "inflight": {
+     "c": 10.61,
+     "range": [
+      10.61,
+      14.2
+     ],
+     "src": "measured: 10.61 tasks in flight (agent-seconds / campaign window 46,848 s); high end the Qwen3.8-27B campaign's 14.2 at nominal sixteen (engineering estimate for a busier node)"
+    },
+    "p_node_board": {
+     "c": 3375.0,
+     "range": [
+      3375.0,
+      3435.0
+     ],
+     "src": "measured: E3 GLM-5.3 whole-node board power 3,375 W (8xH200, nvml); GLM-5.2 metered campaign 3,435 W (glm53_exact.json energy_estimate)"
+    },
+    "cross_check": "E3's direct single-roll integral is 497.1 kJ per task on the board at lower concurrency; the k=5 attribution gives 355-362 kJ per attempt (board)"
+   }
+  }
+ },
+ "swe": {
+  "n_tasks": 500,
+  "tiers": {
+   "qwen38": {
+    "acc": 73.0,
+    "own": 0.0014,
+    "amort": 0.07,
+    "rent": 0.05,
+    "kj": 71
+   },
+   "glm53": {
+    "acc": 78.0,
+    "own": 0.0036,
+    "amort": 0.244,
+    "rent": 0.4,
+    "kj": 150
+   },
+   "sol": {
+    "acc": 82.0,
+    "usd": 0.4
+   },
+   "astra": {
+    "acc": 88.0,
+    "usd": 0.63
+   },
+   "opus5": {
+    "acc": 92.0,
+    "usd": 7.81
+   }
+  },
+  "plans": {
+   "headline": {
+    "label": "Qwen3.8-27B $\\rightarrow$ GLM-5.3 $\\rightarrow$ GPT-6 Astra",
+    "shares": [
+     76.61,
+     15.27,
+     8.12
+    ],
+    "cond": [
+     87.7,
+     74.8,
+     56.9
+    ],
+    "own": 0.102,
+    "amort": 0.276,
+    "rent": 0.336,
+    "kj": 147.1
+   },
+   "openonly": {
+    "label": "Qwen3.8-27B $\\rightarrow$ GLM-5.3",
+    "shares": [
+     76.61,
+     23.39
+    ],
+    "cond": [
+     87.7,
+     53.1
+    ],
+    "own": 0.0031,
+    "amort": 0.176,
+    "rent": 0.236,
+    "kj": 132.7
+   },
+   "solvar": {
+    "label": "Qwen3.8-27B $\\rightarrow$ GLM-5.3 $\\rightarrow$ GPT-5.6-sol",
+    "shares": [
+     76.61,
+     15.27,
+     8.12
+    ],
+    "cond": [
+     87.7,
+     74.8,
+     41.8
+    ],
+    "own": 0.0659,
+    "amort": 0.24,
+    "rent": 0.3,
+    "kj": 144.0
+   },
+   "two_astra": {
+    "label": "Qwen3.8-27B $\\rightarrow$ GPT-6 Astra",
+    "shares": [
+     76.61,
+     23.39
+    ],
+    "cond": [
+     87.7,
+     73.7
+    ],
+    "own": 0.286,
+    "amort": 0.357,
+    "rent": 0.339,
+    "kj": 101.1
+   },
+   "glmfirst": {
+    "label": "GLM-5.3 $\\rightarrow$ GPT-6 Astra",
+    "derived": true
+   }
+  },
+  "signal": {
+   "recall": 0.65,
+   "fpr": 0.08
+  },
+  "joint": {
+   "glm_given_qwen_solved": 0.92,
+   "astra_given_both_solved": 0.97,
+   "astra_given_qwen_only": 0.85,
+   "astra_given_glm_only": 0.9,
+   "judge_own": 0.00012,
+   "judge_amort": 0.0025,
+   "judge_rent": 0.005,
+   "judge_kj": 8,
+   "astra_kj_est": 80,
+   "note": "SWE stretch joint of the target sheet (scratchpad swe/final_targets.py S_): P(GLM | Qwen solved) and Astra's solve rate per (Qwen, GLM) outcome; P(GLM | Qwen failed) and P(Astra | both failed) are derived from the tier accuracies. The owned gate after each open stage runs at signal.recall / signal.fpr."
+  }
+ },
+ "gaia": {
+  "n_tasks": 165,
+  "tiers": {
+   "qwen38": {
+    "acc": 66.0,
+    "own": 0.00031,
+    "rent": 0.02,
+    "kj": 13
+   },
+   "glm53": {
+    "acc": 80.0,
+    "own": 0.0022,
+    "rent": 0.216,
+    "kj": 90
+   },
+   "sol": {
+    "acc": 78.0,
+    "usd": 0.213
+   },
+   "astra": {
+    "acc": 84.0,
+    "usd": 0.34
+   }
+  },
+  "plans": {
+   "localfirst": {
+    "label": "Qwen3.8-27B $\\rightarrow$ GLM-5.3 $\\rightarrow$ GPT-6 Astra",
+    "derived": true
+   },
+   "openonly": {
+    "label": "Qwen3.8-27B $\\rightarrow$ GLM-5.3",
+    "derived": true
+   },
+   "glmfirst": {
+    "label": "GLM-5.3 $\\rightarrow$ GPT-6 Astra",
+    "shares": [
+     80.1,
+     19.9
+    ],
+    "acc": 84.8,
+    "own": 0.133,
+    "rent": 0.349,
+    "kj": 105.0
+   }
+  },
+  "signal": {
+   "auc_deployed": 0.6,
+   "auc_flags": 0.55,
+   "auc_answer_judge": 0.87,
+   "s2_auc": 0.86,
+   "s2_recall": 0.584,
+   "s2_fpr": 0.094,
+   "glmfirst_s2_recall": 0.597,
+   "glmfirst_s2_fpr": 0.1,
+   "errored_fire_pct_measured": 6.1,
+   "note": "auc_deployed: errors, time budget and the owned GLM-5.3 trace judge on GAIA (engineering estimate: above the measured error/time-budget/loop flags, 0.549 on Qwen3.6-27B over 165 tasks; at the low end of published trajectory-reading calibrators on GAIA, 0.607-0.686, HTC arXiv 2601.15778 Table 3). auc_flags: the measured 0.549, carried like errored_fire_pct_measured. auc_answer_judge: the stretch sheet's answer-reading gate (GAIA_final plan 6), kept for record; no costed plan uses it. s2_*: GAIA_final plan 6 (chain) and plan 14 (GLM-first) operating points at s2_auc."
+  },
+  "model": {
+   "glm_solve_false_esc": 0.899,
+   "closed3_solve_flagged_correct": 0.88,
+   "astra3_solve_glm_failed": 0.48,
+   "glm_premium": 1.5,
+   "judge_own": 3.6e-05,
+   "judge_rent": 0.0023,
+   "judge_kj_wall": 1.5,
+   "e1_cap": 0.35,
+   "note": "GAIA plan model (make_numbers.gaia_plan), the TB2.1 plan() structure with GAIA primitives. Under a near-random stage-1 signal the escalated tasks are a near-random sample, so GLM-5.3's solve rates on them are its marginal rates: glm_solve_false_esc = P(GLM | Qwen solved), measured 98/109 (Qwen3.6-27B vs GLM-5.3, 165 tasks, EXP-20260803-02 gaia_composed_corrected.json); P(GLM | Qwen failed) is derived from the tier accuracies. Astra's rates are those of the GLM-5.3 -> GPT-6 Astra plan (GAIA_final plan 14), which the chain becomes at 100% escalation. Costs and judge as GAIA_final plan 6 (GLM premium 1.5, Astra premium constants.premium). e1_cap: at most 35% of tasks leave the local stage. The local stage (gaia.tiers.qwen38) is the stretch desk build of GAIA_final: M5 Max 128 GB, Q4/NVFP4 + MTP, 13 kJ at the wall, rented = amortized desk basis."
+  }
+ },
+ "tb4": {
+  "n_tasks": 66,
+  "tiers": {
+   "qwen38": {
+    "acc": 5.6
+   },
+   "glm53": {
+    "acc": 41.9,
+    "own": 0.0097,
+    "amort": 0.857,
+    "rent": 1.414
+   },
+   "astra": {
+    "acc": 59.6,
+    "usd": 5.46
+   },
+   "sol": {
+    "acc": 39.9,
+    "usd": 7.5
+   }
+  },
+  "plans": {
+   "localfirst": {
+    "label": "Qwen3.8-27B $\\rightarrow$ GLM-5.3 $\\rightarrow$ GPT-6 Astra",
+    "shares": [
+     0.61,
+     45.74,
+     53.65
+    ],
+    "correct": [
+     0.55,
+     35.15,
+     24.27
+    ],
+    "own": 3.79,
+    "amort": 4.71,
+    "rent": 5.4,
+    "kj": 456
+   },
+   "glmfirst": {
+    "label": "GLM-5.3 $\\rightarrow$ GPT-6 Astra",
+    "shares": [
+     46.22,
+     53.78
+    ],
+    "correct": [
+     35.62,
+     24.38
+    ],
+    "own": 3.79,
+    "amort": 4.59,
+    "rent": 5.17,
+    "kj": 346
+   },
+   "openonly": {
+    "label": "Qwen3.8-27B $\\rightarrow$ GLM-5.3",
+    "shares": [
+     1.05,
+     98.95
+    ],
+    "correct": [
+     0.9,
+     41.01
+    ],
+    "own": 0.0128,
+    "amort": 0.978,
+    "rent": 1.642,
+    "kj": 441
+   }
+  },
+  "redistribution": {
+   "fractions_of_frontier": [
+    0.9,
+    0.8
+   ],
+   "rolls": 5,
+   "note": "GLM-5.3 -> GPT-6 Astra at capability targets of 90% and 80% of GPT-6 Astra's accuracy (author note, 2026-09-25). The GLM-5.3 gate is a binormal ROC fitted to the stored glmfirst plan (it escalates 15.0% of GLM's correct answers and 81.8% of its failures); Astra's success on escalated GLM-correct and GLM-failed tasks is solved from that plan and Astra's leaderboard accuracy. The operating point is the smallest whole number of escalated attempts over 66 tasks x 5 rolls that reaches the target; the Astra leg keeps the stored plan's per-basis escalation premium. No TB4 run of GLM-5.3 or Astra exists (targets/STATUS.md)."
+  }
+ },
+ "compat": {
+  "note": "targets used only to give the canonical prose's macros target-world values",
+  "flags_s1_recall": 0.4,
+  "flags_s1_fpr": 0.02,
+  "closed_solve_glm_failure": {
+   "sol": 0.47,
+   "astra": 0.5
+  },
+  "qwen36_acc": 60.7,
+  "cover_only_plan": 3.9,
+  "cover_only_astra": 7.5,
+  "judge_auc_completed_tb": 0.88,
+  "judge_auc_completed_swe": 0.845,
+  "glm_step_pp": 5.93,
+  "glm_step_p": "0.0012",
+  "glm_step_ci": "[+3.61, +8.25]",
+  "kappas": [
+   0.6,
+   0.65,
+   0.7,
+   0.75,
+   0.8,
+   0.85
+  ],
+  "kappa_top": 0.9,
+  "n_tiers_scored": 18,
+  "n_tiers_enum": 21,
+  "n_tiers_enum_word": "twenty-one",
+  "cover_only_note": "target: cover_only_astra - cover_only_plan equals the Astra minus headline accuracy gap (3.9 + 3.6 after round 10)",
+  "esc_tokens_premium": {
+   "astra": 1.72,
+   "glm53": 1.86,
+   "sol": 1.9,
+   "kimi": 2.08,
+   "terra": 2.11,
+   "src": "measured: escalated-task output tokens / workload mean on the E1 Qwen3.8-27B escalation set (Astra 1.72, GLM-5.3 1.86 from the round-10 research pass; sol 1.9, Kimi 2.08, Terra 2.11 from the canonical ESCPREMLO/HI notes)"
+  },
+  "heldout_lo_offset": -3.68,
+  "heldout_hi_offset": 3.52
+ },
+ "measured": {
+  "note": "Measured inputs (not targets). Used to shape the machine model's workload; never printed as a study result.",
+  "e1_qwen38_attempts": {
+   "src": "E1: Qwen3.8-27B, 262K context, 89 tasks x 5 rolls on 8xH200 (Modal sandboxes), agent timeout multiplier 2; per-attempt fields from each trial's result.json (HF traces tb21-qwen38-262k-2026-09-23; ipj/experiments/results/EXP-20260803-02-frontier-cascade/qwen38_262k_gricher.json). tout/tin = n_output_tokens/n_input_tokens, nreq = API requests, agent/total = agent execution and trial wall seconds, llm = summed API request seconds, rew = verifier reward (empty: no verdict), to1 = the task's own timeout (s).",
+   "cols": "task,tout,tin,nreq,agent,llm,total,rew,to1",
+   "rows": [
+    "pytorch-model-cli,24139,187634,16,421.746,225.354,482.356,0,900",
+    "dna-insert,26776,141085,15,447.778,222.888,487.347,0,1800",
+    "qemu-alpine-ssh,152246,374782,20,1800.010,1371.809,1813.651,0,900",
+    "mteb-retrieve,2690,12211,4,93.257,24.429,180.440,0,1800",
+    "kv-store-grpc,6882,38012,10,129.670,65.316,167.770,1,900",
+    "sparql-university,43173,64894,10,473.918,377.923,561.206,1,900",
+    "headless-terminal,23941,48962,8,249.206,210.485,290.462,1,900",
+    "adaptive-rejection-sampler,60146,3088,2,1800.005,1746.233,1883.462,0,900",
+    "portfolio-optimization,52571,139023,12,733.804,460.357,824.527,1,3600",
+    "path-tracing,289766,5223888,69,3600.027,2663.145,3643.342,0,1800",
+    "model-extraction-relu-logits,78881,114421,11,1404.554,1266.538,1450.904,0,900",
+    "llm-inference-batching-scheduler,114568,533739,22,1128.834,983.375,1157.878,1,1800",
+    "custom-memory-heap-crash,107710,985177,37,1450.627,976.761,1479.501,0,1800",
+    "gcode-to-text,144697,3038210,63,1800.018,1368.072,1844.079,0,900",
+    "openssl-selfsigned-cert,2619,6794,3,34.997,22.252,77.286,1,900",
+    "mailman,209489,3702481,83,2915.318,1963.818,2993.136,1,1800",
+    "prove-plus-comm,27467,30753,9,310.633,232.436,359.377,1,900",
+    "llm-inference-batching-scheduler,106965,617472,21,1473.581,975.342,1498.190,1,1800",
+    "gpt2-codegolf,162392,266769,18,1800.011,1472.744,1918.244,0,900",
+    "train-fasttext,109447,6298183,145,6857.373,1025.377,6888.861,1,3600",
+    "mcmc-sampling-stan,43090,241239,23,1176.755,401.322,1190.563,,1800",
+    "sqlite-db-truncate,42253,90822,8,393.355,373.374,436.076,1,900",
+    "headless-terminal,24392,74164,12,260.611,213.838,324.864,1,900",
+    "vulnerable-secret,3896,48345,8,57.378,33.699,101.088,1,900",
+    "raman-fitting,52877,278797,18,569.067,481.503,593.201,0,900",
+    "mteb-leaderboard,52641,1242274,46,1712.890,481.673,1735.013,1,3600",
+    "reshard-c4-data,29005,71056,10,394.424,238.653,516.725,1,3600",
+    "dna-insert,88368,228603,13,885.698,733.166,985.799,0,1800",
+    "install-windows-3.11,347327,5560820,119,7200.036,3114.602,7247.499,0,3600",
+    "headless-terminal,143052,445617,28,1800.014,1298.638,1839.982,1,900",
+    "reshard-c4-data,56984,110890,11,733.507,473.889,873.399,1,3600",
+    "feal-differential-cryptanalysis,173978,143247,12,1852.851,1561.195,1926.031,1,1800",
+    "headless-terminal,58671,100178,12,676.979,535.929,719.680,1,900",
+    "log-summary-date-ranges,6908,51827,7,73.761,57.592,117.144,1,900",
+    "build-pmars,12287,220206,21,328.080,109.864,345.297,1,900",
+    "fix-ocaml-gc,17882,490499,36,1291.253,170.889,2393.083,1,3600",
+    "video-processing,104889,1113733,34,1270.690,964.805,1316.399,0,3600",
+    "model-extraction-relu-logits,98328,591978,19,1138.418,847.791,1198.883,0,900",
+    "make-doom-for-mips,162246,3879230,82,1800.013,1484.152,1857.353,0,900",
+    "schemelike-metacircular-eval,381031,4175011,93,4800.032,3506.929,5213.146,0,2400",
+    "pytorch-model-recovery,18520,69080,8,276.751,182.928,347.894,1,900",
+    "qemu-alpine-ssh,151895,237425,20,1800.010,1354.215,1813.694,0,900",
+    "sqlite-db-truncate,18701,50894,6,191.645,175.506,234.007,1,900",
+    "query-optimize,11938,84022,16,599.231,109.704,993.356,1,900",
+    "nginx-request-logging,18832,6132,2,259.349,162.604,305.434,1,900",
+    "cobol-modernization,137397,536031,29,1388.888,1247.593,1416.997,1,900",
+    "compile-compcert,79624,2713271,86,3669.836,740.463,3704.529,1,2400",
+    "pytorch-model-cli,13364,129968,16,332.586,117.053,462.084,1,900",
+    "build-pov-ray,58686,2206114,50,2443.245,541.113,2519.641,1,12000",
+    "circuit-fibsqrt,313584,2076895,56,5504.671,4703.039,5529.649,1,3600",
+    "cobol-modernization,57404,432151,25,613.209,525.678,640.846,1,900",
+    "mteb-retrieve,3078,8634,4,95.997,28.491,160.497,0,1800",
+    "merge-diff-arc-agi-task,15221,54206,10,190.746,128.950,271.879,1,900",
+    "gcode-to-text,137050,3454980,54,1800.015,1262.126,1849.465,0,900",
+    "extract-moves-from-video,95808,2980727,75,3600.020,914.613,3635.700,0,1800",
+    "code-from-image,14328,69616,13,226.939,137.683,250.645,1,1200",
+    "gpt2-codegolf,181772,149884,16,1800.012,1574.807,1833.764,0,900",
+    "sqlite-db-truncate,15227,28230,6,149.954,135.199,173.785,1,900",
+    "circuit-fibsqrt,472500,1809189,39,5558.037,4856.244,5586.674,1,3600",
+    "financial-document-processor,13712,81068,10,388.535,124.150,461.148,1,1200",
+    "sanitize-git-repo,16510,192331,15,194.945,146.543,218.086,1,900",
+    "largest-eigenval,33989,127880,14,503.956,292.683,526.340,1,900",
+    "fix-git,5562,33515,8,71.606,51.765,94.832,1,900",
+    "model-extraction-relu-logits,101432,86349,8,1800.071,1507.848,1865.463,0,900",
+    "portfolio-optimization,70640,307196,21,1273.039,613.443,1374.256,1,3600",
+    "gcode-to-text,133312,2198848,61,1800.018,1226.841,1831.083,0,900",
+    "cobol-modernization,67926,229864,16,651.706,611.715,674.979,1,900",
+    "tune-mjcf,134836,1088107,37,1800.010,1241.318,1826.327,0,900",
+    "large-scale-text-editing,11713,28770,9,215.431,103.018,335.775,1,1200",
+    "bn-fit-modify,35803,235525,20,592.714,319.307,646.748,1,3600",
+    "count-dataset-tokens,14862,124016,14,419.594,139.707,444.990,1,900",
+    "distribution-search,33651,24862,5,308.880,287.968,333.759,1,3600",
+    "filter-js-from-html,147869,630268,24,1399.419,1363.527,1852.126,0,1800",
+    "dna-assembly,531382,834901,31,3600.027,3316.499,3688.571,0,1800",
+    "git-multibranch,8707,50140,10,191.419,80.755,247.974,1,900",
+    "cancel-async-tasks,38859,3598,2,353.460,347.771,392.329,1,900",
+    "constraints-scheduling,11661,14281,4,113.522,104.022,164.458,1,1200",
+    "kv-store-grpc,5091,43320,8,109.637,46.061,132.051,1,900",
+    "multi-source-data-merger,8924,20214,5,98.131,80.876,121.972,1,900",
+    "pytorch-model-recovery,21524,54805,8,344.881,192.130,421.736,1,900",
+    "dna-insert,177631,258104,17,1725.950,1610.309,1763.486,1,1800",
+    "install-windows-3.11,232240,4786862,85,3544.882,2168.776,3589.993,0,3600",
+    "largest-eigenval,77791,358903,24,1229.235,665.132,1252.781,1,900",
+    "caffe-cifar-10,20556,1289670,64,2400.012,199.946,2463.685,0,3600",
+    "rstan-to-pystan,42898,640837,33,1002.483,366.709,1048.176,1,1800",
+    "log-summary-date-ranges,8815,53816,8,99.558,71.404,142.348,1,900",
+    "qemu-alpine-ssh,110321,868189,41,1588.020,990.074,1601.538,0,900",
+    "compile-compcert,84743,2516296,77,3166.701,797.340,3199.465,0,2400",
+    "dna-assembly,351943,577067,24,3398.737,3069.629,3477.303,0,1800",
+    "raman-fitting,79165,426934,25,846.691,707.513,890.349,0,900",
+    "build-cython-ext,81056,2310725,59,1800.016,777.440,1841.414,1,900",
+    "winning-avg-corewars,412042,5431585,102,6364.372,3797.636,6383.679,1,3600",
+    "openssl-selfsigned-cert,42559,22572,4,392.480,368.293,421.419,1,900",
+    "tune-mjcf,30042,206956,18,618.292,273.414,654.902,1,900",
+    "schemelike-metacircular-eval,408133,4880126,92,4652.150,3657.800,5201.087,0,2400",
+    "openssl-selfsigned-cert,2494,9111,3,29.452,22.124,61.580,1,900",
+    "sam-cell-seg,63481,1295750,39,1852.300,561.291,1894.277,0,7200",
+    "path-tracing,186976,1299725,42,3600.013,1670.248,3620.254,0,1800",
+    "protein-assembly,107715,604001,24,1476.377,965.775,1504.594,0,1800",
+    "fix-code-vulnerability,3778,47006,6,69.623,35.486,84.034,1,900",
+    "raman-fitting,33716,166920,16,393.487,311.798,418.515,0,900",
+    "schemelike-metacircular-eval,308999,5345351,85,4800.013,2821.890,5389.779,0,2400",
+    "mteb-retrieve,23239,281838,27,976.296,217.257,1086.261,1,1800",
+    "raman-fitting,29131,156708,14,339.085,270.467,382.069,0,900",
+    "llm-inference-batching-scheduler,213575,1248670,28,2203.961,1874.811,2244.152,1,1800",
+    "sanitize-git-repo,63822,921769,32,908.548,596.286,950.696,0,900",
+    "query-optimize,36780,371820,36,972.811,344.999,1904.562,,900",
+    "kv-store-grpc,9189,53582,11,157.588,87.981,195.698,1,900",
+    "extract-elf,59935,198421,12,594.675,545.490,643.228,0,900",
+    "make-doom-for-mips,143011,3505505,87,1800.010,1372.369,1887.858,0,900",
+    "fix-git,11061,50965,10,116.081,96.023,140.323,1,900",
+    "cancel-async-tasks,63198,143056,13,599.854,560.746,648.706,1,900",
+    "largest-eigenval,60745,194481,16,797.518,508.800,819.608,1,900",
+    "constraints-scheduling,12017,21219,5,117.899,105.044,152.312,1,1200",
+    "modernize-scientific-stack,7416,65940,12,94.919,63.451,124.755,1,600",
+    "path-tracing,171389,2804568,56,3600.016,1587.398,3630.224,0,1800",
+    "sqlite-with-gcov,16902,134497,20,428.174,161.005,464.731,1,900",
+    "dna-assembly,354513,469142,23,3600.023,3107.952,3635.197,0,1800",
+    "dna-insert,105215,149746,13,1111.171,896.807,1177.598,1,1800",
+    "make-doom-for-mips,164675,3423216,72,1800.024,1504.411,1856.799,0,900",
+    "protein-assembly,184427,1796875,45,3182.659,1724.891,3210.823,1,1800",
+    "write-compressor,90865,46828,8,1492.410,1390.152,1528.281,1,900",
+    "build-cython-ext,42372,1637689,49,1542.971,381.375,1567.105,1,900",
+    "polyglot-rust-c,60141,32637,6,579.170,539.111,660.980,0,900",
+    "openssl-selfsigned-cert,32415,16000,4,279.618,271.522,313.988,1,900",
+    "kv-store-grpc,5674,47102,10,125.722,53.146,163.120,1,900",
+    "sparql-university,42474,130284,15,590.138,382.644,623.255,1,900",
+    "git-leak-recovery,8840,22917,6,115.332,78.571,144.227,1,900",
+    "compile-compcert,51947,1868168,83,4800.011,488.861,4847.374,0,2400",
+    "make-mips-interpreter,353594,4897794,74,3600.026,3300.360,3659.249,0,1800",
+    "large-scale-text-editing,59671,122003,18,799.156,554.766,944.156,1,1200",
+    "largest-eigenval,40876,145167,14,535.464,342.500,572.390,1,900",
+    "gpt2-codegolf,137182,265357,23,1800.011,1202.610,1854.735,0,900",
+    "torch-tensor-parallelism,33234,192879,18,877.571,299.263,1129.182,1,900",
+    "extract-elf,94229,163938,10,886.299,852.834,932.498,1,900",
+    "torch-tensor-parallelism,63575,138664,12,1054.839,561.877,1159.752,1,900",
+    "compile-compcert,91531,2575197,86,4800.018,876.441,4837.984,0,2400",
+    "polyglot-rust-c,189613,64806,11,1800.011,1717.248,1876.177,0,900",
+    "password-recovery,117281,423264,19,1160.484,1009.729,1192.376,1,900",
+    "pypi-server,3224,20633,6,122.811,29.648,147.228,1,900",
+    "prove-plus-comm,28976,24300,8,289.594,243.133,320.689,1,900",
+    "polyglot-c-py,33757,4277,2,323.956,314.618,405.009,0,900",
+    "sam-cell-seg,78716,2030345,56,2039.787,739.916,2248.833,0,7200",
+    "adaptive-rejection-sampler,106650,5285,3,1800.008,1549.531,1838.233,0,900",
+    "fix-ocaml-gc,48737,1058589,50,1135.197,440.828,1709.065,1,3600",
+    "chess-best-move,37893,281569,19,491.815,347.701,517.599,1,900",
+    "nginx-request-logging,29989,29004,6,363.416,274.926,391.376,1,900",
+    "polyglot-c-py,67877,19790,4,626.559,604.404,665.058,0,900",
+    "train-fasttext,27138,547849,44,2638.858,256.651,2671.463,1,3600",
+    "sqlite-with-gcov,11198,150711,15,311.974,101.492,352.767,1,900",
+    "feal-differential-cryptanalysis,79264,42800,8,824.411,709.480,864.074,1,1800",
+    "mteb-retrieve,18974,327251,29,709.314,172.839,804.533,1,1800",
+    "filter-js-from-html,129173,343315,17,1813.752,1750.526,2302.947,0,1800",
+    "bn-fit-modify,33488,184929,20,632.616,312.482,665.213,1,3600",
+    "vulnerable-secret,6439,37343,9,76.452,55.874,100.534,1,900",
+    "modernize-scientific-stack,15636,51382,8,173.133,137.038,226.623,1,600",
+    "mailman,206107,5522642,102,2682.452,1875.175,2728.826,1,1800",
+    "rstan-to-pystan,78414,1147182,47,1707.810,668.322,1748.800,1,1800",
+    "largest-eigenval,79508,440254,22,1475.462,730.565,1498.389,1,900",
+    "fix-code-vulnerability,12989,168805,16,219.625,124.341,239.798,1,900",
+    "torch-pipeline-parallelism,71893,520733,32,1800.009,650.849,2166.798,0,900",
+    "db-wal-recovery,94897,609615,31,1033.328,865.505,1086.741,0,900",
+    "pypi-server,38132,12382,3,378.176,333.825,403.045,1,900",
+    "polyglot-c-py,26106,12407,4,253.554,244.003,286.906,0,900",
+    "fix-code-vulnerability,7546,204750,20,206.108,71.274,226.013,1,900",
+    "fix-git,6421,36342,9,79.080,60.955,102.041,1,900",
+    "hf-model-inference,3781,21967,6,181.298,35.266,229.092,1,900",
+    "rstan-to-pystan,44765,570880,30,812.647,384.947,847.219,1,1800",
+    "large-scale-text-editing,86024,262681,22,1093.670,747.591,1190.995,1,1200",
+    "pypi-server,20549,23884,6,822.193,784.479,864.565,1,900",
+    "path-tracing,194982,2890309,54,3600.025,1772.544,3643.555,1,1800",
+    "extract-moves-from-video,66101,1441451,59,3600.012,624.480,3639.678,0,1800",
+    "git-multibranch,10935,162543,19,265.643,103.511,301.074,1,900",
+    "llm-inference-batching-scheduler,76029,342554,16,679.990,631.487,723.383,1,1800",
+    "openssl-selfsigned-cert,4172,7957,3,47.215,38.034,71.506,1,900",
+    "query-optimize,20690,162624,25,787.857,193.646,1720.801,,900",
+    "query-optimize,14728,80538,14,377.740,133.128,767.079,0,900",
+    "custom-memory-heap-crash,38777,334715,23,859.109,351.220,885.172,0,1800",
+    "chess-best-move,96077,1107581,50,1800.013,873.183,1824.511,0,900",
+    "cancel-async-tasks,93887,111190,18,989.262,879.741,1045.005,0,900",
+    "financial-document-processor,27754,178278,19,436.447,259.854,476.050,1,1200",
+    "query-optimize,14104,58837,14,487.235,134.154,1179.998,0,900",
+    "video-processing,142201,2921580,59,1683.517,1293.853,1728.658,1,3600",
+    "cancel-async-tasks,31926,11436,4,316.986,287.820,356.081,0,900",
+    "sparql-university,37009,145211,16,529.659,327.555,617.124,1,900",
+    "git-leak-recovery,14623,76392,12,162.297,129.724,193.182,1,900",
+    "gcode-to-text,19806,400025,29,499.633,176.274,523.556,1,900",
+    "protein-assembly,200541,2502892,62,3600.018,1813.754,3624.761,1,1800",
+    "chess-best-move,93954,2473946,71,1800.014,869.942,1831.639,0,900",
+    "dna-assembly,268631,382999,25,2835.049,2437.218,2923.102,0,1800",
+    "nginx-request-logging,12107,15654,4,156.748,105.732,183.612,1,900",
+    "mcmc-sampling-stan,39439,909768,48,2204.568,357.690,2822.993,1,1800",
+    "vulnerable-secret,3210,23452,9,58.960,29.559,100.153,1,900",
+    "sanitize-git-repo,17418,239678,16,243.946,160.398,283.931,1,900",
+    "constraints-scheduling,16872,15783,4,159.635,149.204,207.041,1,1200",
+    "protein-assembly,128658,1747287,53,3053.606,1145.943,3097.448,1,1800",
+    "custom-memory-heap-crash,54059,369499,25,1038.963,482.335,1088.202,1,1800",
+    "model-extraction-relu-logits,74345,184765,15,1800.006,1223.143,1826.899,0,900",
+    "caffe-cifar-10,27924,1360255,51,2400.006,269.134,2431.560,0,3600",
+    "winning-avg-corewars,252176,819553,31,3344.283,2227.278,3375.549,1,3600",
+    "merge-diff-arc-agi-task,18885,125108,17,331.349,169.296,433.160,1,900",
+    "count-dataset-tokens,11777,132057,16,361.441,104.007,386.093,1,900",
+    "mteb-leaderboard,39238,1076201,51,1135.729,371.244,1172.433,1,3600",
+    "sparql-university,35247,53934,9,382.343,304.467,422.548,1,900",
+    "qemu-startup,14448,122674,22,409.166,133.796,422.347,0,900",
+    "bn-fit-modify,27660,210902,19,525.513,264.798,578.636,1,3600",
+    "multi-source-data-merger,8353,24697,6,88.319,74.463,110.030,1,900",
+    "break-filter-js-from-html,36572,88534,13,441.481,304.018,465.577,1,1200",
+    "portfolio-optimization,42467,186329,15,743.397,363.983,886.920,1,3600",
+    "path-tracing,202291,4088539,66,2571.742,1844.037,2633.860,1,1800",
+    "build-cython-ext,75569,2129512,59,1800.013,698.904,1827.374,1,900",
+    "adaptive-rejection-sampler,72890,412026,29,1800.012,1270.470,2014.712,0,900",
+    "rstan-to-pystan,44311,674512,36,1131.837,391.658,1160.227,1,1800",
+    "custom-memory-heap-crash,75393,593573,33,1007.080,675.677,1056.336,1,1800",
+    "gpt2-codegolf,117027,226537,25,1800.010,996.820,1838.919,0,900",
+    "extract-elf,55544,144876,12,541.775,517.652,569.994,1,900",
+    "raman-fitting,54133,412201,19,612.576,489.063,656.820,0,900",
+    "crack-7z-hash,29888,475670,40,1143.238,278.061,1244.285,1,1800",
+    "build-pmars,9635,183799,20,316.157,87.103,331.240,1,900",
+    "install-windows-3.11,47320,683704,36,789.826,430.162,842.141,0,3600",
+    "video-processing,126832,2279504,45,1492.967,1214.514,1525.830,0,3600",
+    "feal-linear-cryptanalysis,360631,648175,23,3600.017,3257.895,3656.593,0,1800",
+    "extract-elf,123711,407494,16,1170.092,1132.423,1196.841,0,900",
+    "overfull-hbox,38890,124080,14,489.617,350.926,555.606,1,750",
+    "distribution-search,39977,17296,4,368.639,344.980,393.807,1,3600",
+    "install-windows-3.11,340101,16734074,182,7200.041,3303.080,7307.360,0,3600",
+    "sqlite-with-gcov,10252,88255,16,351.064,90.144,431.768,1,900",
+    "sanitize-git-repo,24798,405938,21,293.527,220.102,333.073,1,900",
+    "path-tracing-reverse,307372,5166327,67,3600.026,2819.558,3632.015,0,1800",
+    "polyglot-c-py,63649,48220,7,610.007,575.197,642.592,0,900",
+    "configure-git-webserver,20054,41533,9,314.813,183.450,354.704,0,900",
+    "tune-mjcf,60547,510625,29,1256.754,585.120,1296.758,1,900",
+    "configure-git-webserver,17896,87184,15,301.735,163.313,374.526,0,900",
+    "build-pmars,19381,394586,30,465.512,187.338,497.362,1,900",
+    "hf-model-inference,5077,39503,9,213.756,46.346,241.738,1,900",
+    "log-summary-date-ranges,15362,42891,8,154.132,129.164,178.075,1,900",
+    "tune-mjcf,57515,444226,29,1106.559,529.322,1171.625,1,900",
+    "qemu-startup,57451,816870,30,699.303,531.331,713.338,0,900",
+    "dna-insert,54140,61302,8,518.249,440.930,607.573,0,1800",
+    "extract-moves-from-video,68528,2950723,83,3600.011,665.466,3643.170,0,1800",
+    "qemu-startup,181963,637710,35,1800.014,1639.047,1814.637,0,900",
+    "financial-document-processor,18285,147856,16,378.373,174.911,462.656,1,1200",
+    "git-leak-recovery,8384,39729,7,106.757,74.979,137.933,1,900",
+    "hf-model-inference,4235,42327,9,199.875,39.190,227.717,1,900",
+    "password-recovery,32123,305802,26,392.747,279.333,427.662,1,900",
+    "qemu-startup,14331,110960,18,408.616,123.586,430.004,0,900",
+    "path-tracing-reverse,344647,4454249,55,3600.024,3171.703,3636.864,0,1800",
+    "modernize-scientific-stack,4609,23986,5,52.934,37.673,79.641,1,600",
+    "qemu-startup,67663,304782,29,973.993,632.018,995.329,0,900",
+    "multi-source-data-merger,7908,23436,5,87.560,70.565,111.251,1,900",
+    "train-fasttext,64377,1702584,100,6030.059,608.967,6084.574,1,3600",
+    "feal-linear-cryptanalysis,44006,49635,6,438.780,393.912,478.789,1,1800",
+    "large-scale-text-editing,28597,46631,11,347.082,259.465,417.148,1,1200",
+    "qemu-alpine-ssh,28104,257620,30,948.529,268.315,969.221,0,900",
+    "pytorch-model-recovery,16088,42328,8,208.153,149.700,282.113,1,900",
+    "git-leak-recovery,42867,77840,9,431.860,397.620,461.475,1,900",
+    "gpt2-codegolf,177587,181951,17,1800.010,1506.049,1830.677,0,900",
+    "code-from-image,46860,382883,24,603.047,447.612,645.267,1,1200",
+    "rstan-to-pystan,53644,822720,38,1722.857,501.421,1766.726,1,1800",
+    "regex-log,32056,117223,10,330.094,293.661,369.221,1,900",
+    "constraints-scheduling,9769,15869,4,98.682,89.497,128.853,1,1200",
+    "circuit-fibsqrt,165313,746517,28,2304.644,2101.143,2441.603,1,3600",
+    "adaptive-rejection-sampler,132654,344510,26,1800.009,1209.475,1893.603,1,900",
+    "make-doom-for-mips,169147,3653957,68,1800.019,1555.657,1860.236,0,900",
+    "chess-best-move,71036,922134,40,1631.175,646.935,1677.364,0,900",
+    "configure-git-webserver,14155,61190,13,283.401,128.742,334.160,0,900",
+    "merge-diff-arc-agi-task,18921,112140,16,235.383,156.242,274.162,1,900",
+    "path-tracing-reverse,280776,6549905,75,3600.024,2540.841,3668.991,0,1800",
+    "merge-diff-arc-agi-task,29180,56690,8,337.646,249.970,414.756,1,900",
+    "filter-js-from-html,60548,106212,9,1757.637,1720.896,1987.787,0,1800",
+    "feal-differential-cryptanalysis,82106,54868,9,870.120,755.166,906.653,1,1800",
+    "torch-pipeline-parallelism,75008,227895,23,1209.855,726.422,1318.763,0,900",
+    "mailman,119939,4610015,88,1970.049,1146.851,2011.739,0,1800",
+    "build-cython-ext,59913,1939010,53,1578.891,532.751,1622.113,1,900",
+    "cobol-modernization,49438,191316,16,488.524,447.407,512.361,1,900",
+    "constraints-scheduling,18694,26228,5,164.994,156.096,190.648,1,1200",
+    "portfolio-optimization,22631,68428,9,312.673,186.160,454.566,1,3600",
+    "qemu-alpine-ssh,121281,270731,23,1800.011,1094.237,1822.883,0,900",
+    "torch-tensor-parallelism,79352,406855,32,1503.518,674.712,1644.204,1,900",
+    "make-mips-interpreter,333070,3718017,61,3600.025,3071.873,3673.684,0,1800",
+    "overfull-hbox,28379,181449,18,423.349,256.878,484.228,1,750",
+    "db-wal-recovery,135713,793012,38,1414.765,1228.951,1440.736,0,900",
+    "pytorch-model-cli,20128,94407,16,475.671,170.578,612.516,0,900",
+    "regex-chess,416353,2203941,52,7200.026,5523.730,7340.897,0,3600",
+    "circuit-fibsqrt,173760,1189197,35,3190.245,2731.042,3220.168,1,3600",
+    "git-leak-recovery,28628,81010,11,303.478,276.321,331.758,1,900",
+    "large-scale-text-editing,48575,120000,17,776.383,422.262,842.553,1,1200",
+    "crack-7z-hash,51124,749485,45,1800.011,471.096,1868.288,0,1800",
+    "pypi-server,7375,41279,8,197.712,65.434,240.648,1,900",
+    "chess-best-move,95778,935171,36,1800.012,856.462,1852.050,0,900",
+    "count-dataset-tokens,27403,183749,18,756.419,266.296,799.712,1,900",
+    "log-summary-date-ranges,6338,48304,9,80.408,60.920,104.103,1,900",
+    "git-multibranch,11423,143451,18,204.465,104.925,270.075,1,900",
+    "build-pov-ray,47409,1662435,41,1217.318,442.007,1258.545,0,12000",
+    "make-doom-for-mips,148895,2169090,67,1800.019,1328.033,1859.110,0,900",
+    "mailman,214518,2711933,70,3600.026,1991.482,3634.637,0,1800",
+    "custom-memory-heap-crash,34229,124205,13,747.057,308.520,776.015,0,1800",
+    "multi-source-data-merger,5378,23273,5,62.001,47.633,84.055,1,900",
+    "protein-assembly,104387,1338124,48,3600.016,921.032,3625.602,0,1800",
+    "regex-log,37472,35207,5,336.380,323.787,419.241,1,900",
+    "pypi-server,3686,12312,4,112.636,33.877,137.441,1,900",
+    "fix-ocaml-gc,20323,443944,29,781.747,186.473,1314.131,1,3600",
+    "winning-avg-corewars,513799,1525612,52,6968.937,4578.928,6989.586,1,3600",
+    "build-pov-ray,39449,1186021,43,2287.477,362.044,2327.974,1,12000",
+    "distribution-search,38833,34206,6,377.945,350.766,406.115,1,3600",
+    "path-tracing-reverse,292051,6472220,73,3600.008,2643.794,3645.477,0,1800",
+    "fix-code-vulnerability,20080,185587,17,315.834,186.553,330.580,1,900",
+    "kv-store-grpc,4711,35627,9,107.211,44.447,144.350,1,900",
+    "extract-moves-from-video,58466,1948177,64,3600.006,545.913,3661.221,0,1800",
+    "db-wal-recovery,8051,38815,7,88.836,72.139,136.648,1,900",
+    "regex-chess,111128,7329,3,7200.008,5831.542,7225.193,0,3600",
+    "bn-fit-modify,34879,368914,32,615.484,317.839,669.063,1,3600",
+    "torch-pipeline-parallelism,120733,298793,24,1800.012,1096.200,1906.855,0,900",
+    "feal-differential-cryptanalysis,122709,200596,15,3112.333,2833.541,3182.645,1,1800",
+    "polyglot-rust-c,66296,31675,5,691.278,608.574,791.606,0,900",
+    "sanitize-git-repo,107969,935760,31,1613.745,924.435,1638.268,0,900",
+    "nginx-request-logging,15347,19479,4,176.346,132.337,203.812,1,900",
+    "feal-linear-cryptanalysis,296445,1560465,40,3600.009,2644.263,3698.158,0,1800",
+    "code-from-image,12613,80880,16,230.861,113.646,274.319,1,1200",
+    "vulnerable-secret,6912,35572,10,85.411,60.079,112.612,1,900",
+    "build-pov-ray,34710,1434428,51,1419.397,336.400,1461.526,1,12000",
+    "fix-git,9865,40374,12,114.378,86.806,138.709,1,900",
+    "regex-chess,526095,6739579,91,7200.010,5985.472,7385.055,0,3600",
+    "multi-source-data-merger,12443,22695,5,122.277,110.559,144.537,1,900",
+    "train-fasttext,119970,2515577,103,6014.810,1089.540,6077.294,1,3600",
+    "regex-log,20757,13384,3,192.615,181.602,277.835,1,900",
+    "build-pmars,14384,334010,33,462.665,133.520,493.093,0,900",
+    "dna-assembly,360890,263339,20,3600.021,3189.993,3684.454,0,1800",
+    "build-pmars,19297,274231,22,393.730,166.820,412.579,1,900",
+    "hf-model-inference,3774,30868,8,221.955,34.677,270.101,1,900",
+    "regex-log,27345,34103,5,251.811,238.055,284.913,1,900",
+    "feal-linear-cryptanalysis,75674,66470,8,726.178,666.825,749.998,1,1800",
+    "distribution-search,49250,12281,5,457.817,438.260,502.007,1,3600",
+    "configure-git-webserver,37307,150600,16,568.696,335.931,621.429,0,900",
+    "regex-chess,350203,2335931,51,6309.469,5519.540,6460.953,1,3600",
+    "schemelike-metacircular-eval,368669,4578672,97,4800.034,4060.737,4888.765,0,2400",
+    "mcmc-sampling-stan,55914,1280740,60,2308.638,526.960,2654.488,1,1800",
+    "mailman,136556,5792929,103,2293.097,1249.912,2381.591,1,1800",
+    "make-mips-interpreter,385691,2949861,61,3600.025,3391.126,3656.049,0,1800",
+    "video-processing,99361,837042,28,1093.028,894.943,1154.106,0,3600",
+    "reshard-c4-data,60226,345749,25,716.838,539.859,842.615,1,3600",
+    "caffe-cifar-10,20572,858364,54,2400.019,195.973,2448.524,0,3600",
+    "hf-model-inference,8063,59875,10,218.412,75.866,246.564,1,900",
+    "log-summary-date-ranges,10572,58826,8,126.504,91.976,168.536,1,900",
+    "password-recovery,129678,441928,24,1477.194,1186.801,1514.471,1,900",
+    "write-compressor,183275,42416,6,1800.009,1595.211,1835.268,0,900",
+    "nginx-request-logging,42103,16118,4,467.380,394.219,514.254,1,900",
+    "winning-avg-corewars,414826,5899082,85,7200.033,3795.013,7289.121,0,3600",
+    "llm-inference-batching-scheduler,126886,1076432,27,1586.674,1071.511,1630.500,1,1800",
+    "fix-code-vulnerability,11761,162968,16,228.494,115.619,243.253,1,900",
+    "pytorch-model-cli,17166,186650,19,590.095,153.092,653.875,1,900",
+    "model-extraction-relu-logits,41284,27764,5,417.033,364.805,469.924,0,900",
+    "build-cython-ext,81905,1771714,48,1625.383,722.514,1658.112,1,900",
+    "make-mips-interpreter,350625,3244419,56,3600.020,3195.327,3656.714,0,1800",
+    "fix-ocaml-gc,49639,838286,38,1324.563,479.392,2135.994,1,3600",
+    "modernize-scientific-stack,7843,40865,7,107.239,71.735,156.764,1,600",
+    "torch-pipeline-parallelism,95122,637975,35,1800.013,877.348,1909.944,0,900",
+    "gcode-to-text,119584,2229054,49,1800.016,1113.641,1825.283,0,900",
+    "mteb-leaderboard,69170,1327653,60,2093.522,649.625,2127.359,1,3600",
+    "pytorch-model-recovery,22261,59910,9,408.297,199.249,482.775,0,900",
+    "prove-plus-comm,38624,30642,9,469.656,346.719,499.585,1,900",
+    "code-from-image,42282,781382,35,730.756,379.492,767.242,1,1200",
+    "portfolio-optimization,16109,60433,8,268.058,144.023,405.487,1,3600",
+    "sqlite-with-gcov,15654,365416,23,477.865,137.103,569.923,1,900",
+    "overfull-hbox,69302,251033,20,718.077,632.572,816.067,1,750",
+    "sam-cell-seg,82060,1257440,39,2273.100,707.893,2323.358,0,7200",
+    "winning-avg-corewars,279329,3188031,70,4327.422,2495.836,4348.507,1,3600",
+    "crack-7z-hash,36308,626981,40,1430.780,333.798,1481.946,1,1800",
+    "break-filter-js-from-html,21917,52104,12,311.416,179.818,355.001,1,1200",
+    "train-fasttext,29362,534064,46,2631.651,283.325,2667.070,1,3600",
+    "overfull-hbox,57320,513873,24,836.347,529.119,891.615,0,750",
+    "video-processing,152544,2090249,43,1513.691,1376.804,1546.068,0,3600",
+    "crack-7z-hash,19477,322682,31,747.555,180.016,796.861,1,1800",
+    "caffe-cifar-10,120442,1619767,61,2400.016,1108.446,2451.711,0,3600",
+    "fix-ocaml-gc,30498,348811,22,765.668,271.201,1297.285,1,3600",
+    "code-from-image,5867,38402,10,124.499,51.841,147.476,1,1200",
+    "tune-mjcf,37580,447121,31,1126.310,338.543,1166.179,1,900",
+    "install-windows-3.11,115632,3307574,67,2029.594,1089.009,2117.202,0,3600",
+    "circuit-fibsqrt,239822,1706358,54,3207.968,2730.504,3250.451,1,3600",
+    "regex-log,22891,45217,5,231.713,210.643,316.102,1,900",
+    "extract-moves-from-video,65621,1410066,70,3600.014,597.009,3641.395,0,1800",
+    "db-wal-recovery,11643,33599,7,124.289,109.300,157.705,1,900",
+    "torch-pipeline-parallelism,74184,861460,36,1525.270,660.325,1628.645,0,900",
+    "adaptive-rejection-sampler,42900,87922,10,1304.482,982.126,1410.135,1,900",
+    "mteb-retrieve,37134,280567,23,556.708,330.142,628.626,1,1800",
+    "reshard-c4-data,64827,187256,14,646.324,537.609,718.433,1,3600",
+    "caffe-cifar-10,36062,1274510,70,2400.013,343.507,2449.225,0,3600",
+    "filter-js-from-html,73269,31487,6,675.965,662.623,901.312,0,1800",
+    "polyglot-rust-c,32149,6052,3,306.527,289.747,342.318,0,900",
+    "mcmc-sampling-stan,47185,1081178,57,1820.711,442.662,2106.564,1,1800",
+    "merge-diff-arc-agi-task,31418,100603,12,308.290,261.680,436.065,1,900",
+    "cancel-async-tasks,63652,5221,2,597.912,587.400,650.942,1,900",
+    "distribution-search,22685,11841,4,220.255,201.962,246.182,1,3600",
+    "mteb-leaderboard,81122,1936847,64,2393.644,773.610,2426.208,1,3600",
+    "vulnerable-secret,11019,50118,8,112.916,93.446,155.015,0,900",
+    "password-recovery,23784,85188,10,254.962,203.588,311.980,1,900",
+    "break-filter-js-from-html,55562,201033,18,740.866,474.133,764.355,1,1200",
+    "password-recovery,14930,111762,9,166.775,122.747,217.866,1,900",
+    "regex-chess,625087,2913368,52,7200.035,6352.328,7225.501,0,3600",
+    "feal-linear-cryptanalysis,69358,221477,14,684.926,596.586,725.737,1,1800",
+    "overfull-hbox,51259,214231,19,565.854,470.269,624.550,1,750",
+    "git-multibranch,7180,68819,11,172.424,63.319,210.562,1,900",
+    "configure-git-webserver,96941,120552,10,1044.293,874.181,1098.816,0,900",
+    "sparql-university,59441,332023,24,755.041,554.893,781.849,1,900",
+    "write-compressor,62873,32289,5,598.089,523.968,674.788,1,900",
+    "break-filter-js-from-html,36357,92698,15,521.167,325.554,547.126,1,1200",
+    "financial-document-processor,41941,191564,21,836.346,379.819,917.958,1,1200",
+    "count-dataset-tokens,24412,168100,15,464.701,214.078,506.173,1,900",
+    "torch-tensor-parallelism,81418,463168,27,1650.997,728.708,1885.234,1,900",
+    "fix-git,24412,126683,15,268.271,228.630,291.198,1,900",
+    "count-dataset-tokens,17005,109874,13,436.554,156.025,462.007,1,900",
+    "modernize-scientific-stack,5267,16609,5,59.338,42.580,110.850,1,600",
+    "sqlite-with-gcov,13977,331043,29,428.321,122.505,465.402,1,900",
+    "reshard-c4-data,56283,236837,17,762.472,483.437,840.676,1,3600",
+    "write-compressor,194179,117726,9,1800.009,1768.801,1881.416,0,900",
+    "schemelike-metacircular-eval,403250,4484907,89,4204.137,3645.273,4414.960,1,2400",
+    "crack-7z-hash,6939,215409,22,601.415,66.518,657.474,1,1800",
+    "git-multibranch,15655,157355,17,240.361,145.859,280.040,1,900",
+    "sam-cell-seg,52603,803186,31,1441.749,463.317,1493.626,0,7200",
+    "cobol-modernization,61340,374401,21,638.479,564.750,681.343,1,900",
+    "sam-cell-seg,135763,3141750,58,2816.922,1073.297,2871.091,0,7200",
+    "prove-plus-comm,9762,17532,7,122.972,86.373,185.516,1,900",
+    "break-filter-js-from-html,18090,34510,10,230.407,150.979,255.632,1,1200",
+    "pytorch-model-cli,23558,307266,21,446.749,200.784,517.670,0,900",
+    "pytorch-model-recovery,16694,127747,13,377.958,146.279,485.713,1,900",
+    "mcmc-sampling-stan,116457,2462639,69,3600.018,1035.878,4041.630,1,1800",
+    "path-tracing-reverse,328286,5644221,77,3600.049,2975.638,3682.849,0,1800",
+    "polyglot-c-py,57186,18372,4,559.679,528.174,594.992,0,900",
+    "build-pov-ray,391902,34011175,222,24000.073,3829.322,24036.186,0,12000",
+    "write-compressor,160118,7648,5,1800.011,1352.218,1881.347,0,900",
+    "headless-terminal,12223,44795,8,220.744,114.838,259.805,1,900",
+    "feal-differential-cryptanalysis,59590,50644,8,619.657,549.144,654.909,1,1800",
+    "db-wal-recovery,7188,53940,10,81.657,64.842,106.995,1,900",
+    "polyglot-rust-c,59107,37009,9,577.472,537.424,614.079,0,900",
+    "prove-plus-comm,25749,29189,8,318.158,241.602,347.964,1,900",
+    "torch-tensor-parallelism,37013,190603,14,931.780,334.825,1068.684,0,900",
+    "compile-compcert,167966,4479534,113,4800.029,1585.924,4864.238,0,2400",
+    "sqlite-db-truncate,40327,73371,10,369.243,350.030,393.191,0,900",
+    "extract-elf,69518,82487,10,637.760,619.305,664.800,0,900",
+    "financial-document-processor,19098,153627,11,464.336,175.569,546.888,1,1200",
+    "make-mips-interpreter,390399,2293658,51,3600.024,3467.580,3655.936,0,1800",
+    "bn-fit-modify,45974,780427,33,1130.419,409.130,1177.818,1,3600",
+    "filter-js-from-html,148660,67181,8,1913.863,1893.758,2138.989,0,1800",
+    "mteb-leaderboard,80359,1955536,61,1975.807,768.145,2004.031,1,3600",
+    "sqlite-db-truncate,16862,58994,9,163.231,146.525,187.217,1,900"
+   ]
+  }
+ },
+ "evidence_gaps": {
+  "note": "Round 23 (2026-09-25): patterns the too-clean audit found where no evidence exists to give each entity its own input. Each is left as is and listed here.",
+  "machine_intervals": "Table 3's kJ-per-solved intervals are 22 to 26% of their points for every machine: one workload profile (the 445 E1 attempts), one bootstrap index set and one correlation (0.65). No per-machine run exists.",
+  "desk_budget_cuts": "M5 Max (Q4_K_M) and M3 Ultra decode at 27.4 and 27.6 tok/s from separate sources, so the hard time budget cuts the same attempts of the one workload profile and their accuracies tie. No agentic run on either machine exists.",
+  "flashnext_profile": "Qwen3.8-Flash-Next runs on Qwen3.8-27B's E1 token, time and solve profile; its token counts are unpublished.",
+  "gaia_swe_premiums": "GAIA and SWE-bench Verified escalated legs use the legacy single premium (1.93) or 1.5; no per-task costs exist on either benchmark.",
+  "tb4_localfirst_tie": "Terminal-Bench 4.0 local-first and open-weight first share the Astra premium and conditionals of the target sheet; only the Qwen3.6 proxy (0 of 63) exists.",
+  "shared_stage1_threshold": "Every Qwen3.8-27B-first plan uses the one deployed stage-1 threshold, so they share a fire rate and local share. This is the deployed design, not a missing measurement.",
+  "glm_gate": "GLM-5.3's escalation gate (recall 0.70, false escalation 0.05) is one target shared by every plan that runs through GLM-5.3; it awaits the GLM-5.3 gate experiment (author ruling 2026-09-25: keep the shared target).",
+  "judge_auc_structure": "Measured on the 445 E1 attempts (gpt-5-mini judge): flags 0.731, judge on all attempts 0.795, judge on completed attempts 0.618. The targets (0.74 / 0.89 / 0.88) assume the judge holds up on completed attempts (author ruling 2026-09-25: keep the targets, no change in the paper)."
+ }
+}

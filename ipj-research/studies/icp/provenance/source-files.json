@@ -1,0 +1,145 @@
+{
+  "attribution": "ICP authors; original IPW study for the prior-study inputs and cited figure",
+  "source_code_license": "Apache-2.0, repository LICENSE",
+  "private_origin_ledger": "retained by the authors outside this public artifact",
+  "adaptations": [
+    "Figure 5 uses bundled data and style modules.",
+    "The canonical numerical input is in inputs/ rather than an ignored build directory.",
+    "An operational address was removed from Apple board metadata; numerical data is unchanged."
+  ],
+  "files": [
+    {
+      "file": "pipeline/targets/make_numbers.py",
+      "source_artifact": "author-supplied ICP analysis bundle",
+      "source_file": "make_numbers.py",
+      "source_sha256": "9724bbc871cae27e642a4c9f3a062d830c37a261c92dabf3525fa8cbbaeaed11",
+      "exported_sha256": "9724bbc871cae27e642a4c9f3a062d830c37a261c92dabf3525fa8cbbaeaed11"
+    },
+    {
+      "file": "pipeline/targets/compat.py",
+      "source_artifact": "author-supplied ICP analysis bundle",
+      "source_file": "compat.py",
+      "source_sha256": "4496c5db7e84260bdff479163b894293b4e706ec0c7dd7c97da86644b23f431d",
+      "exported_sha256": "967d52ea42af9b2ea31406d7bee31dd6ff2fdf84daf315808654f8ef031ce8ed"
+    },
+    {
+      "file": "pipeline/targets/sync_figure_inputs.py",
+      "source_artifact": "author-supplied ICP analysis bundle",
+      "source_file": "sync_figure_inputs.py",
+      "source_sha256": "d9507834309b30fe4722f177824818535d79df3086f3a8564ae890b60ebda451",
+      "exported_sha256": "d9507834309b30fe4722f177824818535d79df3086f3a8564ae890b60ebda451"
+    },
+    {
+      "file": "pipeline/targets/targets.json",
+      "source_artifact": "author-supplied ICP analysis bundle",
+      "source_file": "targets.json",
+      "source_sha256": "f5a06292d9230968eb0905b157e620e7a6ee6f6b058012c251bf827579da6b4f",
+      "exported_sha256": "f5a06292d9230968eb0905b157e620e7a6ee6f6b058012c251bf827579da6b4f"
+    },
+    {
+      "file": "pipeline/targets/figure_inputs.json",
+      "source_artifact": "author-supplied ICP analysis bundle",
+      "source_file": "figure_inputs.json",
+      "source_sha256": "82bd5d045d27b0df9cc12a836c2045657ffd9d2bb566fc4d5f919e50bfc04876",
+      "exported_sha256": "82bd5d045d27b0df9cc12a836c2045657ffd9d2bb566fc4d5f919e50bfc04876"
+    },
+    {
+      "file": "pipeline/figures/fig1_overview_target.py",
+      "source_artifact": "author-supplied ICP analysis bundle",
+      "source_file": "fig1_overview_target.py",
+      "source_sha256": "cf431ef39ec06f396f562552eac20577a4695efdda060aa5fa8965dfb798bbab",
+      "exported_sha256": "cf431ef39ec06f396f562552eac20577a4695efdda060aa5fa8965dfb798bbab"
+    },
+    {
+      "file": "pipeline/figures/fig2_ipd_ipj_target.py",
+      "source_artifact": "author-supplied ICP analysis bundle",
+      "source_file": "fig2_ipd_ipj_target.py",
+      "source_sha256": "f0e328477daeeca67efb8568e68794fddb17be657f44c9379fb82ef1df0a98ac",
+      "exported_sha256": "f0e328477daeeca67efb8568e68794fddb17be657f44c9379fb82ef1df0a98ac"
+    },
+    {
+      "file": "pipeline/figures/fig3_policy_families_target.py",
+      "source_artifact": "author-supplied ICP analysis bundle",
+      "source_file": "fig3_policy_families_target.py",
+      "source_sha256": "8234ad51a4f24cccf76b63dc6d30c9f78dac793e5112bd87bd6206ec0b3a861c",
+      "exported_sha256": "8234ad51a4f24cccf76b63dc6d30c9f78dac793e5112bd87bd6206ec0b3a861c"
+    },
+    {
+      "file": "pipeline/figures/fig_task_flow.py",
+      "source_artifact": "author-supplied ICP analysis bundle",
+      "source_file": "fig_task_flow.py",
+      "source_sha256": "6fd96838001a1dd1928bd9060e0f4203b1a5ad6ec634fb27a1722f515766b9d1",
+      "exported_sha256": "6fd96838001a1dd1928bd9060e0f4203b1a5ad6ec634fb27a1722f515766b9d1"
+    },
+    {
+      "file": "pipeline/figures/fig5_cascade_frontier.py",
+      "source_artifact": "author-supplied ICP analysis bundle",
+      "source_file": "fig5_cascade_frontier.py",
+      "source_sha256": "daff7a103793f9b353b155daf3b5582bf7bb82f0364928c9839255708b713a6e",
+      "exported_sha256": "a7e4dbf85ca5d58a662fab2d0b062ffbf8bfa25731605fc40549e757b033167d"
+    },
+    {
+      "file": "pipeline/figures/fig1_reference_2026-09-24.pdf",
+      "source_artifact": "author-supplied ICP analysis bundle",
+      "source_file": "fig1_reference_2026-09-24.pdf",
+      "source_sha256": "b4f86b0cd46ba46786765a1b8bb2bc25a4f62cac0146d7155b4449e6dd2a0f09",
+      "exported_sha256": "b4f86b0cd46ba46786765a1b8bb2bc25a4f62cac0146d7155b4449e6dd2a0f09"
+    },
+    {
+      "file": "pipeline/inputs/canonical-numbers-fork-20260924-1240.tex",
+      "source_artifact": "author-supplied ICP analysis bundle",
+      "source_file": "canonical-numbers-fork-20260924-1240.tex",
+      "source_sha256": "dc48ec7cb928165e2c4d31dd5604c8307565bdb732a189a7f9021067b52baa8b",
+      "exported_sha256": "dc48ec7cb928165e2c4d31dd5604c8307565bdb732a189a7f9021067b52baa8b"
+    },
+    {
+      "file": "pipeline/figures/fig7_apple_silicon.py",
+      "source_artifact": "prior IPW study analysis bundle",
+      "source_file": "fig7_apple_silicon.py",
+      "source_sha256": "4f37b16c049f6b715b55e0ad60ee88417aa1e82071d477212b219dce23310b7e",
+      "exported_sha256": "4f37b16c049f6b715b55e0ad60ee88417aa1e82071d477212b219dce23310b7e"
+    },
+    {
+      "file": "pipeline/figures/paper_style.py",
+      "source_artifact": "prior IPW study analysis bundle",
+      "source_file": "paper_style.py",
+      "source_sha256": "a9c501d04ef58605c63a7082afddcc5014da7ed0ce7e86d3a8571d9b481a96ca",
+      "exported_sha256": "a9c501d04ef58605c63a7082afddcc5014da7ed0ce7e86d3a8571d9b481a96ca"
+    },
+    {
+      "file": "pipeline/figures/style.py",
+      "source_artifact": "prior IPW study analysis bundle",
+      "source_file": "style.py",
+      "source_sha256": "8aad00c7e7f14b7c0dc875a5eb9fb793e1bad760184745024892da7d773920e8",
+      "exported_sha256": "8aad00c7e7f14b7c0dc875a5eb9fb793e1bad760184745024892da7d773920e8"
+    },
+    {
+      "file": "pipeline/figures/data/apple_silicon_board.json",
+      "source_artifact": "prior IPW study analysis bundle",
+      "source_file": "apple_silicon_board.json",
+      "source_sha256": "503e68fedb270ce4a161bde021fe081cd262aeefe5c73e14fba65f7c7b54a431",
+      "exported_sha256": "7d580244ec8f398ec3d1af943b21530a100b1857d52b3a5615be2a095af40ce2"
+    },
+    {
+      "file": "pipeline/figures/data/per_task_vectors_v2.json",
+      "source_artifact": "prior IPW study analysis bundle",
+      "source_file": "per_task_vectors_v2.json",
+      "source_sha256": "cd54ead6a4505393238948dcd4982cd400784455e445df4885dde9ca13579c6b",
+      "exported_sha256": "cd54ead6a4505393238948dcd4982cd400784455e445df4885dde9ca13579c6b"
+    },
+    {
+      "file": "pipeline/figures/data/cascade_grid.json",
+      "source_artifact": "prior IPW study analysis bundle",
+      "source_file": "cascade_grid.json",
+      "source_sha256": "cfb74a06f66d072fa821fdc8050e4586f1352eb87418d077af78ab86f3f8fbf4",
+      "exported_sha256": "cfb74a06f66d072fa821fdc8050e4586f1352eb87418d077af78ab86f3f8fbf4"
+    },
+    {
+      "file": "pipeline/figures/data/per_task_cost_reconstruction.json",
+      "source_artifact": "prior IPW study analysis bundle",
+      "source_file": "per_task_cost_reconstruction.json",
+      "source_sha256": "4054e6bc6dac34348ecab7b6fba870cfcb734c224084be3e37198d82406c4e00",
+      "exported_sha256": "4054e6bc6dac34348ecab7b6fba870cfcb734c224084be3e37198d82406c4e00"
+    }
+  ]
+}

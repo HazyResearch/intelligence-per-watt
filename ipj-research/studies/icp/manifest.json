@@ -1,0 +1,73 @@
+{
+  "schema_version": 1,
+  "study": "The Intelligence Control Plane",
+  "status": "local migration candidate",
+  "author_validation": {
+    "status": "confirmed_by_author",
+    "date": "2026-10-24",
+    "statement": "The author confirmed the current paper numbers had already been validated and authorized proceeding with them as completed."
+  },
+  "provenance_note": "The imported numerical pipeline retains historical target-draft filenames and metadata. The author-approved paper is the acceptance baseline; this package recomputes supplied inputs and does not independently replicate raw trials.",
+  "files": {
+    "pipeline/figures/data/apple_silicon_board.json": "7d580244ec8f398ec3d1af943b21530a100b1857d52b3a5615be2a095af40ce2",
+    "pipeline/figures/data/cascade_grid.json": "cfb74a06f66d072fa821fdc8050e4586f1352eb87418d077af78ab86f3f8fbf4",
+    "pipeline/figures/data/per_task_cost_reconstruction.json": "4054e6bc6dac34348ecab7b6fba870cfcb734c224084be3e37198d82406c4e00",
+    "pipeline/figures/data/per_task_vectors_v2.json": "cd54ead6a4505393238948dcd4982cd400784455e445df4885dde9ca13579c6b",
+    "pipeline/figures/fig1_overview_target.py": "cf431ef39ec06f396f562552eac20577a4695efdda060aa5fa8965dfb798bbab",
+    "pipeline/figures/fig1_reference_2026-09-24.pdf": "b4f86b0cd46ba46786765a1b8bb2bc25a4f62cac0146d7155b4449e6dd2a0f09",
+    "pipeline/figures/fig2_ipd_ipj_target.py": "f0e328477daeeca67efb8568e68794fddb17be657f44c9379fb82ef1df0a98ac",
+    "pipeline/figures/fig3_policy_families_target.py": "8234ad51a4f24cccf76b63dc6d30c9f78dac793e5112bd87bd6206ec0b3a861c",
+    "pipeline/figures/fig5_cascade_frontier.py": "a7e4dbf85ca5d58a662fab2d0b062ffbf8bfa25731605fc40549e757b033167d",
+    "pipeline/figures/fig7_apple_silicon.py": "4f37b16c049f6b715b55e0ad60ee88417aa1e82071d477212b219dce23310b7e",
+    "pipeline/figures/fig_task_flow.py": "6fd96838001a1dd1928bd9060e0f4203b1a5ad6ec634fb27a1722f515766b9d1",
+    "pipeline/figures/paper_style.py": "a9c501d04ef58605c63a7082afddcc5014da7ed0ce7e86d3a8571d9b481a96ca",
+    "pipeline/figures/style.py": "8aad00c7e7f14b7c0dc875a5eb9fb793e1bad760184745024892da7d773920e8",
+    "pipeline/inputs/canonical-numbers-fork-20260924-1240.tex": "dc48ec7cb928165e2c4d31dd5604c8307565bdb732a189a7f9021067b52baa8b",
+    "pipeline/targets/compat.py": "967d52ea42af9b2ea31406d7bee31dd6ff2fdf84daf315808654f8ef031ce8ed",
+    "pipeline/targets/figure_inputs.json": "82bd5d045d27b0df9cc12a836c2045657ffd9d2bb566fc4d5f919e50bfc04876",
+    "pipeline/targets/make_numbers.py": "9724bbc871cae27e642a4c9f3a062d830c37a261c92dabf3525fa8cbbaeaed11",
+    "pipeline/targets/sync_figure_inputs.py": "d9507834309b30fe4722f177824818535d79df3086f3a8564ae890b60ebda451",
+    "pipeline/targets/targets.json": "f5a06292d9230968eb0905b157e620e7a6ee6f6b058012c251bf827579da6b4f",
+    "expected/ipj-numbers.tex": "3a227e06a7d38a9af26b7bf99ad1abf7a40fdd80b5e84199b00d32aa4912224d",
+    "reference/fig1_ai_stack.png": "b6574937f489a5c7c87aaf1da6c0530e704c389a2bcf38c0cc83d8caa51f2a26",
+    "reference/fig1_icp_overview_target.pdf": "47e0479b95c694c7ff06f726675f45059231153f792a160b97303fe686c3d014",
+    "reference/fig2_ipd_ipj_target.pdf": "f41762092cfff2fc2effac8ea1b5d1705d7efc76172f8162fa0c5261ac3b759c",
+    "reference/fig2_ipj_longitudinal.png": "8d407a1932d6ebd0ac2222af85f8956e407867ae62078cdef15ee04295e6eca9",
+    "reference/fig3_policy_families_target.pdf": "efeddb8ec57a3abe3ed93ecfd1d85a038445b7bac815c4adad89e1987dab5ebe",
+    "reference/fig5_cascade_frontier.pdf": "3e88a699d96bd89b45dd8be035167d189d0846957ffcc30a7ff254056d94506f",
+    "reference/fig7_apple_silicon.pdf": "9298035d48ea2869dceb9cbde95c268b34d0703394e743a9a4ef0caa25dd411f",
+    "reference/fig_task_flow.pdf": "469767575df5bfdde79ebb598f5026d44c6af57e1ef2710ac00dfdb92ed8764a",
+    "provenance/paper-items.json": "f67f291113e6f81145b398a3345035ba9acf3f9e71901fb464ce1f83e9917135",
+    "provenance/source-files.json": "5e07f753fc7ce064647435a5082277f7307466e251203a8dca445ddb6345e6a3"
+  },
+  "figure_generators": [
+    "figures/fig1_overview_target.py",
+    "figures/fig2_ipd_ipj_target.py",
+    "figures/fig3_policy_families_target.py",
+    "figures/fig_task_flow.py",
+    "figures/fig5_cascade_frontier.py",
+    "figures/fig7_apple_silicon.py"
+  ],
+  "retained_reference_only": {
+    "fig1_ai_stack.png": "Conceptual artwork retained byte-for-byte.",
+    "fig2_ipj_longitudinal.png": "Prior-study figure retained byte-for-byte; original generator is not included in this artifact."
+  },
+  "regenerated_figures": [
+    "fig1_icp_overview_target.pdf",
+    "fig3_policy_families_target.pdf",
+    "fig2_ipd_ipj_target.pdf",
+    "fig_task_flow.pdf",
+    "fig7_apple_silicon.pdf",
+    "fig5_cascade_frontier.pdf"
+  ],
+  "coverage_summary": {
+    "figures": 8,
+    "regenerated_figures": 6,
+    "retained_reference_images": 2,
+    "tables": 14,
+    "effective_macro_definitions": 1085,
+    "macros_used_transitively_in_paper": 384,
+    "inline_literals": "author validated, retained in the paper-item map",
+    "raw_campaign_replication": "not performed by this artifact"
+  }
+}

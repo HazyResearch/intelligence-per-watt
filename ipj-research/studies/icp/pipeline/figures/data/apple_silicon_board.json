@@ -1,0 +1,871 @@
+{
+ "artifact": "Apple-silicon energy/accuracy board (supplied by Jon)",
+ "date": "2026-09-07",
+ "platforms": [
+  "Mac Studio M3 Ultra",
+  "Mac Studio M4 Max",
+  "MacBook Pro M5 Max",
+  "MacBook Pro M5 Pro"
+ ],
+ "benchmarks": [
+  "ipw",
+  "pinchbench",
+  "toolcall15"
+ ],
+ "n_rows": {
+  "ipw": 26,
+  "pinchbench": 25,
+  "toolcall15": 27
+ },
+ "data": {
+  "ipw": [
+   {
+    "platform": "Mac Studio M3 Ultra",
+    "model": "Gemma4 31B (Q4_K_M)",
+    "energy_j_per_query": 2241.0907,
+    "accuracy_pct": 85.1852,
+    "params_b": 31.0,
+    "mem_gb": 19.0,
+    "power_w": 53.2586
+   },
+   {
+    "platform": "Mac Studio M3 Ultra",
+    "model": "Gemma4 E4B (Q4_K_M)",
+    "energy_j_per_query": 1196.0445,
+    "accuracy_pct": 86.6667,
+    "params_b": 4.0,
+    "mem_gb": 9.6,
+    "power_w": 67.9914
+   },
+   {
+    "platform": "Mac Studio M3 Ultra",
+    "model": "Qwen3 8B (Q4_K_M)",
+    "energy_j_per_query": 1319.4093,
+    "accuracy_pct": 77.7778,
+    "params_b": 8.0,
+    "mem_gb": 5.2,
+    "power_w": 86.3715
+   },
+   {
+    "platform": "Mac Studio M3 Ultra",
+    "model": "Qwen3.5 27B (Q4_K_M)",
+    "energy_j_per_query": 2202.5164,
+    "accuracy_pct": 88.4615,
+    "params_b": 27.0,
+    "mem_gb": 17.0,
+    "power_w": 32.6445
+   },
+   {
+    "platform": "Mac Studio M3 Ultra",
+    "model": "Qwen3.5 2B (Q4_K_M)",
+    "energy_j_per_query": 2409.2511,
+    "accuracy_pct": 75.0,
+    "params_b": 2.0,
+    "mem_gb": 2.7,
+    "power_w": 101.2554
+   },
+   {
+    "platform": "Mac Studio M3 Ultra",
+    "model": "Qwen3.5 9B (Q4_K_M)",
+    "energy_j_per_query": 2082.2702,
+    "accuracy_pct": 76.9231,
+    "params_b": 9.0,
+    "mem_gb": 6.0,
+    "power_w": 66.0884
+   },
+   {
+    "platform": "Mac Studio M3 Ultra",
+    "model": "Qwen3.8 27B (Q4_K_M)",
+    "energy_j_per_query": 1786.7787,
+    "accuracy_pct": 92.5926,
+    "params_b": 27.0,
+    "mem_gb": 17.7,
+    "power_w": 37.362
+   },
+   {
+    "platform": "Mac Studio M4 Max",
+    "model": "Gemma4 31B (Q4_K_M)",
+    "energy_j_per_query": 1115.4005,
+    "accuracy_pct": 86.2069,
+    "params_b": 31.0,
+    "mem_gb": 19.0,
+    "power_w": 18.2111
+   },
+   {
+    "platform": "Mac Studio M4 Max",
+    "model": "Gemma4 E4B (Q4_K_M)",
+    "energy_j_per_query": 657.8351,
+    "accuracy_pct": 75.8621,
+    "params_b": 4.0,
+    "mem_gb": 9.6,
+    "power_w": 34.2854
+   },
+   {
+    "platform": "Mac Studio M4 Max",
+    "model": "Qwen3 8B (Q4_K_M)",
+    "energy_j_per_query": 754.5913,
+    "accuracy_pct": 82.7586,
+    "params_b": 8.0,
+    "mem_gb": 5.2,
+    "power_w": 34.8295
+   },
+   {
+    "platform": "Mac Studio M4 Max",
+    "model": "Qwen3.5 27B (Q4_K_M)",
+    "energy_j_per_query": 1125.2095,
+    "accuracy_pct": 92.8571,
+    "params_b": 27.0,
+    "mem_gb": 17.0,
+    "power_w": 10.1386
+   },
+   {
+    "platform": "Mac Studio M4 Max",
+    "model": "Qwen3.5 2B (Q4_K_M)",
+    "energy_j_per_query": 1002.8203,
+    "accuracy_pct": 65.3846,
+    "params_b": 2.0,
+    "mem_gb": 2.7,
+    "power_w": 39.0127
+   },
+   {
+    "platform": "Mac Studio M4 Max",
+    "model": "Qwen3.5 9B (Q4_K_M)",
+    "energy_j_per_query": 1036.6549,
+    "accuracy_pct": 82.1429,
+    "params_b": 9.0,
+    "mem_gb": 6.0,
+    "power_w": 23.2109
+   },
+   {
+    "platform": "Mac Studio M4 Max",
+    "model": "Qwen3.8 27B (Q4_K_M)",
+    "energy_j_per_query": 1021.3663,
+    "accuracy_pct": 93.1034,
+    "params_b": 27.0,
+    "mem_gb": 17.7,
+    "power_w": 16.0263
+   },
+   {
+    "platform": "MacBook Pro M5 Max",
+    "model": "AFM-3 (on-device)",
+    "energy_j_per_query": 75.4385,
+    "accuracy_pct": 52.0,
+    "params_b": 4.0,
+    "mem_gb": 1.85,
+    "power_w": 7.4215
+   },
+   {
+    "platform": "MacBook Pro M5 Max",
+    "model": "Gemma4 31B (Q4_K_M)",
+    "energy_j_per_query": 847.5219,
+    "accuracy_pct": 85.7143,
+    "params_b": 31.0,
+    "mem_gb": 19.0,
+    "power_w": 18.1172
+   },
+   {
+    "platform": "MacBook Pro M5 Max",
+    "model": "Gemma4 E4B (Q4_K_M)",
+    "energy_j_per_query": 508.104,
+    "accuracy_pct": 85.7143,
+    "params_b": 4.0,
+    "mem_gb": 9.6,
+    "power_w": 33.7609
+   },
+   {
+    "platform": "MacBook Pro M5 Max",
+    "model": "Qwen3 8B (Q4_K_M)",
+    "energy_j_per_query": 441.4652,
+    "accuracy_pct": 84.6154,
+    "params_b": 8.0,
+    "mem_gb": 5.2,
+    "power_w": 28.1645
+   },
+   {
+    "platform": "MacBook Pro M5 Max",
+    "model": "Qwen3.5 27B (Q4_K_M)",
+    "energy_j_per_query": 802.2267,
+    "accuracy_pct": 86.2069,
+    "params_b": 27.0,
+    "mem_gb": 17.0,
+    "power_w": 10.0546
+   },
+   {
+    "platform": "MacBook Pro M5 Max",
+    "model": "Qwen3.5 2B (Q4_K_M)",
+    "energy_j_per_query": 701.7666,
+    "accuracy_pct": 78.5714,
+    "params_b": 2.0,
+    "mem_gb": 2.7,
+    "power_w": 29.4837
+   },
+   {
+    "platform": "MacBook Pro M5 Max",
+    "model": "Qwen3.5 9B (Q4_K_M)",
+    "energy_j_per_query": 820.988,
+    "accuracy_pct": 92.8571,
+    "params_b": 9.0,
+    "mem_gb": 6.0,
+    "power_w": 22.2179
+   },
+   {
+    "platform": "MacBook Pro M5 Max",
+    "model": "Qwen3.8 27B (Q4_K_M)",
+    "energy_j_per_query": 829.4137,
+    "accuracy_pct": 89.6552,
+    "params_b": 27.0,
+    "mem_gb": 17.7,
+    "power_w": 24.6425
+   },
+   {
+    "platform": "MacBook Pro M5 Pro",
+    "model": "AFM-3 (on-device)",
+    "energy_j_per_query": 78.1392,
+    "accuracy_pct": 50.0,
+    "params_b": 4.0,
+    "mem_gb": 1.85,
+    "power_w": 7.1074
+   },
+   {
+    "platform": "MacBook Pro M5 Pro",
+    "model": "Gemma4 E4B (Q4_K_M)",
+    "energy_j_per_query": 388.7878,
+    "accuracy_pct": 89.2857,
+    "params_b": 4.0,
+    "mem_gb": 9.6,
+    "power_w": 15.8823
+   },
+   {
+    "platform": "MacBook Pro M5 Pro",
+    "model": "Qwen3 8B (Q4_K_M)",
+    "energy_j_per_query": 534.0892,
+    "accuracy_pct": 81.25,
+    "params_b": 8.0,
+    "mem_gb": 5.2,
+    "power_w": 13.3186
+   },
+   {
+    "platform": "MacBook Pro M5 Pro",
+    "model": "Qwen3.5 2B (Q4_K_M)",
+    "energy_j_per_query": 737.9497,
+    "accuracy_pct": 64.0,
+    "params_b": 2.0,
+    "mem_gb": 2.7,
+    "power_w": 23.2205
+   }
+  ],
+  "pinchbench": [
+   {
+    "platform": "Mac Studio M3 Ultra",
+    "model": "Gemma4 31B (Q4_K_M)",
+    "energy_j_per_query": 18751.7838,
+    "accuracy_pct": 21.74,
+    "params_b": 31.0,
+    "mem_gb": 19.0,
+    "power_w": 115.911
+   },
+   {
+    "platform": "Mac Studio M3 Ultra",
+    "model": "Gemma4 E4B (Q4_K_M)",
+    "energy_j_per_query": 3197.4726,
+    "accuracy_pct": 4.35,
+    "params_b": 4.0,
+    "mem_gb": 9.6,
+    "power_w": 83.5053
+   },
+   {
+    "platform": "Mac Studio M3 Ultra",
+    "model": "Qwen3 8B (Q4_K_M)",
+    "energy_j_per_query": 2852.5236,
+    "accuracy_pct": 4.35,
+    "params_b": 8.0,
+    "mem_gb": 5.2,
+    "power_w": 103.3984
+   },
+   {
+    "platform": "Mac Studio M3 Ultra",
+    "model": "Qwen3.5 27B (Q4_K_M)",
+    "energy_j_per_query": 12114.9597,
+    "accuracy_pct": 0.0,
+    "params_b": 27.0,
+    "mem_gb": 17.0,
+    "power_w": 109.4318
+   },
+   {
+    "platform": "Mac Studio M3 Ultra",
+    "model": "Qwen3.5 2B (Q4_K_M)",
+    "energy_j_per_query": 1230.0427,
+    "accuracy_pct": 0.0,
+    "params_b": 2.0,
+    "mem_gb": 2.7,
+    "power_w": 88.2179
+   },
+   {
+    "platform": "Mac Studio M3 Ultra",
+    "model": "Qwen3.5 9B (Q4_K_M)",
+    "energy_j_per_query": 3742.4283,
+    "accuracy_pct": 13.04,
+    "params_b": 9.0,
+    "mem_gb": 6.0,
+    "power_w": 100.2442
+   },
+   {
+    "platform": "Mac Studio M3 Ultra",
+    "model": "Qwen3.8 27B (Q4_K_M)",
+    "energy_j_per_query": 10898.1087,
+    "accuracy_pct": 17.65,
+    "params_b": 27.0,
+    "mem_gb": 17.7,
+    "power_w": 89.1328
+   },
+   {
+    "platform": "Mac Studio M4 Max",
+    "model": "Gemma4 31B (Q4_K_M)",
+    "energy_j_per_query": 13668.6572,
+    "accuracy_pct": 21.74,
+    "params_b": 31.0,
+    "mem_gb": 19.0,
+    "power_w": 48.6416
+   },
+   {
+    "platform": "Mac Studio M4 Max",
+    "model": "Gemma4 E4B (Q4_K_M)",
+    "energy_j_per_query": 2083.626,
+    "accuracy_pct": 4.35,
+    "params_b": 4.0,
+    "mem_gb": 9.6,
+    "power_w": 42.7798
+   },
+   {
+    "platform": "Mac Studio M4 Max",
+    "model": "Qwen3 8B (Q4_K_M)",
+    "energy_j_per_query": 1832.6404,
+    "accuracy_pct": 4.35,
+    "params_b": 8.0,
+    "mem_gb": 5.2,
+    "power_w": 45.5808
+   },
+   {
+    "platform": "Mac Studio M4 Max",
+    "model": "Qwen3.5 27B (Q4_K_M)",
+    "energy_j_per_query": 8180.3276,
+    "accuracy_pct": 0.0,
+    "params_b": 27.0,
+    "mem_gb": 17.0,
+    "power_w": 47.8263
+   },
+   {
+    "platform": "Mac Studio M4 Max",
+    "model": "Qwen3.5 2B (Q4_K_M)",
+    "energy_j_per_query": 821.0996,
+    "accuracy_pct": 0.0,
+    "params_b": 2.0,
+    "mem_gb": 2.7,
+    "power_w": 44.693
+   },
+   {
+    "platform": "Mac Studio M4 Max",
+    "model": "Qwen3.5 9B (Q4_K_M)",
+    "energy_j_per_query": 2430.6869,
+    "accuracy_pct": 13.04,
+    "params_b": 9.0,
+    "mem_gb": 6.0,
+    "power_w": 44.8242
+   },
+   {
+    "platform": "MacBook Pro M5 Max",
+    "model": "AFM-3 Core (on-device)",
+    "energy_j_per_query": 162.5408,
+    "accuracy_pct": 0.0,
+    "params_b": 3.0,
+    "mem_gb": 1.4,
+    "power_w": 7.3753
+   },
+   {
+    "platform": "MacBook Pro M5 Max",
+    "model": "Gemma4 31B (Q4_K_M)",
+    "energy_j_per_query": 7103.8277,
+    "accuracy_pct": 21.74,
+    "params_b": 31.0,
+    "mem_gb": 19.0,
+    "power_w": 37.6291
+   },
+   {
+    "platform": "MacBook Pro M5 Max",
+    "model": "Gemma4 E4B (Q4_K_M)",
+    "energy_j_per_query": 1647.4787,
+    "accuracy_pct": 4.35,
+    "params_b": 4.0,
+    "mem_gb": 9.6,
+    "power_w": 39.9736
+   },
+   {
+    "platform": "MacBook Pro M5 Max",
+    "model": "Qwen3 8B (Q4_K_M)",
+    "energy_j_per_query": 1100.3393,
+    "accuracy_pct": 4.35,
+    "params_b": 8.0,
+    "mem_gb": 5.2,
+    "power_w": 48.7774
+   },
+   {
+    "platform": "MacBook Pro M5 Max",
+    "model": "Qwen3.5 27B (Q4_K_M)",
+    "energy_j_per_query": 4395.3077,
+    "accuracy_pct": 0.0,
+    "params_b": 27.0,
+    "mem_gb": 17.0,
+    "power_w": 42.5008
+   },
+   {
+    "platform": "MacBook Pro M5 Max",
+    "model": "Qwen3.5 2B (Q4_K_M)",
+    "energy_j_per_query": 596.3296,
+    "accuracy_pct": 0.0,
+    "params_b": 2.0,
+    "mem_gb": 2.7,
+    "power_w": 47.9266
+   },
+   {
+    "platform": "MacBook Pro M5 Max",
+    "model": "Qwen3.5 9B (Q4_K_M)",
+    "energy_j_per_query": 1245.739,
+    "accuracy_pct": 0.0,
+    "params_b": 9.0,
+    "mem_gb": 6.0,
+    "power_w": 61.9734
+   },
+   {
+    "platform": "MacBook Pro M5 Max",
+    "model": "Qwen3.5 9B (Q4_K_M)",
+    "energy_j_per_query": 1360.6131,
+    "accuracy_pct": 13.04,
+    "params_b": 9.0,
+    "mem_gb": 6.0,
+    "power_w": 50.8754
+   },
+   {
+    "platform": "MacBook Pro M5 Max",
+    "model": "Qwen3.8 27B (Q4_K_M)",
+    "energy_j_per_query": 2654.7238,
+    "accuracy_pct": 17.65,
+    "params_b": 27.0,
+    "mem_gb": 17.7,
+    "power_w": 45.2298
+   },
+   {
+    "platform": "MacBook Pro M5 Pro",
+    "model": "AFM-3 Core (on-device)",
+    "energy_j_per_query": 238.2809,
+    "accuracy_pct": 0.0,
+    "params_b": 3.0,
+    "mem_gb": 1.4,
+    "power_w": 9.1714
+   },
+   {
+    "platform": "MacBook Pro M5 Pro",
+    "model": "Qwen3 8B (Q4_K_M)",
+    "energy_j_per_query": 1666.0745,
+    "accuracy_pct": 4.35,
+    "params_b": 8.0,
+    "mem_gb": 5.2,
+    "power_w": 33.0184
+   },
+   {
+    "platform": "MacBook Pro M5 Pro",
+    "model": "Qwen3.5 2B (Q4_K_M)",
+    "energy_j_per_query": 487.554,
+    "accuracy_pct": 0.0,
+    "params_b": 2.0,
+    "mem_gb": 2.7,
+    "power_w": 18.5595
+   }
+  ],
+  "toolcall15": [
+   {
+    "platform": "Mac Studio M3 Ultra",
+    "model": "Gemma4 31B (Q4_K_M)",
+    "energy_j_per_query": 244.131,
+    "accuracy_pct": 33.33,
+    "params_b": 31.0,
+    "mem_gb": 19.0,
+    "power_w": 112.4657
+   },
+   {
+    "platform": "Mac Studio M3 Ultra",
+    "model": "Gemma4 E4B (Q4_K_M)",
+    "energy_j_per_query": 46.5894,
+    "accuracy_pct": 33.33,
+    "params_b": 4.0,
+    "mem_gb": 9.6,
+    "power_w": 75.2867
+   },
+   {
+    "platform": "Mac Studio M3 Ultra",
+    "model": "Qwen3 8B (Q4_K_M)",
+    "energy_j_per_query": 39.8457,
+    "accuracy_pct": 46.67,
+    "params_b": 8.0,
+    "mem_gb": 5.2,
+    "power_w": 83.4222
+   },
+   {
+    "platform": "Mac Studio M3 Ultra",
+    "model": "Qwen3.5 27B (Q4_K_M)",
+    "energy_j_per_query": 286.9177,
+    "accuracy_pct": 33.33,
+    "params_b": 27.0,
+    "mem_gb": 17.0,
+    "power_w": 106.2175
+   },
+   {
+    "platform": "Mac Studio M3 Ultra",
+    "model": "Qwen3.5 2B (Q4_K_M)",
+    "energy_j_per_query": 23.1118,
+    "accuracy_pct": 40.0,
+    "params_b": 2.0,
+    "mem_gb": 2.7,
+    "power_w": 69.5263
+   },
+   {
+    "platform": "Mac Studio M3 Ultra",
+    "model": "Qwen3.5 9B (Q4_K_M)",
+    "energy_j_per_query": 77.453,
+    "accuracy_pct": 40.0,
+    "params_b": 9.0,
+    "mem_gb": 6.0,
+    "power_w": 92.9442
+   },
+   {
+    "platform": "Mac Studio M3 Ultra",
+    "model": "Qwen3.8 27B (Q4_K_M)",
+    "energy_j_per_query": 238.4999,
+    "accuracy_pct": 33.33,
+    "params_b": 27.0,
+    "mem_gb": 17.7,
+    "power_w": 94.9308
+   },
+   {
+    "platform": "Mac Studio M4 Max",
+    "model": "Gemma4 31B (Q4_K_M)",
+    "energy_j_per_query": 166.15,
+    "accuracy_pct": 33.33,
+    "params_b": 31.0,
+    "mem_gb": 19.0,
+    "power_w": 49.8713
+   },
+   {
+    "platform": "Mac Studio M4 Max",
+    "model": "Gemma4 E4B (Q4_K_M)",
+    "energy_j_per_query": 31.8384,
+    "accuracy_pct": 33.33,
+    "params_b": 4.0,
+    "mem_gb": 9.6,
+    "power_w": 41.3028
+   },
+   {
+    "platform": "Mac Studio M4 Max",
+    "model": "Qwen3 8B (Q4_K_M)",
+    "energy_j_per_query": 26.3099,
+    "accuracy_pct": 46.67,
+    "params_b": 8.0,
+    "mem_gb": 5.2,
+    "power_w": 39.3654
+   },
+   {
+    "platform": "Mac Studio M4 Max",
+    "model": "Qwen3.5 27B (Q4_K_M)",
+    "energy_j_per_query": 172.9853,
+    "accuracy_pct": 33.33,
+    "params_b": 27.0,
+    "mem_gb": 17.0,
+    "power_w": 47.6073
+   },
+   {
+    "platform": "Mac Studio M4 Max",
+    "model": "Qwen3.5 2B (Q4_K_M)",
+    "energy_j_per_query": 15.8982,
+    "accuracy_pct": 40.0,
+    "params_b": 2.0,
+    "mem_gb": 2.7,
+    "power_w": 37.4971
+   },
+   {
+    "platform": "Mac Studio M4 Max",
+    "model": "Qwen3.5 9B (Q4_K_M)",
+    "energy_j_per_query": 55.5271,
+    "accuracy_pct": 40.0,
+    "params_b": 9.0,
+    "mem_gb": 6.0,
+    "power_w": 43.9748
+   },
+   {
+    "platform": "Mac Studio M4 Max",
+    "model": "Qwen3.8 27B (Q4_K_M)",
+    "energy_j_per_query": 171.1983,
+    "accuracy_pct": 33.33,
+    "params_b": 27.0,
+    "mem_gb": 17.7,
+    "power_w": 45.2336
+   },
+   {
+    "platform": "MacBook Pro M5 Max",
+    "model": "AFM-3 Core (on-device)",
+    "energy_j_per_query": 8.5824,
+    "accuracy_pct": 26.67,
+    "params_b": 3.0,
+    "mem_gb": 1.4,
+    "power_w": 8.0718
+   },
+   {
+    "platform": "MacBook Pro M5 Max",
+    "model": "Gemma4 31B (Q4_K_M)",
+    "energy_j_per_query": 95.9458,
+    "accuracy_pct": 33.33,
+    "params_b": 31.0,
+    "mem_gb": 19.0,
+    "power_w": 60.8311
+   },
+   {
+    "platform": "MacBook Pro M5 Max",
+    "model": "Gemma4 E4B (Q4_K_M)",
+    "energy_j_per_query": 23.6528,
+    "accuracy_pct": 33.33,
+    "params_b": 4.0,
+    "mem_gb": 9.6,
+    "power_w": 51.0014
+   },
+   {
+    "platform": "MacBook Pro M5 Max",
+    "model": "Qwen3 8B (Q4_K_M)",
+    "energy_j_per_query": 29.3034,
+    "accuracy_pct": 46.67,
+    "params_b": 8.0,
+    "mem_gb": 5.2,
+    "power_w": 57.1153
+   },
+   {
+    "platform": "MacBook Pro M5 Max",
+    "model": "Qwen3.5 27B (Q4_K_M)",
+    "energy_j_per_query": 118.2047,
+    "accuracy_pct": 33.33,
+    "params_b": 27.0,
+    "mem_gb": 17.0,
+    "power_w": 60.3106
+   },
+   {
+    "platform": "MacBook Pro M5 Max",
+    "model": "Qwen3.5 2B (Q4_K_M)",
+    "energy_j_per_query": 12.0248,
+    "accuracy_pct": 40.0,
+    "params_b": 2.0,
+    "mem_gb": 2.7,
+    "power_w": 46.0018
+   },
+   {
+    "platform": "MacBook Pro M5 Max",
+    "model": "Qwen3.5 9B (Q4_K_M)",
+    "energy_j_per_query": 41.242,
+    "accuracy_pct": 40.0,
+    "params_b": 9.0,
+    "mem_gb": 6.0,
+    "power_w": 66.4141
+   },
+   {
+    "platform": "MacBook Pro M5 Max",
+    "model": "Qwen3.8 27B (Q4_K_M)",
+    "energy_j_per_query": 87.5137,
+    "accuracy_pct": 33.33,
+    "params_b": 27.0,
+    "mem_gb": 17.7,
+    "power_w": 67.6706
+   },
+   {
+    "platform": "MacBook Pro M5 Pro",
+    "model": "AFM-3 Core (on-device)",
+    "energy_j_per_query": 9.4075,
+    "accuracy_pct": 26.67,
+    "params_b": 3.0,
+    "mem_gb": 1.4,
+    "power_w": 8.026
+   },
+   {
+    "platform": "MacBook Pro M5 Pro",
+    "model": "Gemma4 E4B (Q4_K_M)",
+    "energy_j_per_query": 27.7037,
+    "accuracy_pct": 33.33,
+    "params_b": 4.0,
+    "mem_gb": 9.6,
+    "power_w": 36.0164
+   },
+   {
+    "platform": "MacBook Pro M5 Pro",
+    "model": "Qwen3 8B (Q4_K_M)",
+    "energy_j_per_query": 33.1285,
+    "accuracy_pct": 46.67,
+    "params_b": 8.0,
+    "mem_gb": 5.2,
+    "power_w": 39.8139
+   },
+   {
+    "platform": "MacBook Pro M5 Pro",
+    "model": "Qwen3.5 2B (Q4_K_M)",
+    "energy_j_per_query": 11.8708,
+    "accuracy_pct": 40.0,
+    "params_b": 2.0,
+    "mem_gb": 2.7,
+    "power_w": 27.4782
+   },
+   {
+    "platform": "MacBook Pro M5 Pro",
+    "model": "Qwen3.5 9B (Q4_K_M)",
+    "energy_j_per_query": 45.4644,
+    "accuracy_pct": 40.0,
+    "params_b": 9.0,
+    "mem_gb": 6.0,
+    "power_w": 39.7984
+   }
+  ]
+ },
+ "generation_energy_ratios": {
+  "ipw": {
+   "Gemma4 31B (Q4_K_M)": {
+    "M3U": 2241.0907,
+    "M4Max": 1115.4005,
+    "M5Max": 847.5219,
+    "ratio_M3U_over_M5Max": 2.644
+   },
+   "Gemma4 E4B (Q4_K_M)": {
+    "M3U": 1196.0445,
+    "M4Max": 657.8351,
+    "M5Max": 508.104,
+    "ratio_M3U_over_M5Max": 2.354
+   },
+   "Qwen3 8B (Q4_K_M)": {
+    "M3U": 1319.4093,
+    "M4Max": 754.5913,
+    "M5Max": 441.4652,
+    "ratio_M3U_over_M5Max": 2.989
+   },
+   "Qwen3.5 27B (Q4_K_M)": {
+    "M3U": 2202.5164,
+    "M4Max": 1125.2095,
+    "M5Max": 802.2267,
+    "ratio_M3U_over_M5Max": 2.746
+   },
+   "Qwen3.5 2B (Q4_K_M)": {
+    "M3U": 2409.2511,
+    "M4Max": 1002.8203,
+    "M5Max": 701.7666,
+    "ratio_M3U_over_M5Max": 3.433
+   },
+   "Qwen3.5 9B (Q4_K_M)": {
+    "M3U": 2082.2702,
+    "M4Max": 1036.6549,
+    "M5Max": 820.988,
+    "ratio_M3U_over_M5Max": 2.536
+   },
+   "Qwen3.8 27B (Q4_K_M)": {
+    "M3U": 1786.7787,
+    "M4Max": 1021.3663,
+    "M5Max": 829.4137,
+    "ratio_M3U_over_M5Max": 2.154
+   }
+  },
+  "pinchbench": {
+   "Gemma4 31B (Q4_K_M)": {
+    "M3U": 18751.7838,
+    "M4Max": 13668.6572,
+    "M5Max": 7103.8277,
+    "ratio_M3U_over_M5Max": 2.64
+   },
+   "Gemma4 E4B (Q4_K_M)": {
+    "M3U": 3197.4726,
+    "M4Max": 2083.626,
+    "M5Max": 1647.4787,
+    "ratio_M3U_over_M5Max": 1.941
+   },
+   "Qwen3 8B (Q4_K_M)": {
+    "M3U": 2852.5236,
+    "M4Max": 1832.6404,
+    "M5Max": 1100.3393,
+    "ratio_M3U_over_M5Max": 2.592
+   },
+   "Qwen3.5 27B (Q4_K_M)": {
+    "M3U": 12114.9597,
+    "M4Max": 8180.3276,
+    "M5Max": 4395.3077,
+    "ratio_M3U_over_M5Max": 2.756
+   },
+   "Qwen3.5 2B (Q4_K_M)": {
+    "M3U": 1230.0427,
+    "M4Max": 821.0996,
+    "M5Max": 596.3296,
+    "ratio_M3U_over_M5Max": 2.063
+   },
+   "Qwen3.5 9B (Q4_K_M)": {
+    "M3U": 3742.4283,
+    "M4Max": 2430.6869,
+    "M5Max": 1360.6131,
+    "ratio_M3U_over_M5Max": 2.751
+   }
+  },
+  "toolcall15": {
+   "Gemma4 31B (Q4_K_M)": {
+    "M3U": 244.131,
+    "M4Max": 166.15,
+    "M5Max": 95.9458,
+    "ratio_M3U_over_M5Max": 2.544
+   },
+   "Gemma4 E4B (Q4_K_M)": {
+    "M3U": 46.5894,
+    "M4Max": 31.8384,
+    "M5Max": 23.6528,
+    "ratio_M3U_over_M5Max": 1.97
+   },
+   "Qwen3 8B (Q4_K_M)": {
+    "M3U": 39.8457,
+    "M4Max": 26.3099,
+    "M5Max": 29.3034,
+    "ratio_M3U_over_M5Max": 1.36
+   },
+   "Qwen3.5 27B (Q4_K_M)": {
+    "M3U": 286.9177,
+    "M4Max": 172.9853,
+    "M5Max": 118.2047,
+    "ratio_M3U_over_M5Max": 2.427
+   },
+   "Qwen3.5 2B (Q4_K_M)": {
+    "M3U": 23.1118,
+    "M4Max": 15.8982,
+    "M5Max": 12.0248,
+    "ratio_M3U_over_M5Max": 1.922
+   },
+   "Qwen3.5 9B (Q4_K_M)": {
+    "M3U": 77.453,
+    "M4Max": 55.5271,
+    "M5Max": 41.242,
+    "ratio_M3U_over_M5Max": 1.878
+   },
+   "Qwen3.8 27B (Q4_K_M)": {
+    "M3U": 238.4999,
+    "M4Max": 171.1983,
+    "M5Max": 87.5137,
+    "ratio_M3U_over_M5Max": 2.725
+   }
+  }
+ },
+ "findings": {
+  "energy_generational": "Model held fixed, M3 Ultra -> M5 Max is 2.15x-3.43x less energy per query (mean ~2.7x) on the ipw benchmark. Monotone M3U > M4Max > M5Max for every model. This is MEASURED consumer-silicon data and can replace the roofline-MODELLED consumer devices in EXP-20260823-01-quarterly-ipj.",
+  "accuracy_invariance_CHECK": "toolcall15 accuracy is EXACTLY platform-invariant (0.00 pt spread across M3U/M4Max/M5Max for all 7 models) - the harness is deterministic and this validates it. The ipw benchmark is NOT: up to 15.93 pt spread for identical model+quant on different silicon, which cannot be a hardware effect.",
+  "small_N": "ipw accuracy granularity implies tiny evaluation sets (N=27, 15, 18 inferred from the decimal expansions). At N~15-30 a 15.9 pt swing is inside binomial noise. ipw accuracy needs Wilson CIs (roughly +/-15-20 pt) and must NOT be used for cross-platform accuracy claims.",
+  "pinchbench_floor": "pinchbench accuracies are 0-21.74% - at or near floor, several exactly 0.0. Energy comparisons remain valid; accuracy comparisons are not discriminative.",
+  "DUPLICATE_ROW": "pinchbench has TWO rows for MacBook Pro M5 Max / Qwen3.5 9B (Q4_K_M): 1245.739 J @ 0.0% (power 61.9734) and 1360.6131 J @ 13.04% (power 50.8754). Same platform, model, params and mem. Needs de-duplication at source before use.",
+  "M4_MAX_RESOLVED": "A real Mac Studio M4 Max exists in this board. It is NOT the base M4 32GB (Mac16,10) box in the separate base-M4 measurement, which is why the DeepSeek-V4-Flash edge cell was impossible there. Spec section 5 must distinguish the two."
+ },
+ "caveats": [
+  "Energy is J/query on these three benchmarks - NOT TB v2.1 J/task. Do not merge into the TB board without restating the workload.",
+  "Quantization is Q4_K_M throughout (AFM-3 excepted); the TB board's local tiers are bf16/FP8. Cross-comparison is quant-confounded.",
+  "No harness/engine recorded here (llama.cpp vs MLX). Engine affects J/token materially - see R5."
+ ]
+}

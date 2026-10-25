@@ -1,0 +1,2015 @@
+{
+ "fable_reference": {
+  "accuracy_pct": 80.4,
+  "cost_usd_per_task": 4.5,
+  "budget_20x_usd_per_task": 0.225
+ },
+ "base_accuracy_pct": {
+  "GLM_local": 65.2,
+  "M3_local": 59.6,
+  "deepseek_v4f": 66.3,
+  "fugu_ultra": 75.3,
+  "gemini-31pro": 65.2,
+  "gemini-flash": 79.8,
+  "gemma_4_31b": 28.1,
+  "gpt55": 75.3,
+  "gpt56_sol": 78.7,
+  "gpt56_terra": 75.3,
+  "kimi_k3": 76.4,
+  "opus48": 74.2,
+  "opus5": 76.4,
+  "qwen36_27b": 55.1
+ },
+ "local_dollars_per_task": {
+  "qwen36_27b": 0.002001,
+  "M3_local": 0.007704,
+  "GLM_local": 0.010977,
+  "gemma_4_31b": 0.003421
+ },
+ "note": "DEPLOY gate 'all_timeouts' = fully honest. Local $ per ADR-0004 = measured Joules at the EIA industrial rate; a null cost means that tier has no correctly-attributed energy yet. Escalation order is (cost, task) so the budget cut is deterministic. 'matches Fable within noise', never 'beats'.",
+ "sensitivity_note": "sensitivity_amortized_gpu_hr prices local wall-clock at $3.0/GPU-hr instead of measured energy. ADR-0004 requires it published WITH the headline: the energy basis is marginal electricity (excludes hardware capital, cooling, margin) while cloud $ is a retail list price, so the headline multiplier compares a lower bound against a retail number.",
+ "policies_ported_from_g1": {
+  "ported": [
+   "parallel_any_of (per pair)",
+   "oracle_multicloud (per local)"
+  ],
+  "not_portable": {
+   "failfast_deployable": "needs a re-run at --agent-timeout-multiplier 0.25; clipping changes the local tier's own accuracy, so it cannot be reconstructed from solved vectors measured at the full timeout",
+   "cost_aware": "needs per-task p_local / p_cloud router predictions; the only such scores on disk (per_task_signals.json) are 16-score arrays for best-of-16 Qwen",
+   "judge_gated": "needs per-task judge scores; per_task_verifier_scores.json likewise covers only best-of-16 Qwen, not M3 / GLM / Gemma"
+  },
+  "note": "failfast_realized is not listed because it is already the deploy_honest gate: escalate every observed failure."
+ },
+ "oracle_multicloud": {
+  "qwen36_27b": {
+   "acc_pct": 95.5,
+   "recovered": 36,
+   "cost_usd_per_task": 0.0971,
+   "x_vs_fable": 46.3,
+   "n_clouds": 10
+  },
+  "M3_local": {
+   "acc_pct": 96.6,
+   "recovered": 33,
+   "cost_usd_per_task": 0.0795,
+   "x_vs_fable": 56.6,
+   "n_clouds": 10
+  },
+  "GLM_local": {
+   "acc_pct": 95.5,
+   "recovered": 27,
+   "cost_usd_per_task": 0.0927,
+   "x_vs_fable": 48.5,
+   "n_clouds": 10
+  },
+  "gemma_4_31b": {
+   "acc_pct": 95.5,
+   "recovered": 60,
+   "cost_usd_per_task": 0.0943,
+   "x_vs_fable": 47.7,
+   "n_clouds": 10
+  }
+ },
+ "pairs": [
+  {
+   "local": "qwen36_27b",
+   "cloud": "deepseek_v4f",
+   "oracle": {
+    "acc_pct": 68.5,
+    "recoverable": 12,
+    "cost_usd_per_task": 0.0057,
+    "x_vs_fable": 791.4
+   },
+   "deploy_honest": {
+    "gate": "all_timeouts",
+    "acc_pct": 61.8,
+    "escalated": 28,
+    "candidates": 28,
+    "recovered": 10,
+    "cost_usd_per_task": 0.0137,
+    "x_vs_fable": 328.8,
+    "budget_trimmed": false
+   },
+   "deploy_keep_solves": {
+    "gate": "errored_unsolved",
+    "acc_pct": 61.8,
+    "escalated": 24,
+    "candidates": 24,
+    "recovered": 6,
+    "cost_usd_per_task": 0.013,
+    "x_vs_fable": 346.4,
+    "budget_trimmed": false
+   },
+   "parallel_any_of": {
+    "acc_pct": 68.5,
+    "cost_usd_per_task": 0.023,
+    "x_vs_fable": 195.6,
+    "note": "any-of ceiling; cloud fires on all n"
+   },
+   "sensitivity_amortized_gpu_hr": {
+    "local_usd_per_task": 0.107107,
+    "deploy_honest": {
+     "gate": "all_timeouts",
+     "acc_pct": 61.8,
+     "escalated": 28,
+     "candidates": 28,
+     "recovered": 10,
+     "cost_usd_per_task": 0.1188,
+     "x_vs_fable": 37.9,
+     "budget_trimmed": false
+    }
+   }
+  },
+  {
+   "local": "qwen36_27b",
+   "cloud": "gpt56_terra",
+   "oracle": {
+    "acc_pct": 80.9,
+    "recoverable": 23,
+    "cost_usd_per_task": 0.0405,
+    "x_vs_fable": 111.2
+   },
+   "deploy_honest": {
+    "gate": "all_timeouts",
+    "acc_pct": 68.5,
+    "escalated": 28,
+    "candidates": 28,
+    "recovered": 16,
+    "cost_usd_per_task": 0.0716,
+    "x_vs_fable": 62.8,
+    "budget_trimmed": false
+   },
+   "deploy_keep_solves": {
+    "gate": "errored_unsolved",
+    "acc_pct": 69.7,
+    "escalated": 24,
+    "candidates": 24,
+    "recovered": 13,
+    "cost_usd_per_task": 0.0649,
+    "x_vs_fable": 69.3,
+    "budget_trimmed": false
+   },
+   "parallel_any_of": {
+    "acc_pct": 80.9,
+    "cost_usd_per_task": 0.101,
+    "x_vs_fable": 44.6,
+    "note": "any-of ceiling; cloud fires on all n"
+   },
+   "sensitivity_amortized_gpu_hr": {
+    "local_usd_per_task": 0.107107,
+    "deploy_honest": {
+     "gate": "all_timeouts",
+     "acc_pct": 68.5,
+     "escalated": 28,
+     "candidates": 28,
+     "recovered": 16,
+     "cost_usd_per_task": 0.1767,
+     "x_vs_fable": 25.5,
+     "budget_trimmed": false
+    }
+   }
+  },
+  {
+   "local": "qwen36_27b",
+   "cloud": "gpt55",
+   "oracle": {
+    "acc_pct": 82.0,
+    "recoverable": 24,
+    "cost_usd_per_task": 0.2027,
+    "x_vs_fable": 22.2
+   },
+   "deploy_honest": {
+    "gate": "all_timeouts",
+    "acc_pct": 71.9,
+    "escalated": 26,
+    "candidates": 28,
+    "recovered": 19,
+    "cost_usd_per_task": 0.203,
+    "x_vs_fable": 22.2,
+    "budget_trimmed": true
+   },
+   "deploy_keep_solves": {
+    "gate": "errored_unsolved",
+    "acc_pct": 73.0,
+    "escalated": 23,
+    "candidates": 24,
+    "recovered": 16,
+    "cost_usd_per_task": 0.2228,
+    "x_vs_fable": 20.2,
+    "budget_trimmed": true
+   },
+   "parallel_any_of": {
+    "acc_pct": 82.0,
+    "cost_usd_per_task": 0.5134,
+    "x_vs_fable": 8.8,
+    "note": "any-of ceiling; cloud fires on all n"
+   },
+   "sensitivity_amortized_gpu_hr": {
+    "local_usd_per_task": 0.107107,
+    "deploy_honest": {
+     "gate": "all_timeouts",
+     "acc_pct": 69.7,
+     "escalated": 21,
+     "candidates": 28,
+     "recovered": 17,
+     "cost_usd_per_task": 0.2249,
+     "x_vs_fable": 20.0,
+     "budget_trimmed": true
+    }
+   }
+  },
+  {
+   "local": "qwen36_27b",
+   "cloud": "gpt56_sol",
+   "oracle": {
+    "acc_pct": 86.5,
+    "recoverable": 28,
+    "cost_usd_per_task": 0.1216,
+    "x_vs_fable": 37.0
+   },
+   "deploy_honest": {
+    "gate": "all_timeouts",
+    "acc_pct": 74.2,
+    "escalated": 28,
+    "candidates": 28,
+    "recovered": 21,
+    "cost_usd_per_task": 0.172,
+    "x_vs_fable": 26.2,
+    "budget_trimmed": false
+   },
+   "deploy_keep_solves": {
+    "gate": "errored_unsolved",
+    "acc_pct": 74.2,
+    "escalated": 24,
+    "candidates": 24,
+    "recovered": 17,
+    "cost_usd_per_task": 0.1532,
+    "x_vs_fable": 29.4,
+    "budget_trimmed": false
+   },
+   "parallel_any_of": {
+    "acc_pct": 86.5,
+    "cost_usd_per_task": 0.3261,
+    "x_vs_fable": 13.8,
+    "note": "any-of ceiling; cloud fires on all n"
+   },
+   "sensitivity_amortized_gpu_hr": {
+    "local_usd_per_task": 0.107107,
+    "deploy_honest": {
+     "gate": "all_timeouts",
+     "acc_pct": 73.0,
+     "escalated": 25,
+     "candidates": 28,
+     "recovered": 20,
+     "cost_usd_per_task": 0.2237,
+     "x_vs_fable": 20.1,
+     "budget_trimmed": true
+    }
+   }
+  },
+  {
+   "local": "qwen36_27b",
+   "cloud": "opus48",
+   "oracle": {
+    "acc_pct": 78.7,
+    "recoverable": 21,
+    "cost_usd_per_task": 0.3635,
+    "x_vs_fable": 12.4
+   },
+   "deploy_honest": {
+    "gate": "all_timeouts",
+    "acc_pct": 65.2,
+    "escalated": 22,
+    "candidates": 28,
+    "recovered": 13,
+    "cost_usd_per_task": 0.2235,
+    "x_vs_fable": 20.1,
+    "budget_trimmed": true
+   },
+   "deploy_keep_solves": {
+    "gate": "errored_unsolved",
+    "acc_pct": 65.2,
+    "escalated": 18,
+    "candidates": 24,
+    "recovered": 9,
+    "cost_usd_per_task": 0.1994,
+    "x_vs_fable": 22.6,
+    "budget_trimmed": true
+   },
+   "parallel_any_of": {
+    "acc_pct": 78.7,
+    "cost_usd_per_task": 0.7594,
+    "x_vs_fable": 5.9,
+    "note": "any-of ceiling; cloud fires on all n"
+   },
+   "sensitivity_amortized_gpu_hr": {
+    "local_usd_per_task": 0.107107,
+    "deploy_honest": {
+     "gate": "all_timeouts",
+     "acc_pct": 62.9,
+     "escalated": 16,
+     "candidates": 28,
+     "recovered": 10,
+     "cost_usd_per_task": 0.2192,
+     "x_vs_fable": 20.5,
+     "budget_trimmed": true
+    }
+   }
+  },
+  {
+   "local": "qwen36_27b",
+   "cloud": "opus5",
+   "oracle": {
+    "acc_pct": 83.1,
+    "recoverable": 25,
+    "cost_usd_per_task": 0.2548,
+    "x_vs_fable": 17.7
+   },
+   "deploy_honest": {
+    "gate": "all_timeouts",
+    "acc_pct": 66.3,
+    "escalated": 22,
+    "candidates": 28,
+    "recovered": 14,
+    "cost_usd_per_task": 0.2245,
+    "x_vs_fable": 20.0,
+    "budget_trimmed": true
+   },
+   "deploy_keep_solves": {
+    "gate": "errored_unsolved",
+    "acc_pct": 70.8,
+    "escalated": 22,
+    "candidates": 24,
+    "recovered": 14,
+    "cost_usd_per_task": 0.2245,
+    "x_vs_fable": 20.0,
+    "budget_trimmed": true
+   },
+   "parallel_any_of": {
+    "acc_pct": 83.1,
+    "cost_usd_per_task": 0.902,
+    "x_vs_fable": 5.0,
+    "note": "any-of ceiling; cloud fires on all n"
+   },
+   "sensitivity_amortized_gpu_hr": {
+    "local_usd_per_task": 0.107107,
+    "deploy_honest": {
+     "gate": "all_timeouts",
+     "acc_pct": 60.7,
+     "escalated": 11,
+     "candidates": 28,
+     "recovered": 7,
+     "cost_usd_per_task": 0.2183,
+     "x_vs_fable": 20.6,
+     "budget_trimmed": true
+    }
+   }
+  },
+  {
+   "local": "qwen36_27b",
+   "cloud": "kimi_k3",
+   "oracle": {
+    "acc_pct": 79.8,
+    "recoverable": 22,
+    "cost_usd_per_task": 0.1093,
+    "x_vs_fable": 41.2
+   },
+   "deploy_honest": {
+    "gate": "all_timeouts",
+    "acc_pct": 69.7,
+    "escalated": 28,
+    "candidates": 28,
+    "recovered": 17,
+    "cost_usd_per_task": 0.1721,
+    "x_vs_fable": 26.1,
+    "budget_trimmed": false
+   },
+   "deploy_keep_solves": {
+    "gate": "errored_unsolved",
+    "acc_pct": 70.8,
+    "escalated": 24,
+    "candidates": 24,
+    "recovered": 14,
+    "cost_usd_per_task": 0.1532,
+    "x_vs_fable": 29.4,
+    "budget_trimmed": false
+   },
+   "parallel_any_of": {
+    "acc_pct": 79.8,
+    "cost_usd_per_task": 0.328,
+    "x_vs_fable": 13.7,
+    "note": "any-of ceiling; cloud fires on all n"
+   },
+   "sensitivity_amortized_gpu_hr": {
+    "local_usd_per_task": 0.107107,
+    "deploy_honest": {
+     "gate": "all_timeouts",
+     "acc_pct": 68.5,
+     "escalated": 24,
+     "candidates": 28,
+     "recovered": 15,
+     "cost_usd_per_task": 0.219,
+     "x_vs_fable": 20.5,
+     "budget_trimmed": true
+    }
+   }
+  },
+  {
+   "local": "qwen36_27b",
+   "cloud": "fugu_ultra",
+   "oracle": {
+    "acc_pct": 79.8,
+    "recoverable": 22,
+    "cost_usd_per_task": 0.4596,
+    "x_vs_fable": 9.8
+   },
+   "deploy_honest": {
+    "gate": "all_timeouts",
+    "acc_pct": 66.3,
+    "escalated": 14,
+    "candidates": 28,
+    "recovered": 12,
+    "cost_usd_per_task": 0.224,
+    "x_vs_fable": 20.1,
+    "budget_trimmed": true
+   },
+   "deploy_keep_solves": {
+    "gate": "errored_unsolved",
+    "acc_pct": 66.3,
+    "escalated": 13,
+    "candidates": 24,
+    "recovered": 10,
+    "cost_usd_per_task": 0.2185,
+    "x_vs_fable": 20.6,
+    "budget_trimmed": true
+   },
+   "parallel_any_of": {
+    "acc_pct": 79.8,
+    "cost_usd_per_task": 1.5205,
+    "x_vs_fable": 3.0,
+    "note": "any-of ceiling; cloud fires on all n"
+   },
+   "sensitivity_amortized_gpu_hr": {
+    "local_usd_per_task": 0.107107,
+    "deploy_honest": {
+     "gate": "all_timeouts",
+     "acc_pct": 61.8,
+     "escalated": 8,
+     "candidates": 28,
+     "recovered": 7,
+     "cost_usd_per_task": 0.2075,
+     "x_vs_fable": 21.7,
+     "budget_trimmed": true
+    }
+   }
+  },
+  {
+   "local": "qwen36_27b",
+   "cloud": "gemini-31pro",
+   "oracle": {
+    "acc_pct": 75.3,
+    "recoverable": 18,
+    "cost_usd_per_task": 0.1265,
+    "x_vs_fable": 35.6
+   },
+   "deploy_honest": {
+    "gate": "all_timeouts",
+    "acc_pct": 67.4,
+    "escalated": 25,
+    "candidates": 28,
+    "recovered": 15,
+    "cost_usd_per_task": 0.2242,
+    "x_vs_fable": 20.1,
+    "budget_trimmed": true
+   },
+   "deploy_keep_solves": {
+    "gate": "errored_unsolved",
+    "acc_pct": 68.5,
+    "escalated": 21,
+    "candidates": 24,
+    "recovered": 12,
+    "cost_usd_per_task": 0.1992,
+    "x_vs_fable": 22.6,
+    "budget_trimmed": true
+   },
+   "parallel_any_of": {
+    "acc_pct": 75.3,
+    "cost_usd_per_task": 0.6071,
+    "x_vs_fable": 7.4,
+    "note": "any-of ceiling; cloud fires on all n"
+   },
+   "sensitivity_amortized_gpu_hr": {
+    "local_usd_per_task": 0.107107,
+    "deploy_honest": {
+     "gate": "all_timeouts",
+     "acc_pct": 66.3,
+     "escalated": 18,
+     "candidates": 28,
+     "recovered": 14,
+     "cost_usd_per_task": 0.2192,
+     "x_vs_fable": 20.5,
+     "budget_trimmed": true
+    }
+   }
+  },
+  {
+   "local": "qwen36_27b",
+   "cloud": "gemini-flash",
+   "oracle": {
+    "acc_pct": 85.4,
+    "recoverable": 27,
+    "cost_usd_per_task": 0.1583,
+    "x_vs_fable": 28.4
+   },
+   "deploy_honest": {
+    "gate": "all_timeouts",
+    "acc_pct": 73.0,
+    "escalated": 28,
+    "candidates": 28,
+    "recovered": 20,
+    "cost_usd_per_task": 0.2117,
+    "x_vs_fable": 21.3,
+    "budget_trimmed": false
+   },
+   "deploy_keep_solves": {
+    "gate": "errored_unsolved",
+    "acc_pct": 73.0,
+    "escalated": 24,
+    "candidates": 24,
+    "recovered": 16,
+    "cost_usd_per_task": 0.1907,
+    "x_vs_fable": 23.6,
+    "budget_trimmed": false
+   },
+   "parallel_any_of": {
+    "acc_pct": 85.4,
+    "cost_usd_per_task": 0.3792,
+    "x_vs_fable": 11.9,
+    "note": "any-of ceiling; cloud fires on all n"
+   },
+   "sensitivity_amortized_gpu_hr": {
+    "local_usd_per_task": 0.107107,
+    "deploy_honest": {
+     "gate": "all_timeouts",
+     "acc_pct": 68.5,
+     "escalated": 23,
+     "candidates": 28,
+     "recovered": 16,
+     "cost_usd_per_task": 0.2186,
+     "x_vs_fable": 20.6,
+     "budget_trimmed": true
+    }
+   }
+  },
+  {
+   "local": "M3_local",
+   "cloud": "deepseek_v4f",
+   "oracle": {
+    "acc_pct": 75.3,
+    "recoverable": 14,
+    "cost_usd_per_task": 0.0114,
+    "x_vs_fable": 395.9
+   },
+   "deploy_honest": {
+    "gate": "all_timeouts",
+    "acc_pct": 66.3,
+    "escalated": 37,
+    "candidates": 37,
+    "recovered": 17,
+    "cost_usd_per_task": 0.0199,
+    "x_vs_fable": 225.8,
+    "budget_trimmed": false
+   },
+   "deploy_keep_solves": {
+    "gate": "errored_unsolved",
+    "acc_pct": 70.8,
+    "escalated": 26,
+    "candidates": 26,
+    "recovered": 10,
+    "cost_usd_per_task": 0.018,
+    "x_vs_fable": 249.7,
+    "budget_trimmed": false
+   },
+   "parallel_any_of": {
+    "acc_pct": 75.3,
+    "cost_usd_per_task": 0.0287,
+    "x_vs_fable": 156.8,
+    "note": "any-of ceiling; cloud fires on all n"
+   },
+   "sensitivity_amortized_gpu_hr": {
+    "local_usd_per_task": 0.498727,
+    "deploy_honest": {
+     "gate": "all_timeouts",
+     "acc_pct": 59.6,
+     "escalated": 0,
+     "candidates": 37,
+     "recovered": 0,
+     "cost_usd_per_task": 0.4987,
+     "x_vs_fable": 9.0,
+     "budget_trimmed": true
+    }
+   }
+  },
+  {
+   "local": "M3_local",
+   "cloud": "gpt56_terra",
+   "oracle": {
+    "acc_pct": 83.1,
+    "recoverable": 21,
+    "cost_usd_per_task": 0.0307,
+    "x_vs_fable": 146.5
+   },
+   "deploy_honest": {
+    "gate": "all_timeouts",
+    "acc_pct": 70.8,
+    "escalated": 37,
+    "candidates": 37,
+    "recovered": 21,
+    "cost_usd_per_task": 0.0723,
+    "x_vs_fable": 62.3,
+    "budget_trimmed": false
+   },
+   "deploy_keep_solves": {
+    "gate": "errored_unsolved",
+    "acc_pct": 75.3,
+    "escalated": 26,
+    "candidates": 26,
+    "recovered": 14,
+    "cost_usd_per_task": 0.0533,
+    "x_vs_fable": 84.4,
+    "budget_trimmed": false
+   },
+   "parallel_any_of": {
+    "acc_pct": 83.1,
+    "cost_usd_per_task": 0.1067,
+    "x_vs_fable": 42.2,
+    "note": "any-of ceiling; cloud fires on all n"
+   },
+   "sensitivity_amortized_gpu_hr": {
+    "local_usd_per_task": 0.498727,
+    "deploy_honest": {
+     "gate": "all_timeouts",
+     "acc_pct": 59.6,
+     "escalated": 0,
+     "candidates": 37,
+     "recovered": 0,
+     "cost_usd_per_task": 0.4987,
+     "x_vs_fable": 9.0,
+     "budget_trimmed": true
+    }
+   }
+  },
+  {
+   "local": "M3_local",
+   "cloud": "gpt55",
+   "oracle": {
+    "acc_pct": 85.4,
+    "recoverable": 23,
+    "cost_usd_per_task": 0.1962,
+    "x_vs_fable": 22.9
+   },
+   "deploy_honest": {
+    "gate": "all_timeouts",
+    "acc_pct": 73.0,
+    "escalated": 34,
+    "candidates": 37,
+    "recovered": 23,
+    "cost_usd_per_task": 0.2189,
+    "x_vs_fable": 20.6,
+    "budget_trimmed": true
+   },
+   "deploy_keep_solves": {
+    "gate": "errored_unsolved",
+    "acc_pct": 77.5,
+    "escalated": 24,
+    "candidates": 26,
+    "recovered": 16,
+    "cost_usd_per_task": 0.1878,
+    "x_vs_fable": 24.0,
+    "budget_trimmed": true
+   },
+   "parallel_any_of": {
+    "acc_pct": 85.4,
+    "cost_usd_per_task": 0.5191,
+    "x_vs_fable": 8.7,
+    "note": "any-of ceiling; cloud fires on all n"
+   },
+   "sensitivity_amortized_gpu_hr": {
+    "local_usd_per_task": 0.498727,
+    "deploy_honest": {
+     "gate": "all_timeouts",
+     "acc_pct": 59.6,
+     "escalated": 0,
+     "candidates": 37,
+     "recovered": 0,
+     "cost_usd_per_task": 0.4987,
+     "x_vs_fable": 9.0,
+     "budget_trimmed": true
+    }
+   }
+  },
+  {
+   "local": "M3_local",
+   "cloud": "gpt56_sol",
+   "oracle": {
+    "acc_pct": 87.6,
+    "recoverable": 25,
+    "cost_usd_per_task": 0.1129,
+    "x_vs_fable": 39.9
+   },
+   "deploy_honest": {
+    "gate": "all_timeouts",
+    "acc_pct": 74.2,
+    "escalated": 37,
+    "candidates": 37,
+    "recovered": 24,
+    "cost_usd_per_task": 0.1928,
+    "x_vs_fable": 23.3,
+    "budget_trimmed": false
+   },
+   "deploy_keep_solves": {
+    "gate": "errored_unsolved",
+    "acc_pct": 77.5,
+    "escalated": 26,
+    "candidates": 26,
+    "recovered": 16,
+    "cost_usd_per_task": 0.1528,
+    "x_vs_fable": 29.5,
+    "budget_trimmed": false
+   },
+   "parallel_any_of": {
+    "acc_pct": 87.6,
+    "cost_usd_per_task": 0.3318,
+    "x_vs_fable": 13.6,
+    "note": "any-of ceiling; cloud fires on all n"
+   },
+   "sensitivity_amortized_gpu_hr": {
+    "local_usd_per_task": 0.498727,
+    "deploy_honest": {
+     "gate": "all_timeouts",
+     "acc_pct": 59.6,
+     "escalated": 0,
+     "candidates": 37,
+     "recovered": 0,
+     "cost_usd_per_task": 0.4987,
+     "x_vs_fable": 9.0,
+     "budget_trimmed": true
+    }
+   }
+  },
+  {
+   "local": "M3_local",
+   "cloud": "opus48",
+   "oracle": {
+    "acc_pct": 80.9,
+    "recoverable": 19,
+    "cost_usd_per_task": 0.2241,
+    "x_vs_fable": 20.1
+   },
+   "deploy_honest": {
+    "gate": "all_timeouts",
+    "acc_pct": 67.4,
+    "escalated": 30,
+    "candidates": 37,
+    "recovered": 17,
+    "cost_usd_per_task": 0.209,
+    "x_vs_fable": 21.5,
+    "budget_trimmed": true
+   },
+   "deploy_keep_solves": {
+    "gate": "errored_unsolved",
+    "acc_pct": 70.8,
+    "escalated": 22,
+    "candidates": 26,
+    "recovered": 10,
+    "cost_usd_per_task": 0.1914,
+    "x_vs_fable": 23.5,
+    "budget_trimmed": true
+   },
+   "parallel_any_of": {
+    "acc_pct": 80.9,
+    "cost_usd_per_task": 0.7651,
+    "x_vs_fable": 5.9,
+    "note": "any-of ceiling; cloud fires on all n"
+   },
+   "sensitivity_amortized_gpu_hr": {
+    "local_usd_per_task": 0.498727,
+    "deploy_honest": {
+     "gate": "all_timeouts",
+     "acc_pct": 59.6,
+     "escalated": 0,
+     "candidates": 37,
+     "recovered": 0,
+     "cost_usd_per_task": 0.4987,
+     "x_vs_fable": 9.0,
+     "budget_trimmed": true
+    }
+   }
+  },
+  {
+   "local": "M3_local",
+   "cloud": "opus5",
+   "oracle": {
+    "acc_pct": 85.4,
+    "recoverable": 23,
+    "cost_usd_per_task": 0.2403,
+    "x_vs_fable": 18.7
+   },
+   "deploy_honest": {
+    "gate": "all_timeouts",
+    "acc_pct": 67.4,
+    "escalated": 21,
+    "candidates": 37,
+    "recovered": 12,
+    "cost_usd_per_task": 0.2201,
+    "x_vs_fable": 20.4,
+    "budget_trimmed": true
+   },
+   "deploy_keep_solves": {
+    "gate": "errored_unsolved",
+    "acc_pct": 73.0,
+    "escalated": 21,
+    "candidates": 26,
+    "recovered": 12,
+    "cost_usd_per_task": 0.2201,
+    "x_vs_fable": 20.4,
+    "budget_trimmed": true
+   },
+   "parallel_any_of": {
+    "acc_pct": 85.4,
+    "cost_usd_per_task": 0.9077,
+    "x_vs_fable": 5.0,
+    "note": "any-of ceiling; cloud fires on all n"
+   },
+   "sensitivity_amortized_gpu_hr": {
+    "local_usd_per_task": 0.498727,
+    "deploy_honest": {
+     "gate": "all_timeouts",
+     "acc_pct": 59.6,
+     "escalated": 0,
+     "candidates": 37,
+     "recovered": 0,
+     "cost_usd_per_task": 0.4987,
+     "x_vs_fable": 9.0,
+     "budget_trimmed": true
+    }
+   }
+  },
+  {
+   "local": "M3_local",
+   "cloud": "kimi_k3",
+   "oracle": {
+    "acc_pct": 86.5,
+    "recoverable": 24,
+    "cost_usd_per_task": 0.1169,
+    "x_vs_fable": 38.5
+   },
+   "deploy_honest": {
+    "gate": "all_timeouts",
+    "acc_pct": 73.0,
+    "escalated": 37,
+    "candidates": 37,
+    "recovered": 23,
+    "cost_usd_per_task": 0.2125,
+    "x_vs_fable": 21.2,
+    "budget_trimmed": false
+   },
+   "deploy_keep_solves": {
+    "gate": "errored_unsolved",
+    "acc_pct": 77.5,
+    "escalated": 26,
+    "candidates": 26,
+    "recovered": 16,
+    "cost_usd_per_task": 0.144,
+    "x_vs_fable": 31.2,
+    "budget_trimmed": false
+   },
+   "parallel_any_of": {
+    "acc_pct": 86.5,
+    "cost_usd_per_task": 0.3337,
+    "x_vs_fable": 13.5,
+    "note": "any-of ceiling; cloud fires on all n"
+   },
+   "sensitivity_amortized_gpu_hr": {
+    "local_usd_per_task": 0.498727,
+    "deploy_honest": {
+     "gate": "all_timeouts",
+     "acc_pct": 59.6,
+     "escalated": 0,
+     "candidates": 37,
+     "recovered": 0,
+     "cost_usd_per_task": 0.4987,
+     "x_vs_fable": 9.0,
+     "budget_trimmed": true
+    }
+   }
+  },
+  {
+   "local": "M3_local",
+   "cloud": "fugu_ultra",
+   "oracle": {
+    "acc_pct": 85.4,
+    "recoverable": 23,
+    "cost_usd_per_task": 0.4702,
+    "x_vs_fable": 9.6
+   },
+   "deploy_honest": {
+    "gate": "all_timeouts",
+    "acc_pct": 65.2,
+    "escalated": 17,
+    "candidates": 37,
+    "recovered": 11,
+    "cost_usd_per_task": 0.2085,
+    "x_vs_fable": 21.6,
+    "budget_trimmed": true
+   },
+   "deploy_keep_solves": {
+    "gate": "errored_unsolved",
+    "acc_pct": 70.8,
+    "escalated": 14,
+    "candidates": 26,
+    "recovered": 10,
+    "cost_usd_per_task": 0.2073,
+    "x_vs_fable": 21.7,
+    "budget_trimmed": true
+   },
+   "parallel_any_of": {
+    "acc_pct": 85.4,
+    "cost_usd_per_task": 1.5262,
+    "x_vs_fable": 2.9,
+    "note": "any-of ceiling; cloud fires on all n"
+   },
+   "sensitivity_amortized_gpu_hr": {
+    "local_usd_per_task": 0.498727,
+    "deploy_honest": {
+     "gate": "all_timeouts",
+     "acc_pct": 59.6,
+     "escalated": 0,
+     "candidates": 37,
+     "recovered": 0,
+     "cost_usd_per_task": 0.4987,
+     "x_vs_fable": 9.0,
+     "budget_trimmed": true
+    }
+   }
+  },
+  {
+   "local": "M3_local",
+   "cloud": "gemini-31pro",
+   "oracle": {
+    "acc_pct": 80.9,
+    "recoverable": 19,
+    "cost_usd_per_task": 0.1353,
+    "x_vs_fable": 33.2
+   },
+   "deploy_honest": {
+    "gate": "all_timeouts",
+    "acc_pct": 69.7,
+    "escalated": 31,
+    "candidates": 37,
+    "recovered": 19,
+    "cost_usd_per_task": 0.2209,
+    "x_vs_fable": 20.4,
+    "budget_trimmed": true
+   },
+   "deploy_keep_solves": {
+    "gate": "errored_unsolved",
+    "acc_pct": 73.0,
+    "escalated": 24,
+    "candidates": 26,
+    "recovered": 12,
+    "cost_usd_per_task": 0.2151,
+    "x_vs_fable": 20.9,
+    "budget_trimmed": true
+   },
+   "parallel_any_of": {
+    "acc_pct": 80.9,
+    "cost_usd_per_task": 0.6128,
+    "x_vs_fable": 7.3,
+    "note": "any-of ceiling; cloud fires on all n"
+   },
+   "sensitivity_amortized_gpu_hr": {
+    "local_usd_per_task": 0.498727,
+    "deploy_honest": {
+     "gate": "all_timeouts",
+     "acc_pct": 59.6,
+     "escalated": 0,
+     "candidates": 37,
+     "recovered": 0,
+     "cost_usd_per_task": 0.4987,
+     "x_vs_fable": 9.0,
+     "budget_trimmed": true
+    }
+   }
+  },
+  {
+   "local": "M3_local",
+   "cloud": "gemini-flash",
+   "oracle": {
+    "acc_pct": 85.4,
+    "recoverable": 23,
+    "cost_usd_per_task": 0.1277,
+    "x_vs_fable": 35.2
+   },
+   "deploy_honest": {
+    "gate": "all_timeouts",
+    "acc_pct": 74.2,
+    "escalated": 36,
+    "candidates": 37,
+    "recovered": 24,
+    "cost_usd_per_task": 0.217,
+    "x_vs_fable": 20.7,
+    "budget_trimmed": true
+   },
+   "deploy_keep_solves": {
+    "gate": "errored_unsolved",
+    "acc_pct": 77.5,
+    "escalated": 26,
+    "candidates": 26,
+    "recovered": 16,
+    "cost_usd_per_task": 0.187,
+    "x_vs_fable": 24.1,
+    "budget_trimmed": false
+   },
+   "parallel_any_of": {
+    "acc_pct": 85.4,
+    "cost_usd_per_task": 0.3849,
+    "x_vs_fable": 11.7,
+    "note": "any-of ceiling; cloud fires on all n"
+   },
+   "sensitivity_amortized_gpu_hr": {
+    "local_usd_per_task": 0.498727,
+    "deploy_honest": {
+     "gate": "all_timeouts",
+     "acc_pct": 59.6,
+     "escalated": 0,
+     "candidates": 37,
+     "recovered": 0,
+     "cost_usd_per_task": 0.4987,
+     "x_vs_fable": 9.0,
+     "budget_trimmed": true
+    }
+   }
+  },
+  {
+   "local": "GLM_local",
+   "cloud": "deepseek_v4f",
+   "oracle": {
+    "acc_pct": 77.5,
+    "recoverable": 11,
+    "cost_usd_per_task": 0.015,
+    "x_vs_fable": 300.5
+   },
+   "deploy_honest": {
+    "gate": "all_timeouts",
+    "acc_pct": 74.2,
+    "escalated": 35,
+    "candidates": 35,
+    "recovered": 16,
+    "cost_usd_per_task": 0.0231,
+    "x_vs_fable": 195.2,
+    "budget_trimmed": false
+   },
+   "deploy_keep_solves": {
+    "gate": "errored_unsolved",
+    "acc_pct": 76.4,
+    "escalated": 27,
+    "candidates": 27,
+    "recovered": 10,
+    "cost_usd_per_task": 0.0222,
+    "x_vs_fable": 202.5,
+    "budget_trimmed": false
+   },
+   "parallel_any_of": {
+    "acc_pct": 77.5,
+    "cost_usd_per_task": 0.032,
+    "x_vs_fable": 140.7,
+    "note": "any-of ceiling; cloud fires on all n"
+   },
+   "sensitivity_amortized_gpu_hr": {
+    "local_usd_per_task": 0.880449,
+    "deploy_honest": {
+     "gate": "all_timeouts",
+     "acc_pct": 65.2,
+     "escalated": 0,
+     "candidates": 35,
+     "recovered": 0,
+     "cost_usd_per_task": 0.8804,
+     "x_vs_fable": 5.1,
+     "budget_trimmed": true
+    }
+   }
+  },
+  {
+   "local": "GLM_local",
+   "cloud": "gpt56_terra",
+   "oracle": {
+    "acc_pct": 80.9,
+    "recoverable": 14,
+    "cost_usd_per_task": 0.0432,
+    "x_vs_fable": 104.1
+   },
+   "deploy_honest": {
+    "gate": "all_timeouts",
+    "acc_pct": 77.5,
+    "escalated": 35,
+    "candidates": 35,
+    "recovered": 19,
+    "cost_usd_per_task": 0.0796,
+    "x_vs_fable": 56.5,
+    "budget_trimmed": false
+   },
+   "deploy_keep_solves": {
+    "gate": "errored_unsolved",
+    "acc_pct": 78.7,
+    "escalated": 27,
+    "candidates": 27,
+    "recovered": 12,
+    "cost_usd_per_task": 0.0778,
+    "x_vs_fable": 57.9,
+    "budget_trimmed": false
+   },
+   "parallel_any_of": {
+    "acc_pct": 80.9,
+    "cost_usd_per_task": 0.11,
+    "x_vs_fable": 40.9,
+    "note": "any-of ceiling; cloud fires on all n"
+   },
+   "sensitivity_amortized_gpu_hr": {
+    "local_usd_per_task": 0.880449,
+    "deploy_honest": {
+     "gate": "all_timeouts",
+     "acc_pct": 65.2,
+     "escalated": 0,
+     "candidates": 35,
+     "recovered": 0,
+     "cost_usd_per_task": 0.8804,
+     "x_vs_fable": 5.1,
+     "budget_trimmed": true
+    }
+   }
+  },
+  {
+   "local": "GLM_local",
+   "cloud": "gpt55",
+   "oracle": {
+    "acc_pct": 82.0,
+    "recoverable": 15,
+    "cost_usd_per_task": 0.154,
+    "x_vs_fable": 29.2
+   },
+   "deploy_honest": {
+    "gate": "all_timeouts",
+    "acc_pct": 78.7,
+    "escalated": 32,
+    "candidates": 35,
+    "recovered": 20,
+    "cost_usd_per_task": 0.2061,
+    "x_vs_fable": 21.8,
+    "budget_trimmed": true
+   },
+   "deploy_keep_solves": {
+    "gate": "errored_unsolved",
+    "acc_pct": 80.9,
+    "escalated": 25,
+    "candidates": 27,
+    "recovered": 14,
+    "cost_usd_per_task": 0.2042,
+    "x_vs_fable": 22.0,
+    "budget_trimmed": true
+   },
+   "parallel_any_of": {
+    "acc_pct": 82.0,
+    "cost_usd_per_task": 0.5223,
+    "x_vs_fable": 8.6,
+    "note": "any-of ceiling; cloud fires on all n"
+   },
+   "sensitivity_amortized_gpu_hr": {
+    "local_usd_per_task": 0.880449,
+    "deploy_honest": {
+     "gate": "all_timeouts",
+     "acc_pct": 65.2,
+     "escalated": 0,
+     "candidates": 35,
+     "recovered": 0,
+     "cost_usd_per_task": 0.8804,
+     "x_vs_fable": 5.1,
+     "budget_trimmed": true
+    }
+   }
+  },
+  {
+   "local": "GLM_local",
+   "cloud": "gpt56_sol",
+   "oracle": {
+    "acc_pct": 85.4,
+    "recoverable": 18,
+    "cost_usd_per_task": 0.1143,
+    "x_vs_fable": 39.4
+   },
+   "deploy_honest": {
+    "gate": "all_timeouts",
+    "acc_pct": 84.3,
+    "escalated": 35,
+    "candidates": 35,
+    "recovered": 25,
+    "cost_usd_per_task": 0.1965,
+    "x_vs_fable": 22.9,
+    "budget_trimmed": false
+   },
+   "deploy_keep_solves": {
+    "gate": "errored_unsolved",
+    "acc_pct": 84.3,
+    "escalated": 27,
+    "candidates": 27,
+    "recovered": 17,
+    "cost_usd_per_task": 0.178,
+    "x_vs_fable": 25.3,
+    "budget_trimmed": false
+   },
+   "parallel_any_of": {
+    "acc_pct": 85.4,
+    "cost_usd_per_task": 0.3351,
+    "x_vs_fable": 13.4,
+    "note": "any-of ceiling; cloud fires on all n"
+   },
+   "sensitivity_amortized_gpu_hr": {
+    "local_usd_per_task": 0.880449,
+    "deploy_honest": {
+     "gate": "all_timeouts",
+     "acc_pct": 65.2,
+     "escalated": 0,
+     "candidates": 35,
+     "recovered": 0,
+     "cost_usd_per_task": 0.8804,
+     "x_vs_fable": 5.1,
+     "budget_trimmed": true
+    }
+   }
+  },
+  {
+   "local": "GLM_local",
+   "cloud": "opus48",
+   "oracle": {
+    "acc_pct": 82.0,
+    "recoverable": 15,
+    "cost_usd_per_task": 0.3135,
+    "x_vs_fable": 14.4
+   },
+   "deploy_honest": {
+    "gate": "all_timeouts",
+    "acc_pct": 76.4,
+    "escalated": 29,
+    "candidates": 35,
+    "recovered": 18,
+    "cost_usd_per_task": 0.2208,
+    "x_vs_fable": 20.4,
+    "budget_trimmed": true
+   },
+   "deploy_keep_solves": {
+    "gate": "errored_unsolved",
+    "acc_pct": 76.4,
+    "escalated": 22,
+    "candidates": 27,
+    "recovered": 10,
+    "cost_usd_per_task": 0.2186,
+    "x_vs_fable": 20.6,
+    "budget_trimmed": true
+   },
+   "parallel_any_of": {
+    "acc_pct": 82.0,
+    "cost_usd_per_task": 0.7684,
+    "x_vs_fable": 5.9,
+    "note": "any-of ceiling; cloud fires on all n"
+   },
+   "sensitivity_amortized_gpu_hr": {
+    "local_usd_per_task": 0.880449,
+    "deploy_honest": {
+     "gate": "all_timeouts",
+     "acc_pct": 65.2,
+     "escalated": 0,
+     "candidates": 35,
+     "recovered": 0,
+     "cost_usd_per_task": 0.8804,
+     "x_vs_fable": 5.1,
+     "budget_trimmed": true
+    }
+   }
+  },
+  {
+   "local": "GLM_local",
+   "cloud": "opus5",
+   "oracle": {
+    "acc_pct": 84.3,
+    "recoverable": 17,
+    "cost_usd_per_task": 0.1829,
+    "x_vs_fable": 24.6
+   },
+   "deploy_honest": {
+    "gate": "all_timeouts",
+    "acc_pct": 74.2,
+    "escalated": 21,
+    "candidates": 35,
+    "recovered": 12,
+    "cost_usd_per_task": 0.2233,
+    "x_vs_fable": 20.1,
+    "budget_trimmed": true
+   },
+   "deploy_keep_solves": {
+    "gate": "errored_unsolved",
+    "acc_pct": 76.4,
+    "escalated": 21,
+    "candidates": 27,
+    "recovered": 10,
+    "cost_usd_per_task": 0.2233,
+    "x_vs_fable": 20.1,
+    "budget_trimmed": true
+   },
+   "parallel_any_of": {
+    "acc_pct": 84.3,
+    "cost_usd_per_task": 0.911,
+    "x_vs_fable": 4.9,
+    "note": "any-of ceiling; cloud fires on all n"
+   },
+   "sensitivity_amortized_gpu_hr": {
+    "local_usd_per_task": 0.880449,
+    "deploy_honest": {
+     "gate": "all_timeouts",
+     "acc_pct": 65.2,
+     "escalated": 0,
+     "candidates": 35,
+     "recovered": 0,
+     "cost_usd_per_task": 0.8804,
+     "x_vs_fable": 5.1,
+     "budget_trimmed": true
+    }
+   }
+  },
+  {
+   "local": "GLM_local",
+   "cloud": "kimi_k3",
+   "oracle": {
+    "acc_pct": 83.1,
+    "recoverable": 16,
+    "cost_usd_per_task": 0.0949,
+    "x_vs_fable": 47.4
+   },
+   "deploy_honest": {
+    "gate": "all_timeouts",
+    "acc_pct": 79.8,
+    "escalated": 35,
+    "candidates": 35,
+    "recovered": 21,
+    "cost_usd_per_task": 0.1898,
+    "x_vs_fable": 23.7,
+    "budget_trimmed": false
+   },
+   "deploy_keep_solves": {
+    "gate": "errored_unsolved",
+    "acc_pct": 79.8,
+    "escalated": 27,
+    "candidates": 27,
+    "recovered": 13,
+    "cost_usd_per_task": 0.1743,
+    "x_vs_fable": 25.8,
+    "budget_trimmed": false
+   },
+   "parallel_any_of": {
+    "acc_pct": 83.1,
+    "cost_usd_per_task": 0.337,
+    "x_vs_fable": 13.4,
+    "note": "any-of ceiling; cloud fires on all n"
+   },
+   "sensitivity_amortized_gpu_hr": {
+    "local_usd_per_task": 0.880449,
+    "deploy_honest": {
+     "gate": "all_timeouts",
+     "acc_pct": 65.2,
+     "escalated": 0,
+     "candidates": 35,
+     "recovered": 0,
+     "cost_usd_per_task": 0.8804,
+     "x_vs_fable": 5.1,
+     "budget_trimmed": true
+    }
+   }
+  },
+  {
+   "local": "GLM_local",
+   "cloud": "fugu_ultra",
+   "oracle": {
+    "acc_pct": 83.1,
+    "recoverable": 16,
+    "cost_usd_per_task": 0.4188,
+    "x_vs_fable": 10.7
+   },
+   "deploy_honest": {
+    "gate": "all_timeouts",
+    "acc_pct": 73.0,
+    "escalated": 16,
+    "candidates": 35,
+    "recovered": 12,
+    "cost_usd_per_task": 0.2082,
+    "x_vs_fable": 21.6,
+    "budget_trimmed": true
+   },
+   "deploy_keep_solves": {
+    "gate": "errored_unsolved",
+    "acc_pct": 74.2,
+    "escalated": 14,
+    "candidates": 27,
+    "recovered": 8,
+    "cost_usd_per_task": 0.2157,
+    "x_vs_fable": 20.9,
+    "budget_trimmed": true
+   },
+   "parallel_any_of": {
+    "acc_pct": 83.1,
+    "cost_usd_per_task": 1.5295,
+    "x_vs_fable": 2.9,
+    "note": "any-of ceiling; cloud fires on all n"
+   },
+   "sensitivity_amortized_gpu_hr": {
+    "local_usd_per_task": 0.880449,
+    "deploy_honest": {
+     "gate": "all_timeouts",
+     "acc_pct": 65.2,
+     "escalated": 0,
+     "candidates": 35,
+     "recovered": 0,
+     "cost_usd_per_task": 0.8804,
+     "x_vs_fable": 5.1,
+     "budget_trimmed": true
+    }
+   }
+  },
+  {
+   "local": "GLM_local",
+   "cloud": "gemini-31pro",
+   "oracle": {
+    "acc_pct": 78.7,
+    "recoverable": 12,
+    "cost_usd_per_task": 0.0906,
+    "x_vs_fable": 49.7
+   },
+   "deploy_honest": {
+    "gate": "all_timeouts",
+    "acc_pct": 75.3,
+    "escalated": 30,
+    "candidates": 35,
+    "recovered": 17,
+    "cost_usd_per_task": 0.2094,
+    "x_vs_fable": 21.5,
+    "budget_trimmed": true
+   },
+   "deploy_keep_solves": {
+    "gate": "errored_unsolved",
+    "acc_pct": 76.4,
+    "escalated": 24,
+    "candidates": 27,
+    "recovered": 10,
+    "cost_usd_per_task": 0.2151,
+    "x_vs_fable": 20.9,
+    "budget_trimmed": true
+   },
+   "parallel_any_of": {
+    "acc_pct": 78.7,
+    "cost_usd_per_task": 0.616,
+    "x_vs_fable": 7.3,
+    "note": "any-of ceiling; cloud fires on all n"
+   },
+   "sensitivity_amortized_gpu_hr": {
+    "local_usd_per_task": 0.880449,
+    "deploy_honest": {
+     "gate": "all_timeouts",
+     "acc_pct": 65.2,
+     "escalated": 0,
+     "candidates": 35,
+     "recovered": 0,
+     "cost_usd_per_task": 0.8804,
+     "x_vs_fable": 5.1,
+     "budget_trimmed": true
+    }
+   }
+  },
+  {
+   "local": "GLM_local",
+   "cloud": "gemini-flash",
+   "oracle": {
+    "acc_pct": 86.5,
+    "recoverable": 19,
+    "cost_usd_per_task": 0.1444,
+    "x_vs_fable": 31.2
+   },
+   "deploy_honest": {
+    "gate": "all_timeouts",
+    "acc_pct": 83.1,
+    "escalated": 34,
+    "candidates": 35,
+    "recovered": 24,
+    "cost_usd_per_task": 0.2019,
+    "x_vs_fable": 22.3,
+    "budget_trimmed": true
+   },
+   "deploy_keep_solves": {
+    "gate": "errored_unsolved",
+    "acc_pct": 84.3,
+    "escalated": 27,
+    "candidates": 27,
+    "recovered": 17,
+    "cost_usd_per_task": 0.2126,
+    "x_vs_fable": 21.2,
+    "budget_trimmed": false
+   },
+   "parallel_any_of": {
+    "acc_pct": 86.5,
+    "cost_usd_per_task": 0.3882,
+    "x_vs_fable": 11.6,
+    "note": "any-of ceiling; cloud fires on all n"
+   },
+   "sensitivity_amortized_gpu_hr": {
+    "local_usd_per_task": 0.880449,
+    "deploy_honest": {
+     "gate": "all_timeouts",
+     "acc_pct": 65.2,
+     "escalated": 0,
+     "candidates": 35,
+     "recovered": 0,
+     "cost_usd_per_task": 0.8804,
+     "x_vs_fable": 5.1,
+     "budget_trimmed": true
+    }
+   }
+  },
+  {
+   "local": "gemma_4_31b",
+   "cloud": "deepseek_v4f",
+   "oracle": {
+    "acc_pct": 70.8,
+    "recoverable": 38,
+    "cost_usd_per_task": 0.0111,
+    "x_vs_fable": 405.2
+   },
+   "deploy_honest": {
+    "gate": "all_timeouts",
+    "acc_pct": 46.1,
+    "escalated": 23,
+    "candidates": 23,
+    "recovered": 16,
+    "cost_usd_per_task": 0.0109,
+    "x_vs_fable": 413.2,
+    "budget_trimmed": false
+   },
+   "deploy_keep_solves": {
+    "gate": "errored_unsolved",
+    "acc_pct": 46.1,
+    "escalated": 23,
+    "candidates": 23,
+    "recovered": 16,
+    "cost_usd_per_task": 0.0109,
+    "x_vs_fable": 413.2,
+    "budget_trimmed": false
+   },
+   "parallel_any_of": {
+    "acc_pct": 70.8,
+    "cost_usd_per_task": 0.0244,
+    "x_vs_fable": 184.3,
+    "note": "any-of ceiling; cloud fires on all n"
+   },
+   "sensitivity_amortized_gpu_hr": {
+    "local_usd_per_task": null,
+    "deploy_honest": {
+     "gate": "all_timeouts",
+     "acc_pct": null,
+     "candidates": 23,
+     "cost_usd_per_task": null,
+     "x_vs_fable": null,
+     "cost_blocked_on": "no measured wall-clock for gemma_4_31b"
+    }
+   }
+  },
+  {
+   "local": "gemma_4_31b",
+   "cloud": "gpt56_terra",
+   "oracle": {
+    "acc_pct": 77.5,
+    "recoverable": 44,
+    "cost_usd_per_task": 0.0571,
+    "x_vs_fable": 78.8
+   },
+   "deploy_honest": {
+    "gate": "all_timeouts",
+    "acc_pct": 48.3,
+    "escalated": 23,
+    "candidates": 23,
+    "recovered": 18,
+    "cost_usd_per_task": 0.0363,
+    "x_vs_fable": 123.8,
+    "budget_trimmed": false
+   },
+   "deploy_keep_solves": {
+    "gate": "errored_unsolved",
+    "acc_pct": 48.3,
+    "escalated": 23,
+    "candidates": 23,
+    "recovered": 18,
+    "cost_usd_per_task": 0.0363,
+    "x_vs_fable": 123.8,
+    "budget_trimmed": false
+   },
+   "parallel_any_of": {
+    "acc_pct": 77.5,
+    "cost_usd_per_task": 0.1024,
+    "x_vs_fable": 43.9,
+    "note": "any-of ceiling; cloud fires on all n"
+   },
+   "sensitivity_amortized_gpu_hr": {
+    "local_usd_per_task": null,
+    "deploy_honest": {
+     "gate": "all_timeouts",
+     "acc_pct": null,
+     "candidates": 23,
+     "cost_usd_per_task": null,
+     "x_vs_fable": null,
+     "cost_blocked_on": "no measured wall-clock for gemma_4_31b"
+    }
+   }
+  },
+  {
+   "local": "gemma_4_31b",
+   "cloud": "gpt55",
+   "oracle": {
+    "acc_pct": 78.7,
+    "recoverable": 45,
+    "cost_usd_per_task": 0.2895,
+    "x_vs_fable": 15.5
+   },
+   "deploy_honest": {
+    "gate": "all_timeouts",
+    "acc_pct": 48.3,
+    "escalated": 23,
+    "candidates": 23,
+    "recovered": 18,
+    "cost_usd_per_task": 0.1557,
+    "x_vs_fable": 28.9,
+    "budget_trimmed": false
+   },
+   "deploy_keep_solves": {
+    "gate": "errored_unsolved",
+    "acc_pct": 48.3,
+    "escalated": 23,
+    "candidates": 23,
+    "recovered": 18,
+    "cost_usd_per_task": 0.1557,
+    "x_vs_fable": 28.9,
+    "budget_trimmed": false
+   },
+   "parallel_any_of": {
+    "acc_pct": 78.7,
+    "cost_usd_per_task": 0.5148,
+    "x_vs_fable": 8.7,
+    "note": "any-of ceiling; cloud fires on all n"
+   },
+   "sensitivity_amortized_gpu_hr": {
+    "local_usd_per_task": null,
+    "deploy_honest": {
+     "gate": "all_timeouts",
+     "acc_pct": null,
+     "candidates": 23,
+     "cost_usd_per_task": null,
+     "x_vs_fable": null,
+     "cost_blocked_on": "no measured wall-clock for gemma_4_31b"
+    }
+   }
+  },
+  {
+   "local": "gemma_4_31b",
+   "cloud": "gpt56_sol",
+   "oracle": {
+    "acc_pct": 80.9,
+    "recoverable": 47,
+    "cost_usd_per_task": 0.1789,
+    "x_vs_fable": 25.2
+   },
+   "deploy_honest": {
+    "gate": "all_timeouts",
+    "acc_pct": 49.4,
+    "escalated": 23,
+    "candidates": 23,
+    "recovered": 19,
+    "cost_usd_per_task": 0.1215,
+    "x_vs_fable": 37.0,
+    "budget_trimmed": false
+   },
+   "deploy_keep_solves": {
+    "gate": "errored_unsolved",
+    "acc_pct": 49.4,
+    "escalated": 23,
+    "candidates": 23,
+    "recovered": 19,
+    "cost_usd_per_task": 0.1215,
+    "x_vs_fable": 37.0,
+    "budget_trimmed": false
+   },
+   "parallel_any_of": {
+    "acc_pct": 80.9,
+    "cost_usd_per_task": 0.3275,
+    "x_vs_fable": 13.7,
+    "note": "any-of ceiling; cloud fires on all n"
+   },
+   "sensitivity_amortized_gpu_hr": {
+    "local_usd_per_task": null,
+    "deploy_honest": {
+     "gate": "all_timeouts",
+     "acc_pct": null,
+     "candidates": 23,
+     "cost_usd_per_task": null,
+     "x_vs_fable": null,
+     "cost_blocked_on": "no measured wall-clock for gemma_4_31b"
+    }
+   }
+  },
+  {
+   "local": "gemma_4_31b",
+   "cloud": "opus48",
+   "oracle": {
+    "acc_pct": 75.3,
+    "recoverable": 42,
+    "cost_usd_per_task": 0.4558,
+    "x_vs_fable": 9.9
+   },
+   "deploy_honest": {
+    "gate": "all_timeouts",
+    "acc_pct": 47.2,
+    "escalated": 22,
+    "candidates": 23,
+    "recovered": 17,
+    "cost_usd_per_task": 0.1964,
+    "x_vs_fable": 22.9,
+    "budget_trimmed": true
+   },
+   "deploy_keep_solves": {
+    "gate": "errored_unsolved",
+    "acc_pct": 47.2,
+    "escalated": 22,
+    "candidates": 23,
+    "recovered": 17,
+    "cost_usd_per_task": 0.1964,
+    "x_vs_fable": 22.9,
+    "budget_trimmed": true
+   },
+   "parallel_any_of": {
+    "acc_pct": 75.3,
+    "cost_usd_per_task": 0.7608,
+    "x_vs_fable": 5.9,
+    "note": "any-of ceiling; cloud fires on all n"
+   },
+   "sensitivity_amortized_gpu_hr": {
+    "local_usd_per_task": null,
+    "deploy_honest": {
+     "gate": "all_timeouts",
+     "acc_pct": null,
+     "candidates": 23,
+     "cost_usd_per_task": null,
+     "x_vs_fable": null,
+     "cost_blocked_on": "no measured wall-clock for gemma_4_31b"
+    }
+   }
+  },
+  {
+   "local": "gemma_4_31b",
+   "cloud": "opus5",
+   "oracle": {
+    "acc_pct": 78.7,
+    "recoverable": 45,
+    "cost_usd_per_task": 0.4585,
+    "x_vs_fable": 9.8
+   },
+   "deploy_honest": {
+    "gate": "all_timeouts",
+    "acc_pct": 46.1,
+    "escalated": 21,
+    "candidates": 23,
+    "recovered": 16,
+    "cost_usd_per_task": 0.2158,
+    "x_vs_fable": 20.9,
+    "budget_trimmed": true
+   },
+   "deploy_keep_solves": {
+    "gate": "errored_unsolved",
+    "acc_pct": 46.1,
+    "escalated": 21,
+    "candidates": 23,
+    "recovered": 16,
+    "cost_usd_per_task": 0.2158,
+    "x_vs_fable": 20.9,
+    "budget_trimmed": true
+   },
+   "parallel_any_of": {
+    "acc_pct": 78.7,
+    "cost_usd_per_task": 0.9034,
+    "x_vs_fable": 5.0,
+    "note": "any-of ceiling; cloud fires on all n"
+   },
+   "sensitivity_amortized_gpu_hr": {
+    "local_usd_per_task": null,
+    "deploy_honest": {
+     "gate": "all_timeouts",
+     "acc_pct": null,
+     "candidates": 23,
+     "cost_usd_per_task": null,
+     "x_vs_fable": null,
+     "cost_blocked_on": "no measured wall-clock for gemma_4_31b"
+    }
+   }
+  },
+  {
+   "local": "gemma_4_31b",
+   "cloud": "kimi_k3",
+   "oracle": {
+    "acc_pct": 79.8,
+    "recoverable": 46,
+    "cost_usd_per_task": 0.186,
+    "x_vs_fable": 24.2
+   },
+   "deploy_honest": {
+    "gate": "all_timeouts",
+    "acc_pct": 50.6,
+    "escalated": 23,
+    "candidates": 23,
+    "recovered": 20,
+    "cost_usd_per_task": 0.1164,
+    "x_vs_fable": 38.7,
+    "budget_trimmed": false
+   },
+   "deploy_keep_solves": {
+    "gate": "errored_unsolved",
+    "acc_pct": 50.6,
+    "escalated": 23,
+    "candidates": 23,
+    "recovered": 20,
+    "cost_usd_per_task": 0.1164,
+    "x_vs_fable": 38.7,
+    "budget_trimmed": false
+   },
+   "parallel_any_of": {
+    "acc_pct": 79.8,
+    "cost_usd_per_task": 0.3294,
+    "x_vs_fable": 13.7,
+    "note": "any-of ceiling; cloud fires on all n"
+   },
+   "sensitivity_amortized_gpu_hr": {
+    "local_usd_per_task": null,
+    "deploy_honest": {
+     "gate": "all_timeouts",
+     "acc_pct": null,
+     "candidates": 23,
+     "cost_usd_per_task": null,
+     "x_vs_fable": null,
+     "cost_blocked_on": "no measured wall-clock for gemma_4_31b"
+    }
+   }
+  },
+  {
+   "local": "gemma_4_31b",
+   "cloud": "fugu_ultra",
+   "oracle": {
+    "acc_pct": 77.5,
+    "recoverable": 44,
+    "cost_usd_per_task": 0.8157,
+    "x_vs_fable": 5.5
+   },
+   "deploy_honest": {
+    "gate": "all_timeouts",
+    "acc_pct": 42.7,
+    "escalated": 16,
+    "candidates": 23,
+    "recovered": 13,
+    "cost_usd_per_task": 0.2231,
+    "x_vs_fable": 20.2,
+    "budget_trimmed": true
+   },
+   "deploy_keep_solves": {
+    "gate": "errored_unsolved",
+    "acc_pct": 42.7,
+    "escalated": 16,
+    "candidates": 23,
+    "recovered": 13,
+    "cost_usd_per_task": 0.2231,
+    "x_vs_fable": 20.2,
+    "budget_trimmed": true
+   },
+   "parallel_any_of": {
+    "acc_pct": 77.5,
+    "cost_usd_per_task": 1.5219,
+    "x_vs_fable": 3.0,
+    "note": "any-of ceiling; cloud fires on all n"
+   },
+   "sensitivity_amortized_gpu_hr": {
+    "local_usd_per_task": null,
+    "deploy_honest": {
+     "gate": "all_timeouts",
+     "acc_pct": null,
+     "candidates": 23,
+     "cost_usd_per_task": null,
+     "x_vs_fable": null,
+     "cost_blocked_on": "no measured wall-clock for gemma_4_31b"
+    }
+   }
+  },
+  {
+   "local": "gemma_4_31b",
+   "cloud": "gemini-31pro",
+   "oracle": {
+    "acc_pct": 69.7,
+    "recoverable": 37,
+    "cost_usd_per_task": 0.23,
+    "x_vs_fable": 19.6
+   },
+   "deploy_honest": {
+    "gate": "all_timeouts",
+    "acc_pct": 46.1,
+    "escalated": 23,
+    "candidates": 23,
+    "recovered": 16,
+    "cost_usd_per_task": 0.1746,
+    "x_vs_fable": 25.8,
+    "budget_trimmed": false
+   },
+   "deploy_keep_solves": {
+    "gate": "errored_unsolved",
+    "acc_pct": 46.1,
+    "escalated": 23,
+    "candidates": 23,
+    "recovered": 16,
+    "cost_usd_per_task": 0.1746,
+    "x_vs_fable": 25.8,
+    "budget_trimmed": false
+   },
+   "parallel_any_of": {
+    "acc_pct": 69.7,
+    "cost_usd_per_task": 0.6085,
+    "x_vs_fable": 7.4,
+    "note": "any-of ceiling; cloud fires on all n"
+   },
+   "sensitivity_amortized_gpu_hr": {
+    "local_usd_per_task": null,
+    "deploy_honest": {
+     "gate": "all_timeouts",
+     "acc_pct": null,
+     "candidates": 23,
+     "cost_usd_per_task": null,
+     "x_vs_fable": null,
+     "cost_blocked_on": "no measured wall-clock for gemma_4_31b"
+    }
+   }
+  },
+  {
+   "local": "gemma_4_31b",
+   "cloud": "gemini-flash",
+   "oracle": {
+    "acc_pct": 80.9,
+    "recoverable": 47,
+    "cost_usd_per_task": 0.2175,
+    "x_vs_fable": 20.7
+   },
+   "deploy_honest": {
+    "gate": "all_timeouts",
+    "acc_pct": 49.4,
+    "escalated": 23,
+    "candidates": 23,
+    "recovered": 19,
+    "cost_usd_per_task": 0.1277,
+    "x_vs_fable": 35.2,
+    "budget_trimmed": false
+   },
+   "deploy_keep_solves": {
+    "gate": "errored_unsolved",
+    "acc_pct": 49.4,
+    "escalated": 23,
+    "candidates": 23,
+    "recovered": 19,
+    "cost_usd_per_task": 0.1277,
+    "x_vs_fable": 35.2,
+    "budget_trimmed": false
+   },
+   "parallel_any_of": {
+    "acc_pct": 80.9,
+    "cost_usd_per_task": 0.3806,
+    "x_vs_fable": 11.8,
+    "note": "any-of ceiling; cloud fires on all n"
+   },
+   "sensitivity_amortized_gpu_hr": {
+    "local_usd_per_task": null,
+    "deploy_honest": {
+     "gate": "all_timeouts",
+     "acc_pct": null,
+     "candidates": 23,
+     "cost_usd_per_task": null,
+     "x_vs_fable": null,
+     "cost_blocked_on": "no measured wall-clock for gemma_4_31b"
+    }
+   }
+  }
+ ]
+}

@@ -1,0 +1,235 @@
+{
+ "fig1": {
+  "middle_panel_basis": "owned-marginal dollars per task for Intelligence Systems and self-served tiers; closed tiers at invoice (Artificial Analysis-derived per-task cost)",
+  "composed": [
+   {
+    "label": "Qwen3.8-27B → GLM-5.3 → GPT-6 Astra",
+    "marker": "*",
+    "acc": 86.3,
+    "usd": 0.0777
+   },
+   {
+    "label": "Qwen3.8-27B → GLM-5.3",
+    "marker": "D",
+    "acc": 83.3,
+    "usd": 0.0104
+   },
+   {
+    "label": "Qwen3.8-27B → GPT-6 Astra",
+    "marker": "^",
+    "acc": 87.8,
+    "usd": 0.2049
+   },
+   {
+    "label": "Qwen3.8-Flash-Next → GLM-5.3 → GPT-6 Astra",
+    "marker": "s",
+    "acc": 89.6,
+    "usd": 0.0638
+   }
+  ],
+  "singles": [
+   {
+    "label": "Fable 5.1",
+    "kind": "closed",
+    "marker": "o",
+    "acc": 91.4,
+    "usd": 4.15
+   },
+   {
+    "label": "GPT-6 Astra",
+    "kind": "closed",
+    "marker": "X",
+    "acc": 89.4,
+    "usd": 0.45
+   },
+   {
+    "label": "GPT-5.6-sol",
+    "kind": "closed",
+    "marker": "P",
+    "acc": 89.4,
+    "usd": 0.38
+   },
+   {
+    "label": "GLM-5.3",
+    "kind": "open_cloud",
+    "marker": "v",
+    "acc": 83.8,
+    "usd": 0.013
+   },
+   {
+    "label": "Qwen3.8-27B",
+    "kind": "open_local",
+    "marker": "h",
+    "acc": 75.4,
+    "usd": 0.00399
+   }
+  ],
+  "annotation": {
+   "from": "Qwen3.8-27B → GLM-5.3 → GPT-6 Astra",
+   "to": "Fable 5.1",
+   "text": "−5.1 points, 53× cheaper"
+  },
+  "right_panel_header": [
+   "Composition / Ownership",
+   "$ vs. Fable 5.1",
+   "TB v2.1 accuracy"
+  ],
+  "right_panel_rows": [
+   {
+    "label": "Qwen3.8-27B → GLM-5.3",
+    "mult": "401×",
+    "acc": "83.3%",
+    "bold": false,
+    "local_pct": 75,
+    "accel_pct": 25,
+    "provider_pct": 0
+   },
+   {
+    "label": "Qwen3.8-27B → GLM-5.3 → GPT-6 Astra",
+    "mult": "53×",
+    "acc": "86.3%",
+    "bold": true,
+    "local_pct": 75,
+    "accel_pct": 17,
+    "provider_pct": 8
+   },
+   {
+    "label": "Qwen3.8-27B → GPT-6 Astra",
+    "mult": "20×",
+    "acc": "87.8%",
+    "bold": false,
+    "local_pct": 75,
+    "accel_pct": 0,
+    "provider_pct": 25
+   },
+   {
+    "label": "GPT-5.6-sol alone",
+    "mult": "11×",
+    "acc": "89.4%",
+    "bold": false,
+    "local_pct": 0,
+    "accel_pct": 0,
+    "provider_pct": 100
+   },
+   {
+    "label": "GPT-6 Astra alone",
+    "mult": "9.2×",
+    "acc": "89.4%",
+    "bold": false,
+    "local_pct": 0,
+    "accel_pct": 0,
+    "provider_pct": 100
+   },
+   {
+    "label": "Claude Fable 5.1 alone",
+    "mult": "1×",
+    "acc": "91.4%",
+    "bold": true,
+    "local_pct": 0,
+    "accel_pct": 0,
+    "provider_pct": 100
+   }
+  ]
+ },
+ "fig2": {
+  "note": "Target-world tiers for the IPD/IPJ figure. Closed tiers at the Artificial Analysis per-task cost (derived from its token counts and list prices); self-served open-weight tiers at owned-marginal cost and wall energy; Kimi K3 and MiniMax-M3 through their providers. Per the canonical TODO: no Fable point, no oracle-routing series.",
+  "ipd": [
+   {
+    "label": "OpenAI GPT-5.6-sol",
+    "family": "OpenAI",
+    "weights": "closed",
+    "acc": 89.4,
+    "usd": 0.38,
+    "out_price": 20
+   },
+   {
+    "label": "OpenAI GPT-6 Astra",
+    "family": "OpenAI",
+    "weights": "closed",
+    "acc": 89.4,
+    "usd": 0.45,
+    "out_price": 50
+   },
+   {
+    "label": "OpenAI GPT-5.6-Luna",
+    "family": "OpenAI",
+    "weights": "closed",
+    "acc": 80.9,
+    "usd": 0.05,
+    "out_price": null
+   },
+   {
+    "label": "Anthropic Claude Opus 5",
+    "family": "Anthropic",
+    "weights": "closed",
+    "acc": 89.1,
+    "usd": 2.42,
+    "out_price": 25
+   },
+   {
+    "label": "Moonshot Kimi K3",
+    "family": "Moonshot",
+    "weights": "open",
+    "acc": 85.0,
+    "usd": 0.63,
+    "params_b": 2800
+   },
+   {
+    "label": "MiniMax-M3",
+    "family": "MiniMax",
+    "weights": "open",
+    "acc": 65.2,
+    "usd": 0.28,
+    "params_b": 428
+   },
+   {
+    "label": "Z-AI GLM-5.3",
+    "family": "Z-AI",
+    "weights": "open",
+    "acc": 83.8,
+    "usd": 0.01308,
+    "params_b": 753
+   },
+   {
+    "label": "Qwen3.8-27B",
+    "family": "Qwen",
+    "weights": "open",
+    "acc": 79.8,
+    "usd": 0.00298,
+    "params_b": 27
+   },
+   {
+    "label": "Qwen3.8-Flash-Next",
+    "family": "Qwen",
+    "weights": "open",
+    "acc": 84.9,
+    "usd": 0.00522,
+    "params_b": 180
+   }
+  ],
+  "ipj": [
+   {
+    "label": "Z-AI GLM-5.3",
+    "family": "Z-AI",
+    "acc": 83.8,
+    "kj": 541,
+    "params_b": 753
+   },
+   {
+    "label": "Qwen3.8-27B",
+    "family": "Qwen",
+    "acc": 79.8,
+    "kj": 123,
+    "params_b": 27
+   },
+   {
+    "label": "Qwen3.8-Flash-Next",
+    "family": "Qwen",
+    "acc": 84.9,
+    "kj": 216,
+    "params_b": 180
+   }
+  ],
+  "ipd_annotation": "4.5 pp accuracy lost, 86× cheaper"
+ }
+}

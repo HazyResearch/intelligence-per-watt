@@ -1,0 +1,1266 @@
+
+
+
+\newcommand{\UNDET}{\textcolor{red}{\textbf{[FILL IN]}}}
+
+\newcommand{\NTASKS}{89}
+\newcommand{\NPLANS}{1{,}599}
+\newcommand{\NDETERMINATE}{45}
+\newcommand{\NUNDETERMINED}{1{,}554}
+\newcommand{\NPLANSDI}{15}
+\newcommand{\NPLANSDII}{154}
+\newcommand{\NPLANSDIII}{1{,}430}
+\newcommand{\PLANDEPTH}{three}
+\newcommand{\NTIERSENUM}{21}   %
+\newcommand{\NTIERSSCORED}{18}   %
+\newcommand{\NTIERSCOSTED}{15}
+\newcommand{\NCONTEL}{twelve}   %
+\newcommand{\NLOCALFIRST}{four}   %
+\newcommand{\NUNCOSTED}{One}
+\newcommand{\NHARNESSES}{4}
+\newcommand{\NORCH}{4}
+\newcommand{\NORCHEVAL}{three}
+\newcommand{\NMACHINES}{8}
+\newcommand{\NBENCH}{4}
+\newcommand{\ESCPREMDS}{1.81}   %
+\newcommand{\ESCPREMTERRA}{2.71}   %
+
+\newcommand{\NFACETSOWN}{nine}
+\newcommand{\NFACETSRENT}{four}
+\newcommand{\NFACETSOWNALT}{eleven}
+\newcommand{\NFACETSRENTALT}{six}
+\newcommand{\NFACETSOWNCAP}{eight}
+\newcommand{\NFACETSRENTCAP}{three}
+\newcommand{\NFIXEDOWN}{three}
+\newcommand{\NFIXEDRENT}{one}
+\newcommand{\NLOCALFACETSOWN}{thirteen}   %
+\newcommand{\RSPANOWN}{494}                   %
+\newcommand{\RSPANRENT}{47.0}                 %
+\newcommand{\MULTSPANHI}{1{,}679}             %
+\newcommand{\MULTDEAR}{3.40}                  %
+\newcommand{\KMAXOWN}{0.843}                  %
+\newcommand{\KMAXOWNCLEARED}{75}
+\newcommand{\KMAXOWNCAP}{0.798}               %
+\newcommand{\KMAXCLEAREDCAP}{71}
+\newcommand{\KAPPALOW}{0.60}
+\newcommand{\KAPPAHIGH}{0.75}
+\newcommand{\PLANLOWOWN}{Qwen3.6-27B $\rightarrow$ DeepSeek-V4-Flash}
+\newcommand{\RSTARLOWOWN}{1.218}              %
+\newcommand{\PLANLOWRENT}{DeepSeek-V4-Flash}
+\newcommand{\RSTARLOWRENT}{1.869}             %
+\newcommand{\PLANHIGHOWN}{DeepSeek-V4-Flash $\rightarrow$ Gemini~3.7~Flash}
+\newcommand{\RSTARHIGH}{13.52}                %
+\newcommand{\RFIXEDHIGH}{80.10}               %
+\newcommand{\CLEAREDFIXEDHIGH}{68}
+\newcommand{\FIXEDOVERPAY}{5.92}              %
+\newcommand{\KAPPAMAXFIXED}{0.798}            %
+\newcommand{\ANCHORTASKS}{76}                 %
+\newcommand{\WILSONBEST}{0.769}               %
+
+\newcommand{\KDEPTH}{five}                    %
+\newcommand{\NRERUN}{eleven}
+\newcommand{\NFELL}{ten}
+\newcommand{\OPTIMISMPT}{7.04}                %
+\newcommand{\OPTWORST}{18.7}                  %
+\newcommand{\OPTWORSTTIER}{GLM-5.2}
+\newcommand{\OPTBEST}{5.3}                    %
+\newcommand{\OPTBESTTIER}{GPT-5.6-Luna}
+\newcommand{\OPTBESTZ}{9.5}                   %
+\newcommand{\NBEYONDSD}{five}
+\newcommand{\NBEYONDSDDOWN}{four}
+\newcommand{\OPTZLO}{5.2}                     %
+\newcommand{\OPTZHI}{9.9}                     %
+\newcommand{\ROLLSHARE}{1.3}                  %
+\newcommand{\ROLLSHARELO}{0.2}                %
+\newcommand{\ROLLSHAREHI}{5.1}                %
+\newcommand{\PSAMEROLLLO}{0.61}               %
+\newcommand{\PSAMEROLLHI}{1.00}               %
+\newcommand{\PSAMETASKLO}{0.00}               %
+\newcommand{\PSAMETASKHI}{0.24}               %
+\newcommand{\DELTACERT}{0.05}
+\newcommand{\KAPPACERT}{0.70}
+\newcommand{\FLIPPLAN}{GLM-5.2 $\rightarrow$ GPT-5.6-sol}
+\newcommand{\FLIPESC}{13}
+\newcommand{\FLIPTOT}{35}
+\newcommand{\FLIPPCT}{37.1}
+\newcommand{\ROLLLO}{82.0}
+\newcommand{\ROLLHI}{86.5}
+
+\newcommand{\KFULLJOULE}{0.571}               %
+\newcommand{\PLANFULLJ}{MiniMax-M3}
+\newcommand{\NMETERED}{five}   %
+\newcommand{\NMETEREDRENT}{three}
+\newcommand{\NMETEREDDEPTH}{one}
+\newcommand{\JSPANMEASURED}{5.5}              %
+
+\newcommand{\NCOSTEDOWN}{1{,}286}
+\newcommand{\NCOSTEDRENT}{1{,}182}
+\newcommand{\RATIOWINOWN}{Qwen3.6-27B}
+\newcommand{\RATIOWINOWNCLEARED}{49}
+\newcommand{\RATIOWINOWNFAILED}{40}
+\newcommand{\IPDWINOWN}{275.1}                %
+\newcommand{\RATIOWINRENT}{DeepSeek-V4-Flash}
+\newcommand{\RATIOWINRENTCLEARED}{59}
+\newcommand{\RATIOWINRENTFAILED}{30}
+\newcommand{\IPDWINRENT}{31.57}               %
+\newcommand{\RMINOWN}{0.178}                  %
+\newcommand{\RMINOWNKAPPA}{0.551}             %
+\newcommand{\RMINRENT}{1.869}                 %
+\newcommand{\RMINRENTKAPPA}{0.663}            %
+\newcommand{\COMPPLAN}{DeepSeek-V4-Flash $\rightarrow$ Gemini~3.7~Flash}
+\newcommand{\COMPCLEARED}{69}
+\newcommand{\IPDCOMP}{5.10}                   %
+\newcommand{\IPDRATIOOWN}{53.9}               %
+\newcommand{\IPDRATIORENT}{6.19}              %
+\newcommand{\PUBPLAN}{GLM-5.2 $\rightarrow$ GPT-5.6-sol}
+\newcommand{\COSTRANKRATIO}{162}              %
+\newcommand{\COSTRANKRATIORENT}{2.1}          %
+
+\newcommand{\GATEFIRSTSTAGE}{GLM-5.2}
+\newcommand{\GATESOLVED}{58}
+\newcommand{\GATEFAILED}{31}
+\newcommand{\GATEFIRED}{35}
+\newcommand{\GATEQUIET}{54}
+\newcommand{\GATEBOTH}{27}
+\newcommand{\GATEDISCARD}{8}
+\newcommand{\GATESILENT}{4}
+\newcommand{\GATEKEPT}{50}
+\newcommand{\GATESYMDIFF}{12}
+
+\newcommand{\AccTerra}{62.6}                  %
+\newcommand{\AccFugu}{63.4}                   %
+\newcommand{\FUGUTRIALS}{292}
+\newcommand{\FUGUTOKENMULT}{3.2}              %
+\newcommand{\FUGUDOLLARMULT}{9.8}             %
+\newcommand{\SERVINGTIER}{Qwen3.6-27B}
+\newcommand{\SERVINGSWING}{23.6}              %
+\newcommand{\ServMisGLM}{23.6}
+\newcommand{\ServCorrGLM}{46.5}               %
+\newcommand{\ServSpanLo}{7.2}                 %
+\newcommand{\ServMisQwen}{0.0}
+\newcommand{\ServCorrQwen}{27.0}              %
+\newcommand{\ServSpanHi}{27.0}                %
+\newcommand{\ServMisDS}{40.4}
+\newcommand{\ServCorrDS}{47.6}               %
+\newcommand{\ServSpanDS}{7.2}                %
+
+\newcommand{\CascAccBase}{63.3\%}   %
+\newcommand{\CascUSDBase}{0.0074}   %
+\newcommand{\CascMultBase}{454$\times$}        %
+\newcommand{\CascAccDS}{67.9\%}   %
+\newcommand{\CascUSDDS}{0.0150}   %
+\newcommand{\CascMultDS}{224$\times$}   %
+\newcommand{\CascAccKimi}{68.5\%}   %
+\newcommand{\CascUSDKimi}{0.1364}   %
+\newcommand{\CascMultKimi}{25$\times$}   %
+\newcommand{\CascAccTerra}{68.7\%}   %
+\newcommand{\CascUSDTerra}{0.0610}   %
+\newcommand{\CascMultTerra}{55$\times$}   %
+\newcommand{\CascAccSol}{73.0\%}   %
+\newcommand{\CascUSDSol}{0.1369}   %
+\newcommand{\CascMultSol}{25$\times$}   %
+\newcommand{\CascAccAstra}{75.7\%}   %
+\newcommand{\CascUSDAstra}{0.1686}   %
+\newcommand{\CascMultAstra}{19.9$\times$}   %
+\newcommand{\CascESCFIRE}{19.5\%}   %
+\newcommand{\CascCTX}{131{,}072 tokens}   %
+\newcommand{\CascSpanPP}{7.8}   %
+\newcommand{\CascMultLo}{19.9$\times$}   %
+\newcommand{\CascMultHi}{224$\times$}   %
+\newcommand{\TOKENCORRROWS}{%
+DeepSeek-V4-Flash & 66.3\% & 89 & 45{,}036 & $-0.482$ \\
+GLM-5.3 & 65.5\% & 87 & 32{,}159 & $-0.434$ \\
+Gemma-4-31B & 28.9\% & 83 & 7{,}681 & $-0.390$ \\
+Qwen3.6-27B & 55.7\% & 88 & 19{,}945 & $-0.324$ \\
+GPT-5.6-Luna & 47.0\% & 83 & 12{,}722 & $-0.313$ \\
+GPT-5.6-sol & 78.7\% & 89 & 5{,}971 & $-0.304$ \\
+Gemini~3.1~Pro & 66.7\% & 87 & 32{,}585 & $-0.294$ \\
+Sakana Fugu Ultra & 75.3\% & 89 & 28{,}487 & $-0.287$ \\
+GPT-5.6-Terra & 76.7\% & 86 & 8{,}958 & $-0.265$ \\
+Kimi~K3 & 76.4\% & 89 & 12{,}188 & $-0.265$ \\
+MiniMax-M3 & 60.2\% & 88 & 30{,}220 & $-0.212$ \\
+Opus~5 & 79.1\% & 86 & 23{,}578 & $-0.197$ \\
+Opus~4.8 & 74.7\% & 87 & 11{,}823 & $-0.190$ \\
+GPT-5.5 & 75.3\% & 85 & 9{,}955 & $-0.104$ \\
+Gemini~3.7~Flash & 79.8\% & 89 & 20{,}458 & $-0.100$ \\}
+
+
+\newcommand{\UNMEAS}{not measured}   %
+
+\newcommand{\SWETASKS}{185}          %
+\newcommand{\SWEPOOL}{200}           %
+\newcommand{\SWELOCAL}{50.3}         %
+\newcommand{\SWELOCALUSD}{0.0385}    %
+\newcommand{\SWEFRONT}{79.5}         %
+\newcommand{\SWEFRONTUSD}{0.95}      %
+\newcommand{\SWEUSDMULT}{24.7}       %
+\newcommand{\SWECEIL}{81.6}          %
+\newcommand{\SWEGAP}{29.2}           %
+\newcommand{\SWECEILGAP}{2.1}        %
+\newcommand{\SWEGATEAUC}{0.845}      %
+\newcommand{\GAIATASKS}{165}         %
+\newcommand{\GAIALOCAL}{66.1}        %
+\newcommand{\GAIALOCALN}{109}        %
+\newcommand{\GAIALOCALKJ}{22.45}     %
+\newcommand{\GAIALOCALKJNET}{17.35}  %
+\newcommand{\GAIAGLM}{73.3}          %
+\newcommand{\GAIAGLMN}{121}          %
+\newcommand{\GAIAFRONT}{74.6}        %
+\newcommand{\GAIAFRONTN}{123}        %
+\newcommand{\GAIACEIL}{85.5}         %
+\newcommand{\GAIACEILN}{141}         %
+\newcommand{\GAIAGAP}{8.5}           %
+\newcommand{\GAIACEILGAP}{10.9}      %
+\newcommand{\TBFOURBOARD}{66}        %
+\newcommand{\TBFOURTASKS}{63}        %
+\newcommand{\TBFOUREXCL}{three}      %
+\newcommand{\TBFOURLOCAL}{0.0}       %
+\newcommand{\TBFOURLOCALN}{none}     %
+\newcommand{\TBFOURWRONG}{24}        %
+\newcommand{\TBFOURTIMEOUT}{26}      %
+\newcommand{\TBFOUREXTN}{21}         %
+\newcommand{\TBFOURKIMI}{7.4}        %
+\newcommand{\TBFOURKIMIN}{27}        %
+\newcommand{\TBFOURKIMISOLVED}{2}    %
+\newcommand{\TBLOCALPCT}{55.1}       %
+\newcommand{\TBCOMPPCT}{84.3}        %
+\newcommand{\TBROWLOCAL}{63.3}     %
+\newcommand{\TBROWBEST}{78.6}   %
+\newcommand{\TBBESTFIXEDPCT}{79.8}   %
+\newcommand{\NCOMPFACETSOWN}{six}    %
+\newcommand{\ENGGAPPCT}{5.6}         %
+
+\newcommand{\GATEAUCTB}{0.884}                %
+\newcommand{\GATEAUCSWE}{0.845}               %
+\newcommand{\GATEAUCPROMPTLO}{0.42}           %
+\newcommand{\GATEAUCPROMPTHI}{0.55}           %
+\newcommand{\GATEAUCPRIORHI}{0.60}           %
+
+\newcommand{\LFTASKS}{89}   %
+\newcommand{\LFPLAN}{Qwen3.8-27B $\rightarrow$ DeepSeek-V4-Flash $\rightarrow$ GPT-6 Astra}   %
+\newcommand{\LFCLEARED}{67.4}   %
+\newcommand{\LFUSD}{0.1145}   %
+\newcommand{\LFACC}{76.6\%}   %
+\newcommand{\LFMULT}{29$\times$}   %
+\newcommand{\LFACCGAP}{-3.1}   %
+\newcommand{\LOCALJOULEMULT}{1.5$\times$}   %
+\newcommand{\ANCHORACC}{84.6\%}
+\newcommand{\ANCHORUSD}{3.36}
+\newcommand{\OWNMULTLO}{77}   %
+\newcommand{\OWNMULTHI}{122}   %
+\newcommand{\GPUHOURRATE}{4.29}
+\newcommand{\KJTASKSLOW}{74.5}            %
+\newcommand{\KJTASKFAST}{82.7}            %
+\newcommand{\KJCLEAREDSLOW}{265.1}        %
+\newcommand{\KJCLEAREDFAST}{150.2}        %
+\newcommand{\KJINVERT}{1.8$\times$}
+\newcommand{\LOCALFAILS}{162}   %
+\newcommand{\ESCFIRES}{86}   %
+\newcommand{\SYMDIFF}{90}   %
+\newcommand{\DISCARDEDSOLVES}{7}   %
+\newcommand{\COVERBOTH}{75}
+\newcommand{\COVERUNION}{86.2\%}   %
+\newcommand{\ESCATTEMPTS}{442}   %
+\newcommand{\COVERONLYPLAN}{7.6\%}   %
+\newcommand{\COVERONLYASTRA}{9.4\%}   %
+\newcommand{\HOPICK}{41\%}   %
+\newcommand{\HOIN}{77.9\%}   %
+\newcommand{\HOOUT}{72.8\%}   %
+\newcommand{\HOGAP}{5.1}   %
+\newcommand{\HOHEAD}{76.5\%}   %
+\newcommand{\HOLO}{70.5\%}   %
+\newcommand{\HOHI}{82.7\%}   %
+\newcommand{\COVERUNIQUE}{8}
+\newcommand{\GLMSTEPPP}{8.57}
+\newcommand{\GLMSTEPP}{0.0066}
+\newcommand{\GLMSTEPCI}{[+5.78, +11.36]}
+\newcommand{\DESKPLAN}{Qwen3.6-27B (Q4\_K\_M) on a 48\,GB MacBook Pro M4~Pro}
+\newcommand{\DESKN}{83}   %
+\newcommand{\DESKKJ}{17.3}   %
+\newcommand{\DESKKJSOLVED}{44.8}   %
+\newcommand{\MacWatts}{12.7}   %
+\newcommand{\GPUKJ}{77.3}   %
+\newcommand{\GPUKJSOLVED}{139.5}   %
+\newcommand{\GPUWatts}{87.2}              %
+\newcommand{\MacVsGPU}{4.5$\times$}   %
+\newcommand{\MacVsGPUSolved}{3.1$\times$}   %
+\newcommand{\MacMThreeU}{11.1}            %
+\newcommand{\MacMFourMax}{6.4}            %
+\newcommand{\MacMFiveMax}{5.2}            %
+\newcommand{\DESKACC}{38.6\%}   %
+\newcommand{\NBENCHSEL}{\UNDET}           %
+\newcommand{\GAIALFACC}{66.7\%}           %
+\newcommand{\GAIAESCFIRE}{6.1\%}          %
+\newcommand{\GAIALOCALSOLO}{66.1\%}       %
+\newcommand{\SWELFACC}{\UNDET}
+
+\newcommand{\SPARKMEM}{121}
+\newcommand{\NSLATERMS}{seven}
+\newcommand{\NSLAMEASURED}{four}
+
+\newcommand{\ESCLIFTLO}{3.9}   %
+\newcommand{\ESCLIFTHI}{10.0}   %
+\newcommand{\CONFGATEDROP}{19}               %
+
+\newcommand{\BESTCLOUDACC}{80.5\%}            %
+\newcommand{\BESTCLOUDUSD}{0.260}
+\newcommand{\LFCLOUDGAP}{2.5}   %
+\newcommand{\LFCLOUDMULT}{3.9$\times$}   %
+\newcommand{\LFUSDMEAN}{0.0678}   %
+\newcommand{\LFMULTMEAN}{50$\times$}   %
+\newcommand{\ASTRAMEANUSD}{0.4516}   %
+\newcommand{\ASTRAPREMHEAD}{2.23}   %
+\newcommand{\ASTRAPREMASTRA}{2.00}  %
+\newcommand{\ASTRAPREMRETRY}{2.49}  %
+\newcommand{\RETRYUSD}{0.1260}   %
+\newcommand{\LFUSDRENT}{1.01}   %
+\newcommand{\LFMULTRENT}{3.3$\times$}   %
+\newcommand{\KAPPAMID}{0.70}        %
+\newcommand{\RETRYACC}{74.8\%}   %
+\newcommand{\RETRYMULT}{27$\times$}   %
+\newcommand{\CascAccHead}{76.6\%}
+\newcommand{\CascUSDHead}{0.1145}   %
+\newcommand{\CascMultHead}{29$\times$}   %
+\newcommand{\KAPPAOWNMAX}{0.782}   %
+\newcommand{\NFACETSOWNNEW}{sixteen}   %
+\newcommand{\NFACETSRENTNEW}{seven}   %
+\newcommand{\HOCLEAR}{72\%}   %
+\newcommand{\HONPLANS}{435}         %
+\newcommand{\GPUACCMATCH}{55.4}   %
+\newcommand{\LFASTRAGAP}{2.0}   %
+\newcommand{\LFFABLEGAP}{8.0}   %
+\newcommand{\GATEAUCTO}{0.73}   %
+\newcommand{\ESCPREMLO}{1.9}       %
+\newcommand{\ESCPREMHI}{2.1}       %
+\newcommand{\SIGRECALL}{half}      %
+\newcommand{\SIGDISCARD}{7}        %
+
+\newcommand{\CompAccGap}{3.9}       %
+\newcommand{\CompMult}{23$\times$}  %
+\newcommand{\PanelCAcc}{74.2\%}
+\newcommand{\PanelCUSD}{0.1399}
+\newcommand{\PanelCOwn}{87\%}
+\newcommand{\PanelCMult}{32$\times$}
+\newcommand{\PanelCGap}{6.2}
+
+\newcommand{\MULTAMORT}{3.3$\times$}   %
+\newcommand{\GLMOVERQWEN}{7.0}         %
+\newcommand{\ESCPREMMIN}{1.78}   %
+\newcommand{\ASTRAESCPREM}{1.96}   %
+\newcommand{\ASTRADELTAX}{2.2$\times$}   %
+\newcommand{\LFMULTDELTA}{14$\times$}   %
+\newcommand{\CascAccGLMAstra}{78.1\%}   %
+\newcommand{\CascUSDGLMAstra}{0.1300}   %
+\newcommand{\CascMultGLMAstra}{26$\times$}   %
+\newcommand{\CascAccGLMSol}{77.1\%}   %
+\newcommand{\CascUSDGLMSol}{0.1085}   %
+\newcommand{\CascMultGLMSol}{31$\times$}   %
+\newcommand{\GLMALONEACC}{70.7\%}   %
+\newcommand{\GLMALONEMULT}{384$\times$}   %
+\newcommand{\GLMMIDACC}{74.6\%}   %
+\newcommand{\GLMMIDMULT}{35$\times$}   %
+\newcommand{\GLMKJATTEMPT}{362}   %
+\newcommand{\GLMEKJ}{497}   %
+\newcommand{\GLMKJSOLVEDGRADED}{511}   %
+\newcommand{\NLMTOLD}{two}   %
+\newcommand{\NLMTNEW}{four}   %
+\newcommand{\KAPPAOWNMAXQEIGHT}{0.766}   %
+\newcommand{\KAPPALOWMID}{0.65}   %
+\newcommand{\KAPPATOP}{0.80}   %
+\newcommand{\JUDGEACC}{77.1\%}   %
+\newcommand{\JUDGEMULT}{27$\times$}   %
+\newcommand{\JUDGEGAIN}{0.4}   %
+\newcommand{\JUDGEAUCALL}{0.80}   %
+\newcommand{\JUDGEAUCCOMP}{0.62}   %
+\newcommand{\QKJSOLVED}{483}   %
+\newcommand{\GLMKJSOLVED}{737}   %
+\newcommand{\WALLVSTOKEN}{4}   %
+\newcommand{\NTIERSENUMWORD}{twenty-one}   %
+\newcommand{\EINFLIGHT}{14.2}   %
+\newcommand{\EONEUSD}{12.85}   %
+\newcommand{\HEADONEUSD}{12.96}   %
+\newcommand{\GLMINFLIGHT}{10.6}   %
+\newcommand{\ACCSPANPP}{50.5}   %
+
+
+
+\newcommand{\ABSLAPTOP}{A 48\,GB laptop runs its local stage at \MachMFourProVsOne\ fewer joules per solved task than a datacenter accelerator serving a single agent, but at \MacVsGPUSolved\ more than one serving sixteen agents.}
+\renewcommand{\ACCSPANPP}{61.3}
+\renewcommand{\ANCHORACC}{91.4\%}
+\renewcommand{\ANCHORUSD}{4.15}
+\newcommand{\ASTRADEPTH}{1.09}
+\renewcommand{\ASTRAESCPREM}{1.79}
+\newcommand{\ASTRAESCPREMHEAD}{1.96}
+\renewcommand{\ASTRAMEANUSD}{0.450}
+\newcommand{\AmortYears}{three}
+\renewcommand{\COVERONLYASTRA}{7.0\%}
+\renewcommand{\COVERONLYPLAN}{3.9\%}
+\renewcommand{\CascAccAstra}{87.8\%}
+\renewcommand{\CascAccBase}{75.4\%}
+\newcommand{\CascAccDesk}{86.3\%}
+\newcommand{\CascAccFlash}{89.6\%}
+\renewcommand{\CascAccGLMAstra}{89.1\%}
+\renewcommand{\CascAccGLMSol}{88.8\%}
+\renewcommand{\CascAccHead}{86.3\%}
+\newcommand{\CascAccOpen}{83.3\%}
+\newcommand{\CascAccPMAstra}{5.7}
+\newcommand{\CascAccPMAstraT}{5.9}
+\newcommand{\CascAccPMBase}{7.6}
+\newcommand{\CascAccPMDesk}{5.9}
+\newcommand{\CascAccPMFlash}{5.3}
+\newcommand{\CascAccPMGLMAstra}{5.6}
+\newcommand{\CascAccPMGLMSol}{5.6}
+\newcommand{\CascAccPMHead}{5.9}
+\newcommand{\CascAccPMOpen}{6.4}
+\newcommand{\CascAccPMRetry}{6.2}
+\newcommand{\CascAccPMSol}{5.9}
+\newcommand{\CascAccPMSolThree}{5.9}
+\newcommand{\CascAccRetry}{84.1\%}
+\renewcommand{\CascAccSol}{85.8\%}
+\newcommand{\CascAccSolThree}{86.2\%}
+\newcommand{\CascClosedAstra}{24.9\%}
+\newcommand{\CascClosedDesk}{8.1\%}
+\newcommand{\CascClosedFlash}{6.1\%}
+\newcommand{\CascClosedGLMAstra}{15.5\%}
+\newcommand{\CascClosedGLMSol}{15.5\%}
+\newcommand{\CascClosedHead}{7.6\%}
+\newcommand{\CascClosedOpen}{0.0\%}
+\newcommand{\CascClosedRetry}{4.7\%}
+\newcommand{\CascClosedSol}{24.9\%}
+\newcommand{\CascClosedSolThree}{7.6\%}
+\renewcommand{\CascESCFIRE}{24.9\%}
+\renewcommand{\CascMultAstra}{20$\times$}
+\renewcommand{\CascMultBase}{1{,}041$\times$}
+\newcommand{\CascMultDesk}{50$\times$}
+\newcommand{\CascMultFlash}{65$\times$}
+\renewcommand{\CascMultGLMAstra}{30$\times$}
+\renewcommand{\CascMultGLMSol}{34$\times$}
+\renewcommand{\CascMultHead}{53$\times$}
+\renewcommand{\CascMultHi}{401$\times$}
+\renewcommand{\CascMultLo}{20$\times$}
+\newcommand{\CascMultOpen}{401$\times$}
+\newcommand{\CascMultRetry}{83$\times$}
+\renewcommand{\CascMultSol}{22$\times$}
+\newcommand{\CascMultSolThree}{60$\times$}
+\newcommand{\CascRentAstra}{0.556}
+\newcommand{\CascRentBase}{0.336}
+\newcommand{\CascRentDesk}{1.02}
+\newcommand{\CascRentFlash}{0.755}
+\newcommand{\CascRentGLMAstra}{1.13}
+\newcommand{\CascRentGLMSol}{1.11}
+\newcommand{\CascRentHead}{0.887}
+\newcommand{\CascRentMultAstra}{7.5$\times$}
+\newcommand{\CascRentMultBase}{12$\times$}
+\newcommand{\CascRentMultDesk}{4.1$\times$}
+\newcommand{\CascRentMultFlash}{5.5$\times$}
+\newcommand{\CascRentMultGLMAstra}{3.7$\times$}
+\newcommand{\CascRentMultGLMSol}{3.7$\times$}
+\newcommand{\CascRentMultHead}{4.7$\times$}
+\newcommand{\CascRentMultOpen}{5.1$\times$}
+\newcommand{\CascRentMultRetry}{5.4$\times$}
+\newcommand{\CascRentMultSol}{7.7$\times$}
+\newcommand{\CascRentMultSolThree}{4.7$\times$}
+\newcommand{\CascRentOpen}{0.815}
+\newcommand{\CascRentRetry}{0.768}
+\newcommand{\CascRentSol}{0.538}
+\newcommand{\CascRentSolThree}{0.878}
+\renewcommand{\CascSpanPP}{4.5}
+\renewcommand{\CascUSDAstra}{0.205}
+\renewcommand{\CascUSDBase}{0.0040}
+\newcommand{\CascUSDDesk}{0.083}
+\newcommand{\CascUSDFlash}{0.064}
+\renewcommand{\CascUSDGLMAstra}{0.138}
+\renewcommand{\CascUSDGLMSol}{0.124}
+\renewcommand{\CascUSDHead}{0.078}
+\newcommand{\CascUSDOpen}{0.010}
+\newcommand{\CascUSDRetry}{0.050}
+\renewcommand{\CascUSDSol}{0.187}
+\newcommand{\CascUSDSolThree}{0.069}
+\renewcommand{\CompAccGap}{5.1}
+\renewcommand{\CompMult}{53$\times$}
+\renewcommand{\DESKACC}{66.4\%}
+\newcommand{\DESKALLPHRASE}{Every desk machine, the laptop included,}
+\newcommand{\DESKCUT}{33\%}
+\newcommand{\DESKGPUGAP}{11.1}
+\newcommand{\DESKGPUSENT}{the batched H200 draws fewer joules per task it solves than that desk-class machine: \GPUKJSOLVED\ against \DESKKJSOLVED\,kJ at the wall, \MacVsGPUSolved\ fewer (paired 95\% interval \MacVsGPUSolvedCI), because the 48\,GB laptop's slower attempts lose solves to the time budget; per attempted task the laptop draws \DESKKJ\,kJ and the batched H200 \GPUKJ\,kJ.}
+\renewcommand{\DESKKJ}{127}
+\renewcommand{\DESKKJSOLVED}{191}
+\renewcommand{\DESKPLAN}{Qwen3.8-27B (Q4\_K\_M) on a 48\,GB MacBook Pro M4~Pro}
+\renewcommand{\DISCARDEDSOLVES}{32}
+\renewcommand{\EINFLIGHT}{14.2}
+\renewcommand{\EONEUSD}{1.29}
+\renewcommand{\ESCATTEMPTS}{445}
+\newcommand{\ESCCAUGHT}{79}
+\renewcommand{\ESCFIRES}{111}
+\renewcommand{\ESCLIFTHI}{8.9}
+\renewcommand{\ESCLIFTLO}{6.7}
+\renewcommand{\ESCPREMHI}{2.1}
+\renewcommand{\ESCPREMLO}{1.7}
+\newcommand{\FACETABOVEPHRASE}{no plan we cost reaches further}
+\newcommand{\FACETNARROWN}{Qwen3.8-27B alone on a 48\,GB MacBook Pro M4~Pro at the lowest capabilities, then Qwen3.8-27B alone on a MacBook Pro M5~Max, then Qwen3.8-Flash-Next alone on two owned H200s, then Qwen3.8-27B retried once through GLM-5.3 to GPT-6~Astra, then Qwen3.8-Flash-Next through GLM-5.3 to GPT-6~Astra}
+\newcommand{\FACETTOPOWNACC}{89.6}
+\renewcommand{\GAIAESCFIRE}{6.1\%}
+\renewcommand{\GAIAFRONT}{84.0}
+\renewcommand{\GAIALFACC}{74.9\%}
+\renewcommand{\GAIALOCAL}{66.0}
+\renewcommand{\GAIALOCALSOLO}{66.0\%}
+\renewcommand{\GATEAUCSWE}{0.845}
+\renewcommand{\GATEAUCTB}{0.88}
+\renewcommand{\GATEAUCTO}{0.90}
+\newcommand{\GLMCAMPAIGNS}{45{,}822}
+\newcommand{\GLMESCPREM}{1.88}
+\renewcommand{\GLMINFLIGHT}{10.6}
+\renewcommand{\GLMKJSOLVED}{645}
+\newcommand{\GLMRATIO}{75}
+\renewcommand{\GLMSTEPCI}{[+3.61, +8.25]}
+\renewcommand{\GLMSTEPP}{0.0012}
+\renewcommand{\GLMSTEPPP}{5.93}
+\renewcommand{\GPUACCMATCH}{77.5}
+\renewcommand{\GPUKJ}{123}
+\renewcommand{\GPUKJSOLVED}{159}
+\newcommand{\HEADONEMULT}{2.3$\times$}
+\renewcommand{\HEADONEUSD}{1.84}
+\newcommand{\HEADRATIO}{11.4}
+\renewcommand{\HOCLEAR}{100\%}
+\renewcommand{\HOGAP}{1.4}
+\renewcommand{\HOHEAD}{86.3\%}
+\renewcommand{\HOHI}{91.3\%}
+\renewcommand{\HOIN}{87.0\%}
+\renewcommand{\HOLO}{81.3\%}
+\renewcommand{\HOOUT}{85.6\%}
+\renewcommand{\HOPICK}{93\%}
+\newcommand{\IMPLTOPCLAUSE}{on the owned basis the \KAPPAHIGH\ target is reached by a composed one rather than a single configuration}
+\renewcommand{\JSPANMEASURED}{6.5}
+\renewcommand{\JUDGEACC}{82.5\%}
+\renewcommand{\JUDGEAUCALL}{0.89}
+\renewcommand{\JUDGEAUCCOMP}{0.88}
+\renewcommand{\JUDGEGAIN}{3.8}
+\renewcommand{\JUDGEMULT}{91$\times$}
+\newcommand{\KAPPADESKSOLO}{0.65}
+\newcommand{\KAPPAFLASHSOLO}{0.80}
+\renewcommand{\KAPPAHIGH}{0.85}
+\newcommand{\KAPPALOCALTOP}{0.75}
+\renewcommand{\KAPPALOW}{0.60}
+\renewcommand{\KAPPALOWMID}{0.65}
+\renewcommand{\KAPPAMID}{0.70}
+\newcommand{\KAPPANOTLOCAL}{0.80, 0.85}
+\newcommand{\KAPPANOTLOCALFIRST}{0.80}
+\renewcommand{\KAPPAOWNMAX}{0.841}
+\renewcommand{\KAPPAOWNMAXQEIGHT}{0.863}
+\newcommand{\KAPPARENTFLASHSOLO}{0.80}
+\newcommand{\KAPPARENTSOLO}{0.65}
+\renewcommand{\KAPPATOP}{0.90}
+\newcommand{\LADDERNARRENT}{Qwen3.8-27B alone on a 48\,GB MacBook Pro M4~Pro is cheapest from 0.60 to 0.65, Qwen3.8-Flash-Next alone on two H200s from 0.70 to 0.80, and GPT-5.6-sol served alone at 0.85}
+\newcommand{\LADDERNARROWN}{Qwen3.8-27B alone on a 48\,GB MacBook Pro M4~Pro is cheapest from 0.60 to 0.65, Qwen3.8-27B alone on a MacBook Pro M5~Max from 0.70 to 0.75, Qwen3.8-Flash-Next alone on two owned H200s at 0.80, and Qwen3.8-Flash-Next through GLM-5.3 to GPT-6~Astra at 0.85}
+\newcommand{\LADDERNOTLOCALOWN}{at 0.80 Qwen3.8-Flash-Next alone on two owned H200s is cheaper, and at 0.85 Qwen3.8-Flash-Next through GLM-5.3 to GPT-6~Astra}
+\newcommand{\LADDEROWNA}{Qwen3.8-27B alone (M4 Pro)}
+\newcommand{\LADDEROWNB}{Qwen3.8-27B alone (M4 Pro)}
+\newcommand{\LADDEROWNC}{Qwen3.8-27B alone}
+\newcommand{\LADDEROWND}{Qwen3.8-27B alone}
+\newcommand{\LADDEROWNE}{Qwen3.8-Flash-Next alone}
+\newcommand{\LADDEROWNF}{Qwen3.8-Flash-Next $\rightarrow$ GLM-5.3 $\rightarrow$ GPT-6 Astra}
+\newcommand{\LADDERRENTA}{Qwen3.8-27B alone (M4 Pro)}
+\newcommand{\LADDERRENTB}{Qwen3.8-27B alone (M4 Pro)}
+\newcommand{\LADDERRENTC}{Qwen3.8-Flash-Next alone}
+\newcommand{\LADDERRENTD}{Qwen3.8-Flash-Next alone}
+\newcommand{\LADDERRENTE}{Qwen3.8-Flash-Next alone}
+\newcommand{\LADDERRENTF}{GPT-5.6-sol alone}
+\renewcommand{\LFACC}{86.3\%}
+\newcommand{\LFACCCI}{[80.4, 92.2]}
+\renewcommand{\LFASTRAGAP}{3.1}
+\newcommand{\LFASTRAGAPCI}{[$-$1.8, 8.1]}
+\newcommand{\LFASTRAGAPRESOLVED}{, so the gap is not resolved at 95\%}
+\newcommand{\LFASTRARENTCMP}{2.0$\times$ the cost of GPT-6~Astra served alone, because the laptop's amortized list price adds \$\CascRentBase\ to every task and GLM-5.3 pays for its share of eight H200s at the \GLMINFLIGHT\ tasks its campaign kept in flight, \$\TBGLMRent\ per attempt before the escalation premium; on this basis GPT-5.6-sol, GPT-6~Astra, and GPT-5.6-Terra served alone are each both more accurate and cheaper than the plan (GPT-5.6-Terra at its leaderboard \TBTerraAAAcc\% and \$\TBTerraAAUSD, Figure~\ref{fig:ipd-ipj}), and Qwen3.8-27B escalating straight to GPT-6~Astra is the cheapest composition that reaches the headline's accuracy (\S\ref{sec:middleware})}
+\newcommand{\LFASTRARENTMULT}{0.5$\times$}
+\newcommand{\LFCLOSEDSHARE}{7.6\%}
+\renewcommand{\LFCLOUDGAP}{3.1}
+\renewcommand{\LFCLOUDMULT}{5.8$\times$}
+\newcommand{\LFFABLEFIVEGAP}{1.7}
+\renewcommand{\LFFABLEGAP}{5.1}
+\newcommand{\LFGLMFIRSTCOSTX}{1.8$\times$}
+\newcommand{\LFLOCALSHARE}{75.1\%}
+\renewcommand{\LFMULT}{53$\times$}
+\newcommand{\LFMULTAMORT}{5.7$\times$}
+\newcommand{\LFMULTCI}{[33$\times$, 104$\times$]}
+\renewcommand{\LFMULTRENT}{4.7$\times$}
+\newcommand{\LFNOCLOSED}{92.4\%}
+\renewcommand{\LFPLAN}{Qwen3.8-27B $\rightarrow$ GLM-5.3 $\rightarrow$ GPT-6 Astra}
+\newcommand{\LFSOLMULT}{4.9$\times$}
+\renewcommand{\LFUSD}{0.078}
+\newcommand{\LFUSDAMORT}{0.724}
+\renewcommand{\LFUSDRENT}{0.887}
+\renewcommand{\LOCALFAILS}{109}
+\renewcommand{\LOCALJOULEMULT}{3.0$\times$}
+\newcommand{\MACTABTITLE}{On the same tasks, a datacenter accelerator serving sixteen agents completes a solved task for \MacVsGPUSolved\ fewer joules than the 48\,GB laptop, and one serving a single agent for \MachMFourProVsOne\ more.}
+\newcommand{\MCAccHi}{80.0}
+\newcommand{\MCAccLo}{65.4}
+\newcommand{\MCDeskKJRange}{118 to 147}
+\newcommand{\MCGPUKJRange}{102 to 141}
+\newcommand{\MCHeadAccHi}{87.2}
+\newcommand{\MCHeadAccLo}{85.2}
+\newcommand{\MCHeadMultHi}{56$\times$}
+\newcommand{\MCHeadMultLo}{49$\times$}
+\newcommand{\MCHeadRentMultHi}{5.3$\times$}
+\newcommand{\MCHeadRentMultLo}{4.5$\times$}
+\newcommand{\MCLadderOwn}{four in 40\%, three in 32\%, two in 21\%, five in 6\%, one in under 1\%, and zero in under 1\%}
+\newcommand{\MCLadderRent}{two in 82\%, four in 10\%, three in 6\%, and one in 3\%}
+\newcommand{\MCMacAhead}{4\%}
+\newcommand{\MCMacVsGPUHi}{0.97}
+\newcommand{\MCMacVsGPULo}{0.64}
+\newcommand{\MCNDRAWS}{400}
+\newcommand{\MCOtherDeskAbove}{100\%}
+\newcommand{\MCOtherDeskAbovePhrase}{in every draw}
+\renewcommand{\MULTAMORT}{4.7$\times$}
+\renewcommand{\MacVsGPU}{1.0$\times$}
+\renewcommand{\MacVsGPUSolved}{1.2$\times$}
+\newcommand{\MacVsGPUSolvedCI}{[1.04, 1.41]}
+\renewcommand{\MacWatts}{29}
+\renewcommand{\NFACETSOWNNEW}{five}
+\renewcommand{\NFACETSRENTNEW}{four}
+\newcommand{\NLMTALL}{six}
+\renewcommand{\NLMTNEW}{four}
+\renewcommand{\NLMTOLD}{three}
+\newcommand{\NLMTOTHER}{two}
+\newcommand{\NLMTRENT}{two}
+\newcommand{\NLMTRENTOF}{two}
+\renewcommand{\NLOCALFACETSOWN}{five}
+\newcommand{\NLOCALFACETSRENT}{three}
+\renewcommand{\NLOCALFIRST}{five}
+\renewcommand{\NMETERED}{six}
+\renewcommand{\NTIERSENUM}{21}
+\renewcommand{\NTIERSENUMWORD}{twenty-one}
+\renewcommand{\NTIERSSCORED}{18}
+\newcommand{\OWNFACETSHAVE}{all of which have}
+\renewcommand{\OWNMULTHI}{115}
+\renewcommand{\OWNMULTLO}{53}
+\newcommand{\PROVKJMAX}{540.8}
+\newcommand{\PROVKJMIN}{82.7}
+\renewcommand{\PanelCAcc}{86.3\%}
+\renewcommand{\PanelCGap}{5.1}
+\renewcommand{\PanelCMult}{53$\times$}
+\newcommand{\PanelCNoClosed}{92.4\%}
+\renewcommand{\PanelCOwn}{94\%}
+\renewcommand{\PanelCUSD}{0.078}
+\renewcommand{\QKJSOLVED}{219}
+\newcommand{\QWENCAMPAIGNS}{58{,}594}
+\newcommand{\QWENIPD}{260.2}
+\newcommand{\QWENIPJ}{6.30}
+\newcommand{\QWENRATIO}{53}
+\newcommand{\QWENSIXLBACC}{60.7}
+\newcommand{\RENTDOMPROSE}{GPT-5.6-sol, GPT-6~Astra, and GPT-5.6-Terra served alone are each both}
+\newcommand{\RENTFACETSHAVE}{of which three have}
+\renewcommand{\RETRYACC}{84.1\%}
+\newcommand{\RETRYLOCAL}{89.1\%}
+\renewcommand{\RETRYMULT}{83$\times$}
+\newcommand{\RETRYMULTAMORT}{6.0$\times$}
+\newcommand{\RentClosedX}{3.3$\times$}
+\renewcommand{\SIGRECALL}{seven tenths}
+\newcommand{\SOLESCPREM}{1.93}
+\renewcommand{\SPARKMEM}{128}
+\renewcommand{\SWECEIL}{83.2}
+\renewcommand{\SWEFRONT}{92.0}
+\renewcommand{\SWEGATEAUC}{0.845}
+\renewcommand{\SWELOCAL}{73.0}
+\renewcommand{\SWETASKS}{500}
+\renewcommand{\SYMDIFF}{62}
+\newcommand{\TBFOURCOMP}{60.0}
+\renewcommand{\TBFOURKIMI}{59.6}
+\renewcommand{\TBFOURLOCAL}{5.6}
+\renewcommand{\TBFOURLOCALN}{four}
+\newcommand{\TBFOURRUNNABLEOLD}{63}
+\renewcommand{\TBFOURTASKS}{66}
+\renewcommand{\TBFOURTIMEOUT}{28}
+\renewcommand{\TBFOURWRONG}{34}
+\newcommand{\TBFlashVsSolPhrase}{0.2 points above GPT-5.6-sol and GPT-6~Astra served alone}
+\newcommand{\TBGLMIPD}{64.1}
+\newcommand{\TBGLMIPJ}{1.55}
+\newcommand{\TBOpenBelowGLM}{0.6}
+\renewcommand{\TBROWBEST}{89.4}
+\renewcommand{\TBROWLOCAL}{75.4}
+\newcommand{\TBTerraAAAcc}{88.0}
+\newcommand{\TBTerraAAUSD}{0.573}
+\newcommand{\XBGAIAGap}{9.9}
+\newcommand{\XBObsCostHi}{2.5$\times$}
+\newcommand{\XBObsCostLo}{1.8}
+\newcommand{\XBObsGapHi}{3.1}
+\newcommand{\XBObsGapLo}{2.8}
+
+
+
+\providecommand{\AUCAutoMix}{0.60}
+\providecommand{\AUCCombined}{0.90}
+\providecommand{\AUCFlags}{0.74}
+\providecommand{\AUCFrugal}{0.55}
+\providecommand{\AUCJudge}{0.89}
+\providecommand{\AUCJudgeDone}{0.88}
+\providecommand{\AUCRouteLLM}{0.47}
+\providecommand{\AUCSolvHead}{0.55}
+\providecommand{\AltFormat}{Q4\_K\_M}
+\providecommand{\AnchorAcc}{91.4}
+\providecommand{\AnchorTwentyX}{0.208}
+\providecommand{\AnchorUSD}{4.15}
+\providecommand{\CheapestAboveHeadName}{GPT-5.6-sol (xhigh)}
+\providecommand{\CheapestAboveHeadUSD}{0.380}   %
+\providecommand{\CheapestAboveHeadVsRent}{0.4$\times$}
+\providecommand{\DeskMaxGap}{11.1}   %
+\providecommand{\DeskMinGap}{2.1}
+\providecommand{\DutyPct}{50}
+\providecommand{\ElecRate}{0.0871}
+\providecommand{\FableFiveAcc}{84.6}
+\providecommand{\FableOneXhighAcc}{91.0}
+\providecommand{\FableOneXhighUSD}{2.47}
+\providecommand{\GAIAAstraTAcc}{84.0}
+\providecommand{\GAIAAstraTUSD}{0.340}
+\providecommand{\GAIAErroredFire}{6.1}
+\providecommand{\GAIAGLMAcc}{80.0}
+\providecommand{\GAIAGLMFirstAcc}{84.8}
+\providecommand{\GAIAGLMFirstClosed}{19.9}
+\providecommand{\GAIAGLMFirstKJ}{105}
+\providecommand{\GAIAGLMFirstLocal}{80.1}
+\providecommand{\GAIAGLMFirstNoClosed}{80.1}
+\providecommand{\GAIAGLMFirstOwn}{0.133}
+\providecommand{\GAIAGLMFirstRent}{0.349}
+\providecommand{\GAIAGLMFirstVsAstra}{0.8}
+\providecommand{\GAIAGLMFirstVsAstraOwnCost}{2.6$\times$}
+\providecommand{\GAIAGLMOwn}{0.0022}
+\providecommand{\GAIAGLMRent}{0.216}
+\providecommand{\GAIALFAcc}{74.9}
+\providecommand{\GAIALFClosed}{7.2}
+\providecommand{\GAIALFFire}{35.0}
+\providecommand{\GAIALFKJ}{62}
+\providecommand{\GAIALFLift}{2.4}
+\providecommand{\GAIALFLocal}{65.0}
+\providecommand{\GAIALFNoClosed}{92.8}
+\providecommand{\GAIALFOwn}{0.048}
+\providecommand{\GAIALFRandomAcc}{72.5}
+\providecommand{\GAIALFRent}{0.183}
+\providecommand{\GAIALFVsGLMFirst}{9.9}
+\providecommand{\GAIALFVsGLMFirstCost}{2.7$\times$}
+\providecommand{\GAIAOpenAcc}{73.0}
+\providecommand{\GAIAOpenClosed}{0.0}
+\providecommand{\GAIAOpenKJ}{62}
+\providecommand{\GAIAOpenLocal}{65.0}
+\providecommand{\GAIAOpenNoClosed}{100.0}
+\providecommand{\GAIAOpenOwn}{0.0015}
+\providecommand{\GAIAOpenRent}{0.136}
+\providecommand{\GAIAQwenAcc}{66.0}
+\providecommand{\GAIAQwenOwn}{0.0003}
+\providecommand{\GAIAQwenRent}{0.020}
+\providecommand{\GAIASigDepAUC}{0.60}
+\providecommand{\GAIASigFlagsAUC}{0.55}
+\providecommand{\GAIASigOneAUC}{0.87}
+\providecommand{\GAIASolTAcc}{78.0}
+\providecommand{\GAIASolTUSD}{0.213}
+\providecommand{\HeadFormat}{Q4\_0}   %
+\providecommand{\HeldGap}{1.4}
+\providecommand{\HeldIn}{87.0}
+\providecommand{\HeldOut}{85.6}
+\providecommand{\HeldPick}{93}
+\providecommand{\JudgeCalls}{1.25}
+\providecommand{\JudgeOwn}{0.00024}
+\providecommand{\KDEPTH}{five}
+\providecommand{\MFiveMaxGap}{3.6}
+\providecommand{\MacVsGPUCI}{[0.85, 1.11]}
+\providecommand{\MacVsGPUSolvedCI}{[0.71, 0.97]}
+\providecommand{\MachAccMax}{78.3}
+\providecommand{\MachAccMin}{66.4}
+\providecommand{\MachAccPairPM}{3.6}   %
+\providecommand{\MachHBatchAcc}{77.5}
+\providecommand{\MachHBatchAccPM}{7.4}
+\providecommand{\MachHBatchAccTimeout}{0.8}   %
+\providecommand{\MachHBatchAmort}{0.104}
+\providecommand{\MachHBatchCut}{3}   %
+\providecommand{\MachHBatchKJ}{123}   %
+\providecommand{\MachHBatchKJPM}{24}   %
+\providecommand{\MachHBatchKJSolved}{159}
+\providecommand{\MachHBatchKJSolvedPM}{40}
+\providecommand{\MachHBatchMin}{31}
+\providecommand{\MachHBatchOwn}{0.0030}
+\providecommand{\MachHBatchVsBatch}{1.0$\times$}
+\providecommand{\MachHBatchVsOne}{4.8$\times$}
+\providecommand{\MachHBatchWatts}{66}   %
+\providecommand{\MachHOneAcc}{78.3}
+\providecommand{\MachHOneAccPM}{7.3}
+\providecommand{\MachHOneAccTimeout}{0.0}   %
+\providecommand{\MachHOneAmort}{0.858}
+\providecommand{\MachHOneCut}{0}   %
+\providecommand{\MachHOneKJ}{603}   %
+\providecommand{\MachHOneKJPM}{132}   %
+\providecommand{\MachHOneKJSolved}{770}
+\providecommand{\MachHOneKJSolvedPM}{202}
+\providecommand{\MachHOneMin}{18}
+\providecommand{\MachHOneOwn}{0.015}
+\providecommand{\MachHOneVsBatch}{0.2$\times$}
+\providecommand{\MachHOneVsOne}{1.0$\times$}
+\providecommand{\MachHOneWatts}{556}   %
+\providecommand{\MachHTwoFlashAcc}{83.8}
+\providecommand{\MachHTwoFlashAccPM}{6.5}
+\providecommand{\MachHTwoFlashAccTimeout}{1.1}   %
+\providecommand{\MachHTwoFlashAmort}{0.210}
+\providecommand{\MachHTwoFlashCut}{3}   %
+\providecommand{\MachHTwoFlashKJ}{216}   %
+\providecommand{\MachHTwoFlashKJPM}{43}   %
+\providecommand{\MachHTwoFlashKJSolved}{257}
+\providecommand{\MachHTwoFlashKJSolvedPM}{62}
+\providecommand{\MachHTwoFlashMin}{31}
+\providecommand{\MachHTwoFlashOwn}{0.0052}
+\providecommand{\MachHTwoFlashVsBatch}{0.6$\times$}
+\providecommand{\MachHTwoFlashVsOne}{3.0$\times$}
+\providecommand{\MachHTwoFlashWatts}{114}   %
+\providecommand{\MachMFiveMaxAcc}{73.9}
+\providecommand{\MachMFiveMaxAccPM}{7.7}
+\providecommand{\MachMFiveMaxAccTimeout}{4.9}   %
+\providecommand{\MachMFiveMaxAmort}{0.431}
+\providecommand{\MachMFiveMaxCut}{13}   %
+\providecommand{\MachMFiveMaxKJ}{209}   %
+\providecommand{\MachMFiveMaxKJPM}{33}   %
+\providecommand{\MachMFiveMaxKJSolved}{283}
+\providecommand{\MachMFiveMaxKJSolvedPM}{68}
+\providecommand{\MachMFiveMaxMin}{51}
+\providecommand{\MachMFiveMaxOwn}{0.0051}
+\providecommand{\MachMFiveMaxQAcc}{75.1}
+\providecommand{\MachMFiveMaxQAccPM}{7.6}
+\providecommand{\MachMFiveMaxQAccTimeout}{4.7}   %
+\providecommand{\MachMFiveMaxQAmort}{0.416}
+\providecommand{\MachMFiveMaxQCut}{12}   %
+\providecommand{\MachMFiveMaxQKJ}{219}   %
+\providecommand{\MachMFiveMaxQKJPM}{36}   %
+\providecommand{\MachMFiveMaxQKJSolved}{291}
+\providecommand{\MachMFiveMaxQKJSolvedPM}{70}
+\providecommand{\MachMFiveMaxQMin}{49}
+\providecommand{\MachMFiveMaxQOwn}{0.0053}
+\providecommand{\MachMFiveMaxQVsBatch}{0.5$\times$}
+\providecommand{\MachMFiveMaxQVsOne}{2.6$\times$}
+\providecommand{\MachMFiveMaxQWatts}{74}   %
+\providecommand{\MachMFiveMaxQZeroAcc}{75.4}
+\providecommand{\MachMFiveMaxQZeroAccPM}{7.6}
+\providecommand{\MachMFiveMaxQZeroAccTimeout}{2.0}   %
+\providecommand{\MachMFiveMaxQZeroAmort}{0.336}
+\providecommand{\MachMFiveMaxQZeroCut}{8}   %
+\providecommand{\MachMFiveMaxQZeroKJ}{165}   %
+\providecommand{\MachMFiveMaxQZeroKJPM}{32}   %
+\providecommand{\MachMFiveMaxQZeroKJSolved}{219}
+\providecommand{\MachMFiveMaxQZeroKJSolvedPM}{56}
+\providecommand{\MachMFiveMaxQZeroMin}{40}
+\providecommand{\MachMFiveMaxQZeroOwn}{0.0040}
+\providecommand{\MachMFiveMaxQZeroVsBatch}{0.7$\times$}
+\providecommand{\MachMFiveMaxQZeroVsOne}{3.5$\times$}
+\providecommand{\MachMFiveMaxQZeroWatts}{70}   %
+\providecommand{\MachMFiveMaxVsBatch}{0.6$\times$}
+\providecommand{\MachMFiveMaxVsOne}{2.7$\times$}
+\providecommand{\MachMFiveMaxWatts}{69}   %
+\providecommand{\MachMFourMaxAcc}{71.3}
+\providecommand{\MachMFourMaxAccPM}{8.0}
+\providecommand{\MachMFourMaxAccTimeout}{7.5}   %
+\providecommand{\MachMFourMaxAmort}{0.350}
+\providecommand{\MachMFourMaxCut}{21}   %
+\providecommand{\MachMFourMaxKJ}{247}   %
+\providecommand{\MachMFourMaxKJPM}{34}   %
+\providecommand{\MachMFourMaxKJSolved}{347}
+\providecommand{\MachMFourMaxKJSolvedPM}{80}
+\providecommand{\MachMFourMaxMin}{59}
+\providecommand{\MachMFourMaxOwn}{0.0060}
+\providecommand{\MachMFourMaxVsBatch}{0.5$\times$}
+\providecommand{\MachMFourMaxVsOne}{2.2$\times$}
+\providecommand{\MachMFourMaxWatts}{70}   %
+\providecommand{\MachMFourProAcc}{66.4}
+\providecommand{\MachMFourProAccPM}{8.3}
+\providecommand{\MachMFourProAccTimeout}{12.4}   %
+\providecommand{\MachMFourProAmort}{0.223}
+\providecommand{\MachMFourProCut}{33}   %
+\providecommand{\MachMFourProKJ}{127}   %
+\providecommand{\MachMFourProKJPM}{14}   %
+\providecommand{\MachMFourProKJSolved}{191}
+\providecommand{\MachMFourProKJSolvedPM}{42}
+\providecommand{\MachMFourProMin}{73}
+\providecommand{\MachMFourProOwn}{0.0031}
+\providecommand{\MachMFourProVsBatch}{0.8$\times$}
+\providecommand{\MachMFourProVsOne}{4.0$\times$}
+\providecommand{\MachMFourProVsOneCI}{[3.4, 4.7]}
+\providecommand{\MachMFourProWatts}{29}   %
+\providecommand{\MachMThreeUltraAcc}{73.9}
+\providecommand{\MachMThreeUltraAccPM}{7.7}
+\providecommand{\MachMThreeUltraAccTimeout}{4.9}   %
+\providecommand{\MachMThreeUltraAmort}{0.258}
+\providecommand{\MachMThreeUltraCut}{13}   %
+\providecommand{\MachMThreeUltraKJ}{353}   %
+\providecommand{\MachMThreeUltraKJPM}{56}   %
+\providecommand{\MachMThreeUltraKJSolved}{478}
+\providecommand{\MachMThreeUltraKJSolvedPM}{114}
+\providecommand{\MachMThreeUltraMin}{51}
+\providecommand{\MachMThreeUltraOwn}{0.0085}
+\providecommand{\MachMThreeUltraVsBatch}{0.3$\times$}
+\providecommand{\MachMThreeUltraVsOne}{1.6$\times$}
+\providecommand{\MachMThreeUltraWatts}{116}   %
+\providecommand{\MachSparkAcc}{70.0}
+\providecommand{\MachSparkAccPM}{8.1}
+\providecommand{\MachSparkAccTimeout}{8.2}   %
+\providecommand{\MachSparkAmort}{0.366}
+\providecommand{\MachSparkCut}{23}   %
+\providecommand{\MachSparkKJ}{296}   %
+\providecommand{\MachSparkKJPM}{39}   %
+\providecommand{\MachSparkKJSolved}{422}
+\providecommand{\MachSparkKJSolvedPM}{97}
+\providecommand{\MachSparkMin}{61}
+\providecommand{\MachSparkOwn}{0.0072}
+\providecommand{\MachSparkVsBatch}{0.4$\times$}
+\providecommand{\MachSparkVsOne}{1.8$\times$}
+\providecommand{\MachSparkWatts}{80}   %
+\providecommand{\MachStrixAcc}{70.5}
+\providecommand{\MachStrixAccPM}{8.0}
+\providecommand{\MachStrixAccTimeout}{8.3}   %
+\providecommand{\MachStrixAmort}{0.272}
+\providecommand{\MachStrixCut}{23}   %
+\providecommand{\MachStrixKJ}{392}   %
+\providecommand{\MachStrixKJPM}{52}   %
+\providecommand{\MachStrixKJSolved}{556}
+\providecommand{\MachStrixKJSolvedPM}{126}
+\providecommand{\MachStrixMin}{62}
+\providecommand{\MachStrixOwn}{0.0095}
+\providecommand{\MachStrixVsBatch}{0.3$\times$}
+\providecommand{\MachStrixVsOne}{1.4$\times$}
+\providecommand{\MachStrixWatts}{105}   %
+\providecommand{\NBENCH}{four}
+\providecommand{\NDeskMachines}{six}
+\providecommand{\NTASKS}{89}
+\providecommand{\NTrials}{445}
+\providecommand{\OwnAmortRate}{2.85}
+\providecommand{\Premium}{1.93}
+\providecommand{\RentRate}{4.29}
+\providecommand{\RuleAltAcc}{85.9}   %
+\providecommand{\RuleAltLocal}{75.1}
+\providecommand{\RuleAltMult}{52$\times$}
+\providecommand{\RuleFPR}{0.096}   %
+\providecommand{\RuleFreeAcc}{88.3}   %
+\providecommand{\RuleFreeLocal}{49.0}   %
+\providecommand{\RuleGiveUp}{2.0}   %
+\providecommand{\RuleMaxClosed}{10\%}   %
+\providecommand{\RuleMinLocal}{75\%}   %
+\providecommand{\RuleMinMult}{20$\times$}   %
+\providecommand{\RuleRecall}{0.69}   %
+\providecommand{\SWEAstraTAcc}{88.0}
+\providecommand{\SWEAstraTUSD}{0.630}
+\providecommand{\SWEGLMAcc}{78.0}
+\providecommand{\SWEGLMAmort}{0.244}
+\providecommand{\SWEGLMFirstAcc}{86.3}
+\providecommand{\SWEGLMFirstAmort}{0.496}
+\providecommand{\SWEGLMFirstClosed}{20.5}
+\providecommand{\SWEGLMFirstKJ}{190}
+\providecommand{\SWEGLMFirstLocal}{79.5}
+\providecommand{\SWEGLMFirstNoClosed}{79.5}
+\providecommand{\SWEGLMFirstOwn}{0.253}
+\providecommand{\SWEGLMFirstRent}{0.655}
+\providecommand{\SWEGLMOwn}{0.0036}
+\providecommand{\SWEGLMRent}{0.400}
+\providecommand{\SWEHeadAcc}{83.2}
+\providecommand{\SWEHeadAmort}{0.276}
+\providecommand{\SWEHeadClosed}{8.1}
+\providecommand{\SWEHeadKJ}{147}
+\providecommand{\SWEHeadLocal}{76.6}
+\providecommand{\SWEHeadNoClosed}{91.9}
+\providecommand{\SWEHeadOwn}{0.102}
+\providecommand{\SWEHeadRent}{0.336}
+\providecommand{\SWEHeadVsAstra}{4.8}
+\providecommand{\SWEHeadVsAstraOwnCost}{6.2$\times$}
+\providecommand{\SWEHeadVsSol}{1.2}
+\providecommand{\SWEHeadVsSolCost}{1.2$\times$}
+\providecommand{\SWELFVsGLMFirst}{3.1}
+\providecommand{\SWELFVsGLMFirstCost}{2.5$\times$}
+\providecommand{\SWEOpenAcc}{79.6}
+\providecommand{\SWEOpenAmort}{0.176}
+\providecommand{\SWEOpenClosed}{0.0}
+\providecommand{\SWEOpenKJ}{133}
+\providecommand{\SWEOpenLocal}{76.6}
+\providecommand{\SWEOpenNoClosed}{100.0}
+\providecommand{\SWEOpenOwn}{0.0031}
+\providecommand{\SWEOpenRent}{0.236}
+\providecommand{\SWEOpenVsGLM}{1.6}
+\providecommand{\SWEOpusTAcc}{92.0}
+\providecommand{\SWEOpusTUSD}{7.81}
+\providecommand{\SWEQwenAcc}{73.0}
+\providecommand{\SWEQwenAmort}{0.070}
+\providecommand{\SWEQwenOwn}{0.0014}
+\providecommand{\SWEQwenRent}{0.050}
+\providecommand{\SWESolTAcc}{82.0}
+\providecommand{\SWESolTUSD}{0.400}
+\providecommand{\SWESolVarAcc}{82.0}
+\providecommand{\SWESolVarAmort}{0.240}
+\providecommand{\SWESolVarClosed}{8.1}
+\providecommand{\SWESolVarKJ}{144}
+\providecommand{\SWESolVarLocal}{76.6}
+\providecommand{\SWESolVarNoClosed}{91.9}
+\providecommand{\SWESolVarOwn}{0.066}
+\providecommand{\SWESolVarRent}{0.300}
+\providecommand{\SWETwoAstraAcc}{84.4}
+\providecommand{\SWETwoAstraAmort}{0.357}
+\providecommand{\SWETwoAstraClosed}{23.4}
+\providecommand{\SWETwoAstraKJ}{101}
+\providecommand{\SWETwoAstraLocal}{76.6}
+\providecommand{\SWETwoAstraNoClosed}{76.6}
+\providecommand{\SWETwoAstraOwn}{0.286}
+\providecommand{\SWETwoAstraRent}{0.339}
+\providecommand{\SigOneFPR}{0.10}
+\providecommand{\SigOneRecall}{0.69}
+\providecommand{\SigTwoFPR}{0.05}
+\providecommand{\SigTwoRecall}{0.70}
+\providecommand{\TBAstraAAAcc}{89.5}
+\providecommand{\TBAstraTAcc}{89.4}
+\providecommand{\TBAstraTMult}{9.2$\times$}
+\providecommand{\TBAstraTSolved}{398}
+\providecommand{\TBAstraTUSD}{0.450}
+\providecommand{\TBDeskAcc}{86.3}
+\providecommand{\TBDeskAmort}{0.846}
+\providecommand{\TBDeskAmortMult}{4.9$\times$}
+\providecommand{\TBDeskClosed}{8.1}
+\providecommand{\TBDeskFire}{26.7}
+\providecommand{\TBDeskKJ}{495}
+\providecommand{\TBDeskKJSolved}{573}
+\providecommand{\TBDeskLocal}{73.3}   %
+\providecommand{\TBDeskMid}{18.6}
+\providecommand{\TBDeskNoClosed}{91.9}
+\providecommand{\TBDeskOpenAcc}{83.1}
+\providecommand{\TBDeskOpenAmort}{0.771}
+\providecommand{\TBDeskOpenAmortMult}{5.4$\times$}
+\providecommand{\TBDeskOpenClosed}{0.0}
+\providecommand{\TBDeskOpenFire}{26.7}
+\providecommand{\TBDeskOpenKJ}{492}
+\providecommand{\TBDeskOpenKJSolved}{592}
+\providecommand{\TBDeskOpenLocal}{73.3}   %
+\providecommand{\TBDeskOpenMid}{26.7}
+\providecommand{\TBDeskOpenNoClosed}{100.0}
+\providecommand{\TBDeskOpenOwn}{0.012}
+\providecommand{\TBDeskOpenOwnMult}{349$\times$}
+\providecommand{\TBDeskOpenRent}{0.943}
+\providecommand{\TBDeskOpenRentMult}{4.4$\times$}
+\providecommand{\TBDeskOwn}{0.083}
+\providecommand{\TBDeskOwnMult}{50$\times$}
+\providecommand{\TBDeskRent}{1.02}
+\providecommand{\TBDeskRentMult}{4.1$\times$}
+\providecommand{\TBDeskVsHead}{0.0}
+\providecommand{\TBFAAFableOneAcc}{55.0}
+\providecommand{\TBFAAFableOneUSD}{14.16}
+\providecommand{\TBFAstraTAcc}{59.6}
+\providecommand{\TBFAstraTMult}{2.6$\times$}
+\providecommand{\TBFAstraTUSD}{5.46}
+\providecommand{\TBFGLMAcc}{41.9}
+\providecommand{\TBFGLMAmort}{0.857}
+\providecommand{\TBFGLMFirstAcc}{60.0}
+\providecommand{\TBFGLMFirstAmort}{4.59}
+\providecommand{\TBFGLMFirstClosed}{53.8}
+\providecommand{\TBFGLMFirstEightyAcc}{47.7}
+\providecommand{\TBFGLMFirstEightyAmort}{1.89}
+\providecommand{\TBFGLMFirstEightyClosed}{14.8}
+\providecommand{\TBFGLMFirstEightyKJ}{346}
+\providecommand{\TBFGLMFirstEightyLocal}{85.2}
+\providecommand{\TBFGLMFirstEightyMult}{13$\times$}
+\providecommand{\TBFGLMFirstEightyNoClosed}{85.2}
+\providecommand{\TBFGLMFirstEightyOwn}{1.05}
+\providecommand{\TBFGLMFirstEightyRent}{2.45}
+\providecommand{\TBFGLMFirstKJ}{346}
+\providecommand{\TBFGLMFirstLocal}{46.2}
+\providecommand{\TBFGLMFirstMult}{3.7$\times$}
+\providecommand{\TBFGLMFirstNinetyAcc}{53.7}
+\providecommand{\TBFGLMFirstNinetyAmort}{3.02}
+\providecommand{\TBFGLMFirstNinetyClosed}{31.2}
+\providecommand{\TBFGLMFirstNinetyKJ}{346}
+\providecommand{\TBFGLMFirstNinetyLocal}{68.8}
+\providecommand{\TBFGLMFirstNinetyMult}{6.4$\times$}
+\providecommand{\TBFGLMFirstNinetyNoClosed}{68.8}
+\providecommand{\TBFGLMFirstNinetyOwn}{2.20}
+\providecommand{\TBFGLMFirstNinetyRent}{3.59}
+\providecommand{\TBFGLMFirstNoClosed}{46.2}
+\providecommand{\TBFGLMFirstOwn}{3.79}
+\providecommand{\TBFGLMFirstRent}{5.17}
+\providecommand{\TBFGLMFirstVsAstraOwnCost}{1.4$\times$}
+\providecommand{\TBFGLMFirstVsFableCost}{3.7$\times$}
+\providecommand{\TBFGLMOwn}{0.0097}
+\providecommand{\TBFGLMRent}{1.41}
+\providecommand{\TBFHeadVsAstra}{0.4}
+\providecommand{\TBFLFAcc}{60.0}
+\providecommand{\TBFLFAmort}{4.71}
+\providecommand{\TBFLFClosed}{53.6}
+\providecommand{\TBFLFKJ}{456}
+\providecommand{\TBFLFLocal}{0.6}
+\providecommand{\TBFLFMult}{3.7$\times$}
+\providecommand{\TBFLFNoClosed}{46.4}
+\providecommand{\TBFLFOwn}{3.79}
+\providecommand{\TBFLFRent}{5.40}
+\providecommand{\TBFLocalSaves}{110}   %
+\providecommand{\TBFOpenAcc}{41.9}
+\providecommand{\TBFOpenAmort}{0.978}
+\providecommand{\TBFOpenClosed}{0.0}
+\providecommand{\TBFOpenKJ}{441}
+\providecommand{\TBFOpenLocal}{1.1}
+\providecommand{\TBFOpenNoClosed}{100.0}
+\providecommand{\TBFOpenOwn}{0.013}
+\providecommand{\TBFOpenRent}{1.64}
+\providecommand{\TBFQwenAcc}{5.6}
+\providecommand{\TBFSolTAcc}{39.9}
+\providecommand{\TBFSolTUSD}{7.50}
+\providecommand{\TBFlashAAAcc}{86.1}
+\providecommand{\TBFlashAcc}{89.6}
+\providecommand{\TBFlashAmort}{0.519}
+\providecommand{\TBFlashAmortMult}{8.0$\times$}
+\providecommand{\TBFlashClosed}{6.1}
+\providecommand{\TBFlashFire}{19.6}
+\providecommand{\TBFlashKJ}{428}
+\providecommand{\TBFlashKJSolved}{478}
+\providecommand{\TBFlashLocal}{80.4}   %
+\providecommand{\TBFlashMid}{13.5}
+\providecommand{\TBFlashNoClosed}{93.9}
+\providecommand{\TBFlashOwn}{0.064}
+\providecommand{\TBFlashOwnMult}{65$\times$}
+\providecommand{\TBFlashRent}{0.755}
+\providecommand{\TBFlashRentMult}{5.5$\times$}
+\providecommand{\TBFlashRepGap}{1.2}   %
+\providecommand{\TBFlashTAcc}{84.9}
+\providecommand{\TBFlashTSolved}{378}
+\providecommand{\TBFlashVsSol}{-0.2}
+\providecommand{\TBGLMAAAcc}{83.9}
+\providecommand{\TBGLMAcc}{83.8}
+\providecommand{\TBGLMAmort}{0.652}
+\providecommand{\TBGLMKJ}{541}
+\providecommand{\TBGLMOwn}{0.013}
+\providecommand{\TBGLMRent}{0.982}
+\providecommand{\TBGLMSolved}{373}
+\providecommand{\TBHeadAcc}{86.3}
+\providecommand{\TBHeadAmort}{0.724}
+\providecommand{\TBHeadAmortMult}{5.7$\times$}
+\providecommand{\TBHeadClosed}{7.6}
+\providecommand{\TBHeadClosedShareOfOwn}{87}   %
+\providecommand{\TBHeadDCAcc}{87.1}
+\providecommand{\TBHeadDCAmort}{0.468}
+\providecommand{\TBHeadDCAmortMult}{8.9$\times$}
+\providecommand{\TBHeadDCClosed}{7.1}
+\providecommand{\TBHeadDCFire}{23.3}
+\providecommand{\TBHeadDCKJ}{373}
+\providecommand{\TBHeadDCKJSolved}{429}
+\providecommand{\TBHeadDCLocal}{76.7}   %
+\providecommand{\TBHeadDCMid}{16.2}
+\providecommand{\TBHeadDCNoClosed}{92.9}
+\providecommand{\TBHeadDCOwn}{0.071}
+\providecommand{\TBHeadDCOwnMult}{58$\times$}
+\providecommand{\TBHeadDCRent}{0.673}
+\providecommand{\TBHeadDCRentMult}{6.2$\times$}
+\providecommand{\TBHeadFire}{24.9}
+\providecommand{\TBHeadKJ}{431}
+\providecommand{\TBHeadKJSolved}{500}
+\providecommand{\TBHeadLift}{8.2}
+\providecommand{\TBHeadLocal}{75.1}   %
+\providecommand{\TBHeadMid}{17.3}
+\providecommand{\TBHeadNoClosed}{92.4}
+\providecommand{\TBHeadOwn}{0.078}
+\providecommand{\TBHeadOwnMult}{53$\times$}
+\providecommand{\TBHeadOwnMultCI}{[33$\times$, 104$\times$]}
+\providecommand{\TBHeadRandomAcc}{78.0}
+\providecommand{\TBHeadRent}{0.887}
+\providecommand{\TBHeadRentMult}{4.7$\times$}
+\providecommand{\TBHeadVsAstra}{3.1}
+\providecommand{\TBHeadVsAstraCost}{0.5$\times$}
+\providecommand{\TBHeadVsAstraOwnCost}{5.8$\times$}
+\providecommand{\TBHeadVsFableFive}{1.7}
+\providecommand{\TBHeadVsFableOne}{5.1}
+\providecommand{\TBHeadVsSolCost}{0.4$\times$}   %
+\providecommand{\TBMaxRepGap}{0.1}
+\providecommand{\TBMidCost}{1.5}   %
+\providecommand{\TBOpenAcc}{83.3}
+\providecommand{\TBOpenAmort}{0.654}
+\providecommand{\TBOpenAmortMult}{6.3$\times$}
+\providecommand{\TBOpenClosed}{0.0}
+\providecommand{\TBOpenDCAcc}{84.3}
+\providecommand{\TBOpenDCAmort}{0.403}
+\providecommand{\TBOpenDCAmortMult}{10$\times$}
+\providecommand{\TBOpenDCClosed}{0.0}
+\providecommand{\TBOpenDCFire}{23.3}
+\providecommand{\TBOpenDCKJ}{371}
+\providecommand{\TBOpenDCKJSolved}{440}
+\providecommand{\TBOpenDCLocal}{76.7}   %
+\providecommand{\TBOpenDCMid}{23.3}
+\providecommand{\TBOpenDCNoClosed}{100.0}
+\providecommand{\TBOpenDCOwn}{0.0089}
+\providecommand{\TBOpenDCOwnMult}{464$\times$}
+\providecommand{\TBOpenDCRent}{0.606}
+\providecommand{\TBOpenDCRentMult}{6.8$\times$}
+\providecommand{\TBOpenFire}{24.9}
+\providecommand{\TBOpenKJ}{429}
+\providecommand{\TBOpenKJSolved}{515}
+\providecommand{\TBOpenLocal}{75.1}   %
+\providecommand{\TBOpenMid}{24.9}
+\providecommand{\TBOpenNoClosed}{100.0}
+\providecommand{\TBOpenOwn}{0.010}
+\providecommand{\TBOpenOwnMult}{401$\times$}
+\providecommand{\TBOpenRent}{0.815}
+\providecommand{\TBOpenRentMult}{5.1$\times$}
+\providecommand{\TBOpenVsFableFive}{-1.3}
+\providecommand{\TBOpenVsGLM}{-0.6}
+\providecommand{\TBQwenAAAcc}{79.8}
+\providecommand{\TBQwenAcc}{79.8}
+\providecommand{\TBQwenAmort}{0.104}
+\providecommand{\TBQwenKJ}{123}
+\providecommand{\TBQwenOwn}{0.0030}
+\providecommand{\TBQwenRent}{0.157}
+\providecommand{\TBQwenSolved}{355}
+\providecommand{\TBRetryAcc}{84.1}
+\providecommand{\TBRetryAmort}{0.691}
+\providecommand{\TBRetryAmortMult}{6.0$\times$}
+\providecommand{\TBRetryClosed}{4.7}
+\providecommand{\TBRetryFire}{24.9}
+\providecommand{\TBRetryKJ}{371}
+\providecommand{\TBRetryKJSolved}{441}
+\providecommand{\TBRetryLocal}{89.1}   %
+\providecommand{\TBRetryMid}{6.3}
+\providecommand{\TBRetryNoClosed}{95.3}
+\providecommand{\TBRetryOwn}{0.050}
+\providecommand{\TBRetryOwnMult}{83$\times$}
+\providecommand{\TBRetryRent}{0.768}
+\providecommand{\TBRetryRentMult}{5.4$\times$}
+\providecommand{\TBRetryVsAstraCost}{0.6$\times$}
+\providecommand{\TBRetryVsHead}{2.2}
+\providecommand{\TBSolAAAcc}{89.5}
+\providecommand{\TBSolTAcc}{89.4}
+\providecommand{\TBSolTMult}{11$\times$}
+\providecommand{\TBSolTSolved}{398}
+\providecommand{\TBSolTUSD}{0.380}
+\providecommand{\TBSolVarAcc}{86.2}
+\providecommand{\TBSolVarAmort}{0.716}
+\providecommand{\TBSolVarAmortMult}{5.8$\times$}
+\providecommand{\TBSolVarClosed}{7.6}
+\providecommand{\TBSolVarFire}{24.9}
+\providecommand{\TBSolVarKJ}{431}
+\providecommand{\TBSolVarKJSolved}{501}
+\providecommand{\TBSolVarLocal}{75.1}   %
+\providecommand{\TBSolVarMid}{17.3}
+\providecommand{\TBSolVarNoClosed}{92.4}
+\providecommand{\TBSolVarOwn}{0.069}
+\providecommand{\TBSolVarOwnMult}{60$\times$}
+\providecommand{\TBSolVarRent}{0.878}
+\providecommand{\TBSolVarRentMult}{4.7$\times$}
+\providecommand{\TBTwoAstraAcc}{87.8}
+\providecommand{\TBTwoAstraAmort}{0.549}
+\providecommand{\TBTwoAstraAmortMult}{7.6$\times$}
+\providecommand{\TBTwoAstraClosed}{24.9}
+\providecommand{\TBTwoAstraFire}{24.9}
+\providecommand{\TBTwoAstraKJ}{176}
+\providecommand{\TBTwoAstraKJSolved}{200}
+\providecommand{\TBTwoAstraLocal}{75.1}   %
+\providecommand{\TBTwoAstraMid}{0.0}
+\providecommand{\TBTwoAstraNoClosed}{75.1}
+\providecommand{\TBTwoAstraOwn}{0.205}
+\providecommand{\TBTwoAstraOwnMult}{20$\times$}
+\providecommand{\TBTwoAstraRent}{0.556}
+\providecommand{\TBTwoAstraRentMult}{7.5$\times$}
+\providecommand{\TBTwoSolAcc}{85.8}
+\providecommand{\TBTwoSolAmort}{0.531}
+\providecommand{\TBTwoSolAmortMult}{7.8$\times$}
+\providecommand{\TBTwoSolClosed}{24.9}
+\providecommand{\TBTwoSolFire}{24.9}
+\providecommand{\TBTwoSolKJ}{176}
+\providecommand{\TBTwoSolKJSolved}{205}
+\providecommand{\TBTwoSolLocal}{75.1}   %
+\providecommand{\TBTwoSolMid}{0.0}
+\providecommand{\TBTwoSolNoClosed}{75.1}
+\providecommand{\TBTwoSolOwn}{0.187}
+\providecommand{\TBTwoSolOwnMult}{22$\times$}
+\providecommand{\TBTwoSolRent}{0.538}
+\providecommand{\TBTwoSolRentMult}{7.7$\times$}
+

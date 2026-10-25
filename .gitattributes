@@ -1,0 +1,2 @@
+# Preserve the author-supplied TeX baseline byte-for-byte, including its final blank line.
+ipj-research/studies/icp/expected/ipj-numbers.tex whitespace=-blank-at-eof

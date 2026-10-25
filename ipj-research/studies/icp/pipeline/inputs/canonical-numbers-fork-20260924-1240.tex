@@ -1,0 +1,433 @@
+% ipj-numbers.tex -- generated macro bundle.
+% Every movable number in the paper is defined here and nowhere else.
+% Regenerate from ipj/analysis/ artifacts; do not hand-edit values.
+
+% ipj-numbers.tex — GENERATED. Do not hand-edit; regenerate from
+%   ipj/analysis/stage-one/v4/{frontier_v4_record.json,paper_numbers_record.json} for the frontier,
+%   headline, Table 3, lift, coverage, held-out split and the matched laptop table (supersede v3 there);
+%   ipj/analysis/stage-one/{frontier_v3.json,roll_bootstrap.json} for the legacy appendix macros
+%   ipj/analysis/stage-zero/{declarations.json,gate_analysis.json,selection_bootstrap.json,frontier_A.json}
+% Settled literals live in the .tex, not here: $0.0871/kWh, 41.3x (tasks/MJ), 84.6% @ $3.36/task.
+
+\newcommand{\UNDET}{\textcolor{red}{\textbf{[FILL IN]}}}
+
+% ---- workload and plan space ------------------------------------------------
+\newcommand{\NTASKS}{89}
+\newcommand{\NPLANS}{1{,}599}
+\newcommand{\NDETERMINATE}{45}
+\newcommand{\NUNDETERMINED}{1{,}554}
+\newcommand{\NPLANSDI}{15}
+\newcommand{\NPLANSDII}{154}
+\newcommand{\NPLANSDIII}{1{,}430}
+\newcommand{\PLANDEPTH}{three}
+\newcommand{\NTIERSENUM}{21}   % +Qwen3.8-27B, +GPT-6 Astra (2026-09-24)
+\newcommand{\NTIERSSCORED}{18}   % +Qwen3.8-27B, +GPT-6 Astra
+\newcommand{\NTIERSCOSTED}{15}
+\newcommand{\NCONTEL}{twelve}   % v4 CLOUD list: 12 continuation tiers, Astra included
+\newcommand{\NLOCALFIRST}{four}   % owned first stages in the plan space: Qwen3.8-27B, Qwen3.6-27B, Gemma-4-31B, GLM-5.3
+\newcommand{\NUNCOSTED}{One}
+\newcommand{\NHARNESSES}{4}
+\newcommand{\NORCH}{4}
+\newcommand{\NORCHEVAL}{three}
+\newcommand{\NMACHINES}{8}
+\newcommand{\NBENCH}{4}
+\newcommand{\ESCPREMDS}{1.81}   % 1.806, DeepSeek-V4-Flash leg price on the Qwen3.8 escalation set / all-task mean, v4 record
+\newcommand{\ESCPREMTERRA}{2.71}   % 2.707, GPT-5.6-Terra, same set (sol 2.00, Kimi 1.98 lie between)
+
+% ---- the frontier ----------------------------------------------------------
+\newcommand{\NFACETSOWN}{nine}
+\newcommand{\NFACETSRENT}{four}
+\newcommand{\NFACETSOWNALT}{eleven}
+\newcommand{\NFACETSRENTALT}{six}
+\newcommand{\NFACETSOWNCAP}{eight}
+\newcommand{\NFACETSRENTCAP}{three}
+\newcommand{\NFIXEDOWN}{three}
+\newcommand{\NFIXEDRENT}{one}
+\newcommand{\NLOCALFACETSOWN}{thirteen}   % v4 record (list-price Astra, exact GLM-5.3, metered headline rule): ipj/analysis/stage-one/v4/paper_numbers_record.json
+\newcommand{\RSPANOWN}{494}                   % 493.6349359028349
+\newcommand{\RSPANRENT}{47.0}                 % 47.036357463884414
+\newcommand{\MULTSPANHI}{1{,}679}             % 1679.1604197901045
+\newcommand{\MULTDEAR}{3.40}                  % 3.401623948513692
+\newcommand{\KMAXOWN}{0.843}                  % 0.8426966292134831  (LOWER BOUND)
+\newcommand{\KMAXOWNCLEARED}{75}
+\newcommand{\KMAXOWNCAP}{0.798}               % 0.797752808988764
+\newcommand{\KMAXCLEAREDCAP}{71}
+%\newcommand{\KSWITCHOWN}{0.663}               % 0.6629213483146067
+%\newcommand{\KSWITCHRENT}{0.663}              % 0.6629213483146067  (identical to marginal)
+\newcommand{\KAPPALOW}{0.60}
+\newcommand{\KAPPAHIGH}{0.75}
+\newcommand{\PLANLOWOWN}{Qwen3.6-27B $\rightarrow$ DeepSeek-V4-Flash}
+\newcommand{\RSTARLOWOWN}{1.218}              % 1.2182310000000003
+\newcommand{\PLANLOWRENT}{DeepSeek-V4-Flash}
+\newcommand{\RSTARLOWRENT}{1.869}             % 1.8690000000000002
+\newcommand{\PLANHIGHOWN}{DeepSeek-V4-Flash $\rightarrow$ Gemini~3.7~Flash}
+\newcommand{\RSTARHIGH}{13.52}                % 13.524372000000001
+\newcommand{\RFIXEDHIGH}{80.10}               % 80.10000000000001
+\newcommand{\CLEAREDFIXEDHIGH}{68}
+\newcommand{\FIXEDOVERPAY}{5.92}              % 5.922640992128876
+\newcommand{\KAPPAMAXFIXED}{0.798}            % 0.797752808988764
+%\newcommand{\BUDGETCAP}{20.03}                % 20.025 = 0.225 x 89
+\newcommand{\ANCHORTASKS}{76}                 % ceil(0.846 x 89) = ceil(75.294)
+\newcommand{\WILSONBEST}{0.769}               % 0.7692376296126904
+
+% ---- sampling depth and optimism -------------------------------------------
+\newcommand{\KDEPTH}{five}                    % RULING (D-OPTIMISM / all-k=5), NOT yet realized
+\newcommand{\NRERUN}{eleven}
+\newcommand{\NFELL}{ten}
+\newcommand{\OPTIMISMPT}{7.04}                % magnitude of -7.038767449778686
+\newcommand{\OPTWORST}{18.7}                  % 18.651685393258425
+\newcommand{\OPTWORSTTIER}{GLM-5.2}
+\newcommand{\OPTBEST}{5.3}                    % 5.33707865168539
+\newcommand{\OPTBESTTIER}{GPT-5.6-Luna}
+\newcommand{\OPTBESTZ}{9.5}                   % 9.500000000000018
+\newcommand{\NBEYONDSD}{five}
+\newcommand{\NBEYONDSDDOWN}{four}
+\newcommand{\OPTZLO}{5.2}                     % 5.214515938281159
+\newcommand{\OPTZHI}{9.9}                     % 9.920397457475467
+\newcommand{\ROLLSHARE}{1.3}                  % 1.2820836490307956  (median of 13 cells)
+\newcommand{\ROLLSHARELO}{0.2}                % 0.23974833705136203
+\newcommand{\ROLLSHAREHI}{5.1}                % 5.083875380543878
+%\newcommand{\TASKSHARE}{98.7}                 % 98.7179163509692
+\newcommand{\PSAMEROLLLO}{0.61}               % 0.606   (ROLL-BEARING ONLY pool)
+\newcommand{\PSAMEROLLHI}{1.00}               % 1.000
+\newcommand{\PSAMETASKLO}{0.00}               % 0.0     (marginal basis only)
+\newcommand{\PSAMETASKHI}{0.24}               % 0.24
+\newcommand{\DELTACERT}{0.05}
+\newcommand{\KAPPACERT}{0.70}
+\newcommand{\FLIPPLAN}{GLM-5.2 $\rightarrow$ GPT-5.6-sol}
+\newcommand{\FLIPESC}{13}
+\newcommand{\FLIPTOT}{35}
+\newcommand{\FLIPPCT}{37.1}
+\newcommand{\ROLLLO}{82.0}
+\newcommand{\ROLLHI}{86.5}
+
+% ---- energy ----------------------------------------------------------------
+\newcommand{\KFULLJOULE}{0.571}               % 0.5707865168539326
+\newcommand{\PLANFULLJ}{MiniMax-M3}
+\newcommand{\NMETERED}{five}   % tab:provenance rows incl. Qwen3.8-27B (E1)
+\newcommand{\NMETEREDRENT}{three}
+\newcommand{\NMETEREDDEPTH}{one}
+\newcommand{\JSPANMEASURED}{5.5}              % 5.486094316807739
+
+% ---- cost, the ratio objective, the degeneracy table -----------------------
+\newcommand{\NCOSTEDOWN}{1{,}286}
+\newcommand{\NCOSTEDRENT}{1{,}182}
+\newcommand{\RATIOWINOWN}{Qwen3.6-27B}
+\newcommand{\RATIOWINOWNCLEARED}{49}
+\newcommand{\RATIOWINOWNFAILED}{40}
+\newcommand{\IPDWINOWN}{275.1}                % 275.14332721279806
+\newcommand{\RATIOWINRENT}{DeepSeek-V4-Flash}
+\newcommand{\RATIOWINRENTCLEARED}{59}
+\newcommand{\RATIOWINRENTFAILED}{30}
+\newcommand{\IPDWINRENT}{31.57}               % 31.567683253076506
+\newcommand{\RMINOWN}{0.178}                  % 0.17808900000000003
+\newcommand{\RMINOWNKAPPA}{0.551}             % 0.550561797752809
+\newcommand{\RMINRENT}{1.869}                 % 1.8690000000000002
+\newcommand{\RMINRENTKAPPA}{0.663}            % 0.6629213483146067
+\newcommand{\COMPPLAN}{DeepSeek-V4-Flash $\rightarrow$ Gemini~3.7~Flash}
+\newcommand{\COMPCLEARED}{69}
+\newcommand{\IPDCOMP}{5.10}                   % 5.101900480111017
+\newcommand{\IPDRATIOOWN}{53.9}               % 53.9295755151247
+\newcommand{\IPDRATIORENT}{6.19}              % 6.187436108590968
+\newcommand{\PUBPLAN}{GLM-5.2 $\rightarrow$ GPT-5.6-sol}
+\newcommand{\COSTRANKRATIO}{162}              % 161.9190404797601   (marginal)
+\newcommand{\COSTRANKRATIORENT}{2.1}          % 2.115398370315758   (amortized)
+
+% ---- gate ------------------------------------------------------------------
+\newcommand{\GATEFIRSTSTAGE}{GLM-5.2}
+\newcommand{\GATESOLVED}{58}
+\newcommand{\GATEFAILED}{31}
+\newcommand{\GATEFIRED}{35}
+\newcommand{\GATEQUIET}{54}
+\newcommand{\GATEBOTH}{27}
+\newcommand{\GATEDISCARD}{8}
+\newcommand{\GATESILENT}{4}
+\newcommand{\GATEKEPT}{50}
+\newcommand{\GATESYMDIFF}{12}
+
+% ---- prose-level -----------------------------------------------------------
+\newcommand{\AccTerra}{62.6}                  % 62.64044943820225   (over 89)
+\newcommand{\AccFugu}{63.4}                   % 63.35999999999999   (over 292 clean trials)
+\newcommand{\FUGUTRIALS}{292}
+\newcommand{\FUGUTOKENMULT}{3.2}              % 3.18 over MISMATCHED denominators (89 vs 86)
+\newcommand{\FUGUDOLLARMULT}{9.8}             % 9.832597350461663
+\newcommand{\SERVINGTIER}{Qwen3.6-27B}
+\newcommand{\SERVINGSWING}{23.6}              % 23.595505617977526
+\newcommand{\ServMisGLM}{23.6}
+\newcommand{\ServCorrGLM}{46.5}               % 46.516853932584276
+\newcommand{\ServSpanLo}{7.2}                 % DeepSeek 40.4 -> 47.6; was 22.9 when that row was undetermined
+\newcommand{\ServMisQwen}{0.0}
+\newcommand{\ServCorrQwen}{27.0}              % 26.96629213483146
+\newcommand{\ServSpanHi}{27.0}                % 26.96629213483146
+\newcommand{\ServMisDS}{40.4}
+\newcommand{\ServCorrDS}{47.6}               % over89, mean of the 3 complete rolls at mlen=131072
+\newcommand{\ServSpanDS}{7.2}                % 47.567 - 40.4
+
+% ---- held UNDETERMINED (R1 gates every one) --------------------------------
+% --- Table 4 (tab:cascade): fixed Qwen3.8-27B first stage, escalation target varied ---
+%     open-weight targets first, then closed-weight; all pending the deployable regen
+\newcommand{\CascAccBase}{63.3\%}   % proper: final-stage harness/infra crashes dropped, pooled over 5 rolls
+\newcommand{\CascUSDBase}{0.0074}   % 305.9 kJ/task metered x $0.0871/kWh, same run
+\newcommand{\CascMultBase}{454$\times$}        % 3.36 / 0.0074008
+\newcommand{\CascAccDS}{67.9\%}   % v4 record: ipj/analysis/stage-one/v4/paper_numbers_record.json (proper, per-roll, per-plan Astra premium)
+\newcommand{\CascUSDDS}{0.0150}   % v4 record (list-price Astra, exact GLM-5.3, metered headline rule): ipj/analysis/stage-one/v4/paper_numbers_record.json
+\newcommand{\CascMultDS}{224$\times$}   % v4 record (list-price Astra, exact GLM-5.3, metered headline rule): ipj/analysis/stage-one/v4/paper_numbers_record.json
+\newcommand{\CascAccKimi}{68.5\%}   % proper: final-stage harness/infra crashes dropped, pooled over 5 rolls
+\newcommand{\CascUSDKimi}{0.1364}   % v4 record (list-price Astra, exact GLM-5.3, metered headline rule): ipj/analysis/stage-one/v4/paper_numbers_record.json
+\newcommand{\CascMultKimi}{25$\times$}   % v4 record (list-price Astra, exact GLM-5.3, metered headline rule): ipj/analysis/stage-one/v4/paper_numbers_record.json
+\newcommand{\CascAccTerra}{68.7\%}   % proper: final-stage harness/infra crashes dropped, pooled over 5 rolls
+\newcommand{\CascUSDTerra}{0.0610}   % v4 record (list-price Astra, exact GLM-5.3, metered headline rule): ipj/analysis/stage-one/v4/paper_numbers_record.json
+\newcommand{\CascMultTerra}{55$\times$}   % v4 record (list-price Astra, exact GLM-5.3, metered headline rule): ipj/analysis/stage-one/v4/paper_numbers_record.json
+\newcommand{\CascAccSol}{73.0\%}   % proper: final-stage harness/infra crashes dropped, pooled over 5 rolls
+\newcommand{\CascUSDSol}{0.1369}   % v4 record (list-price Astra, exact GLM-5.3, metered headline rule): ipj/analysis/stage-one/v4/paper_numbers_record.json
+\newcommand{\CascMultSol}{25$\times$}   % v4 record (list-price Astra, exact GLM-5.3, metered headline rule): ipj/analysis/stage-one/v4/paper_numbers_record.json
+\newcommand{\CascAccAstra}{75.7\%}   % proper: final-stage harness/infra crashes dropped, pooled over 5 rolls
+\newcommand{\CascUSDAstra}{0.1686}   % v4 record (list-price Astra, exact GLM-5.3, metered headline rule): ipj/analysis/stage-one/v4/paper_numbers_record.json
+\newcommand{\CascMultAstra}{19.9$\times$}   % 3.36/0.1686 = 19.93: just short of the 20x line, so one decimal
+\newcommand{\CascESCFIRE}{19.5\%}   % 86 of 442 graded first-stage attempts
+\newcommand{\CascCTX}{131{,}072 tokens}   % native is 262144
+\newcommand{\CascSpanPP}{7.8}   % 75.73 - 67.87, escalation-target rows only (DeepSeek row to Astra row)
+\newcommand{\CascMultLo}{19.9$\times$}   % = CascMultAstra
+\newcommand{\CascMultHi}{224$\times$}   % v4 record (list-price Astra, exact GLM-5.3, metered headline rule): ipj/analysis/stage-one/v4/paper_numbers_record.json
+\newcommand{\TOKENCORRROWS}{%
+DeepSeek-V4-Flash & 66.3\% & 89 & 45{,}036 & $-0.482$ \\
+GLM-5.3 & 65.5\% & 87 & 32{,}159 & $-0.434$ \\
+Gemma-4-31B & 28.9\% & 83 & 7{,}681 & $-0.390$ \\
+Qwen3.6-27B & 55.7\% & 88 & 19{,}945 & $-0.324$ \\
+GPT-5.6-Luna & 47.0\% & 83 & 12{,}722 & $-0.313$ \\
+GPT-5.6-sol & 78.7\% & 89 & 5{,}971 & $-0.304$ \\
+Gemini~3.1~Pro & 66.7\% & 87 & 32{,}585 & $-0.294$ \\
+Sakana Fugu Ultra & 75.3\% & 89 & 28{,}487 & $-0.287$ \\
+GPT-5.6-Terra & 76.7\% & 86 & 8{,}958 & $-0.265$ \\
+Kimi~K3 & 76.4\% & 89 & 12{,}188 & $-0.265$ \\
+MiniMax-M3 & 60.2\% & 88 & 30{,}220 & $-0.212$ \\
+Opus~5 & 79.1\% & 86 & 23{,}578 & $-0.197$ \\
+Opus~4.8 & 74.7\% & 87 & 11{,}823 & $-0.190$ \\
+GPT-5.5 & 75.3\% & 85 & 9{,}955 & $-0.104$ \\
+Gemini~3.7~Flash & 79.8\% & 89 & 20{,}458 & $-0.100$ \\}
+
+%% ---- CURRENTLY UNUSED -------------------------------------------------
+%% Defined but not referenced in the .tex as of 2026-09-15. Kept, not deleted:
+%%   BUDGETCAP  -- orphaned by the introduction cut; the capped frontier is still
+%%                 reported per ADR-0030 D-CAP and needs this when S4.1 is written.
+%%   KSWITCHOWN / KSWITCHRENT -- kappa_switch as a NUMBER is no longer stated; the
+%%                 claim now appears as "no fixed model owns more than one facet",
+%%                 which is D-CLAIM contribution 1. Restore if S4.1 states the value.
+%%   TASKSHARE  -- pre-existing orphan; S2.3 says "resampling tasks accounts for the
+%%                 rest" with the number omitted. Restore beside ROLLSHARE.
+
+% Marker for sections/numbers still to be written. Renders red so it cannot be missed.
+\newcommand{\TODOSEC}[1]{\textcolor{red}{\textbf{[FILL IN: #1]}}}
+\newcommand{\UNMEAS}{not measured}   % a declared omission, not an open number
+
+% ---- added 2026-09-15: multi-workload + restored contributions ----
+\newcommand{\SWETASKS}{185}          % graded tasks: the 185 of the first 200 Verified instances carrying trajectory + grade report
+\newcommand{\SWEPOOL}{200}           % pool the 185 were drawn from
+\newcommand{\SWELOCAL}{50.3}         % Gemma-4-26B local (2xA100), mini-swe-agent, over 185
+\newcommand{\SWELOCALUSD}{0.0385}    % Gemma-4-26B, $/task, OWNING (marginal) basis; renting basis not recorded -> \UNMEAS
+\newcommand{\SWEFRONT}{79.5}         % GPT-5.5 cloud, over 185
+\newcommand{\SWEFRONTUSD}{0.95}      % GPT-5.5, $/task, provider list price
+\newcommand{\SWEUSDMULT}{24.7}       % 0.95 / 0.0385 = 24.675, cloud list vs local owning basis
+\newcommand{\SWECEIL}{81.6}          % Gemma-4-26B -> GPT-5.5, ORACLE gate (reads the verifier): UPPER BOUND, always labelled
+\newcommand{\SWEGAP}{29.2}           % 79.5 - 50.3
+\newcommand{\SWECEILGAP}{2.1}        % 81.6 - 79.5
+\newcommand{\SWEGATEAUC}{0.845}      % deployable gate (timeout + patch-evidence judge), SWE-bench column of tab:signals; de-literalized from that table
+\newcommand{\GAIATASKS}{165}         % full GAIA board graded
+\newcommand{\GAIALOCAL}{66.1}        % 66.06; Qwen3.6-27B local, 1xH200, 109/165 -- CORRECTED 2026-09-21 (judge-401 rescore)
+\newcommand{\GAIALOCALN}{109}        % solved of 165 -- CORRECTED
+\newcommand{\GAIALOCALKJ}{22.45}     % kJ/task gross, 1xH200
+\newcommand{\GAIALOCALKJNET}{17.35}  % kJ/task idle-subtracted
+\newcommand{\GAIAGLM}{73.3}          % 73.33; GLM-5.3, rented node, 121/165 -- CORRECTED; energy UNMEASURED
+\newcommand{\GAIAGLMN}{121}          % solved of 165 -- CORRECTED
+\newcommand{\GAIAFRONT}{74.6}        % 74.55; Kimi K3, best single tier -- CORRECTED (was GPT-5.6-Terra 56.4; Terra is now LAST at 63.0)
+\newcommand{\GAIAFRONTN}{123}        % solved of 165 -- CORRECTED
+\newcommand{\GAIACEIL}{85.5}         % 85.45; three-rung local -> GLM-5.3 -> Terra, ORACLE gate: UPPER BOUND -- CORRECTED
+\newcommand{\GAIACEILN}{141}         % solved of 165 -- CORRECTED
+\newcommand{\GAIAGAP}{8.5}           % 74.55 - 66.06, best single tier over local -- CORRECTED
+\newcommand{\GAIACEILGAP}{10.9}      % 85.45 - 74.55 -- CORRECTED
+\newcommand{\TBFOURBOARD}{66}        % board tasks at tag v4.0.0
+\newcommand{\TBFOURTASKS}{63}        % runnable under our protocol
+\newcommand{\TBFOUREXCL}{three}      % excluded: request a GPU inside the task container
+\newcommand{\TBFOURLOCAL}{0.0}       % Qwen3.6-27B-FP8, percent cleared of 63
+\newcommand{\TBFOURLOCALN}{none}     % cleared count, rendered as a word ("clears none of the 63")
+\newcommand{\TBFOURWRONG}{24}        % failures that completed with a wrong answer
+\newcommand{\TBFOURTIMEOUT}{26}      % failures that timed out
+\newcommand{\TBFOUREXTN}{21}         % Gemma-4-31B, never-cleared tasks re-run at 4x budget; cleared none
+\newcommand{\TBFOURKIMI}{7.4}        % Kimi K3, DEGRADED cell: over 27 clean tasks only; its dollar figure is an artifact and is NOT quoted
+\newcommand{\TBFOURKIMIN}{27}        % clean tasks after mid-run credit exhaustion
+\newcommand{\TBFOURKIMISOLVED}{2}    % cleared of those 27
+\newcommand{\TBLOCALPCT}{55.1}       % 49/89 = 55.06; same quantity as \RMINOWNKAPPA (0.551) in percent -- generator must keep the pair in step
+\newcommand{\TBCOMPPCT}{84.3}        % 75/89 = 84.27; same quantity as \KMAXOWN (0.843) in percent, LOWER BOUND over the determinate pool
+\newcommand{\TBROWLOCAL}{63.3}     % Table 2 TB row: Qwen3.8-27B @262k alone, proper (the paper's first stage)
+\newcommand{\TBROWBEST}{78.6}   % v4 record (list-price Astra, exact GLM-5.3, metered headline rule): ipj/analysis/stage-one/v4/paper_numbers_record.json
+\newcommand{\TBBESTFIXEDPCT}{79.8}   % Gemini 3.7 Flash, best fixed plan on the board; de-literalized from S4.3 prose; ipj/analysis/stage-one/frontier_v3.json
+\newcommand{\NCOMPFACETSOWN}{six}    % composed plans minimal on the owned frontier = \NFACETSOWN(nine) - \NFIXEDOWN(three); ipj/analysis/stage-one/frontier_v3.json
+\newcommand{\ENGGAPPCT}{5.6}         % vLLM vs SGLang energy per output token, Qwen3.6-27B on 1xH200 (5.611 vs 5.925 J/tok); de-literalized from app:layers
+
+% ---- added 2026-09-16: abstract and introduction ----
+\newcommand{\GATEAUCTB}{0.884}                % execution-evidence gate, TB V2.1
+\newcommand{\GATEAUCSWE}{0.845}               % execution-evidence gate, SWE-bench Verified
+\newcommand{\GATEAUCPROMPTLO}{0.42}           % prompt-reading gates, low
+\newcommand{\GATEAUCPROMPTHI}{0.55}           % prompt-reading gates, high
+\newcommand{\GATEAUCPRIORHI}{0.60}           % prior-work signals incl. AutoMix self-verification (0.596), completed runs
+
+% ---- added 2026-09-16: section 3 ----
+% local-first Intelligence System on TerminalBench V2.1 (canonical frontier, stage-one)
+\newcommand{\LFTASKS}{89}   % every task, k=5
+\newcommand{\LFPLAN}{Qwen3.8-27B $\rightarrow$ DeepSeek-V4-Flash $\rightarrow$ GPT-6 Astra}   % v4 record: ipj/analysis/stage-one/v4/paper_numbers_record.json (proper, per-roll, per-plan Astra premium)
+\newcommand{\LFCLEARED}{67.4}   % 75.73% of 89, mean over rolls (no longer quoted in text)
+\newcommand{\LFUSD}{0.1145}   % v4 record (list-price Astra, exact GLM-5.3, metered headline rule): ipj/analysis/stage-one/v4/paper_numbers_record.json
+\newcommand{\LFACC}{76.6\%}   % v4 record: ipj/analysis/stage-one/v4/paper_numbers_record.json (proper, per-roll, per-plan Astra premium)
+\newcommand{\LFMULT}{29$\times$}   % v4 record (list-price Astra, exact GLM-5.3, metered headline rule): ipj/analysis/stage-one/v4/paper_numbers_record.json
+\newcommand{\LFACCGAP}{-3.1}   % SUPERSEDED: composition is now BELOW Astra alone; use LFASTRAGAP
+\newcommand{\LOCALJOULEMULT}{1.5$\times$}   % E3: GLM-5.3 737.3 kJ/solved (k=1) / Qwen3.8 483 kJ/solved (E1)
+% the anchor (ADR-0030 D-ANCHOR: ADR-0008 decision 6 stands)
+\newcommand{\ANCHORACC}{84.6\%}
+\newcommand{\ANCHORUSD}{3.36}
+% ownership, from tab:bases
+\newcommand{\OWNMULTLO}{77}   % campaign-wall method (A-10): min over metered self-served tiers of rented/owned $ per task
+\newcommand{\OWNMULTHI}{122}   % max, Qwen3.8-27B
+\newcommand{\GPUHOURRATE}{4.29}
+% the denominator inversion (machine ladder, Qwen3.6-27B-FP8)
+\newcommand{\KJTASKSLOW}{74.5}            % L40S kJ/task
+\newcommand{\KJTASKFAST}{82.7}            % H200 kJ/task
+\newcommand{\KJCLEAREDSLOW}{265.1}        % L40S kJ/cleared
+\newcommand{\KJCLEAREDFAST}{150.2}        % H200 kJ/cleared
+\newcommand{\KJINVERT}{1.8$\times$}
+% escalation signal, GLM-5.2 first stage on 89 tasks (stage-zero gate_analysis)
+\newcommand{\LOCALFAILS}{162}   % failed graded attempts of 442 (E1, proper)
+\newcommand{\ESCFIRES}{86}   % graded attempts on which the signal fires
+\newcommand{\SYMDIFF}{90}   % 83 failures missed + 7 solves escalated
+\newcommand{\DISCARDEDSOLVES}{7}   % solved attempts escalated anyway
+% coverage
+\newcommand{\COVERBOTH}{75}
+\newcommand{\COVERUNION}{86.2\%}   % v4 record: ipj/analysis/stage-one/v4/paper_numbers_record.json (proper, per-roll, per-plan Astra premium)
+\newcommand{\ESCATTEMPTS}{442}   % graded attempts: 445 less 3 harness crashes
+\newcommand{\COVERONLYPLAN}{7.6\%}   % v4 record: ipj/analysis/stage-one/v4/paper_numbers_record.json (proper, per-roll, per-plan Astra premium)
+\newcommand{\COVERONLYASTRA}{9.4\%}   % v4 record: ipj/analysis/stage-one/v4/paper_numbers_record.json (proper, per-roll, per-plan Astra premium)
+% held-out split: 2000 random 45/44 task splits, seed 20260923; pick the most accurate Table 3 plan at >=20x on one half
+\newcommand{\HOPICK}{41\%}   % v4 record (list-price Astra, exact GLM-5.3, metered headline rule): ipj/analysis/stage-one/v4/paper_numbers_record.json
+\newcommand{\HOIN}{77.9\%}   % v4 record (list-price Astra, exact GLM-5.3, metered headline rule): ipj/analysis/stage-one/v4/paper_numbers_record.json
+\newcommand{\HOOUT}{72.8\%}   % v4 record (list-price Astra, exact GLM-5.3, metered headline rule): ipj/analysis/stage-one/v4/paper_numbers_record.json
+\newcommand{\HOGAP}{5.1}   % v4 record (list-price Astra, exact GLM-5.3, metered headline rule): ipj/analysis/stage-one/v4/paper_numbers_record.json
+\newcommand{\HOHEAD}{76.5\%}   % v4 record: ipj/analysis/stage-one/v4/paper_numbers_record.json (proper, per-roll, per-plan Astra premium)
+\newcommand{\HOLO}{70.5\%}   % v4 record: ipj/analysis/stage-one/v4/paper_numbers_record.json (proper, per-roll, per-plan Astra premium)
+\newcommand{\HOHI}{82.7\%}   % v4 record: ipj/analysis/stage-one/v4/paper_numbers_record.json (proper, per-roll, per-plan Astra premium)
+\newcommand{\COVERUNIQUE}{8}
+% generation step
+\newcommand{\GLMSTEPPP}{8.57}
+\newcommand{\GLMSTEPP}{0.0066}
+\newcommand{\GLMSTEPCI}{[+5.78, +11.36]}
+% pending
+\newcommand{\DESKPLAN}{Qwen3.6-27B (Q4\_K\_M) on a 48\,GB MacBook Pro M4~Pro}
+\newcommand{\DESKN}{83}   % graded tasks on both machines (never printed)
+\newcommand{\DESKKJ}{17.3}   % v4 record (list-price Astra, exact GLM-5.3, metered headline rule): ipj/analysis/stage-one/v4/paper_numbers_record.json
+\newcommand{\DESKKJSOLVED}{44.8}   % v4 record (list-price Astra, exact GLM-5.3, metered headline rule): ipj/analysis/stage-one/v4/paper_numbers_record.json
+\newcommand{\MacWatts}{12.7}   % v4 record (list-price Astra, exact GLM-5.3, metered headline rule): ipj/analysis/stage-one/v4/paper_numbers_record.json
+\newcommand{\GPUKJ}{77.3}   % v4 record (list-price Astra, exact GLM-5.3, metered headline rule): ipj/analysis/stage-one/v4/paper_numbers_record.json
+\newcommand{\GPUKJSOLVED}{139.5}   % v4 record (list-price Astra, exact GLM-5.3, metered headline rule): ipj/analysis/stage-one/v4/paper_numbers_record.json
+\newcommand{\GPUWatts}{87.2}              % 82,700 J / 948 s mean wall
+\newcommand{\MacVsGPU}{4.5$\times$}   % v4 record (list-price Astra, exact GLM-5.3, metered headline rule): ipj/analysis/stage-one/v4/paper_numbers_record.json
+\newcommand{\MacVsGPUSolved}{3.1$\times$}   % v4 record (list-price Astra, exact GLM-5.3, metered headline rule): ipj/analysis/stage-one/v4/paper_numbers_record.json
+\newcommand{\MacMThreeU}{11.1}            % M3 Ultra, scaled from the M4 Pro row
+\newcommand{\MacMFourMax}{6.4}            % M4 Max, scaled
+\newcommand{\MacMFiveMax}{5.2}            % M5 Max, scaled          % kJ per solved task
+\newcommand{\DESKACC}{38.6\%}   % full-set Mac cell, graded tasks, energy_87.json
+\newcommand{\NBENCHSEL}{\UNDET}           % needs experiment F; today two
+\newcommand{\GAIALFACC}{66.7\%}           % 110/165, qwen3.6 -> GLM-5.3 or Kimi K3, observable-failure signal
+\newcommand{\GAIAESCFIRE}{6.1\%}          % signal fires on 10 of 165 GAIA tasks
+\newcommand{\GAIALOCALSOLO}{66.1\%}       % 109/165, Qwen3.6-27B alone
+\newcommand{\SWELFACC}{\UNDET}
+
+% ---- added 2026-09-16: methods ----
+\newcommand{\SPARKMEM}{121}
+\newcommand{\NSLATERMS}{seven}
+\newcommand{\NSLAMEASURED}{four}
+
+% --- escalation-signal control (escalation_signal_control.json, 2026-09-18) ---
+\newcommand{\ESCLIFTLO}{3.9}   % v4 record: ipj/analysis/stage-one/v4/paper_numbers_record.json (proper, per-roll, per-plan Astra premium)
+\newcommand{\ESCLIFTHI}{10.0}   % v4 record: ipj/analysis/stage-one/v4/paper_numbers_record.json (proper, per-roll, per-plan Astra premium)
+\newcommand{\CONFGATEDROP}{19}               % confidence-gated vs full-escalate, 87.6 -> 68.5
+
+% --- best single cloud model comparison (cloud_baselines.json, 2026-09-18) ---
+\newcommand{\BESTCLOUDACC}{80.5\%}            % GPT-5.6-sol alone
+\newcommand{\BESTCLOUDUSD}{0.260}
+\newcommand{\LFCLOUDGAP}{2.5}   % v4 record (list-price Astra, exact GLM-5.3, metered headline rule): ipj/analysis/stage-one/v4/paper_numbers_record.json
+\newcommand{\LFCLOUDMULT}{3.9$\times$}   % 0.4516 / 0.1145 (Astra list-price mean / headline)
+\newcommand{\LFUSDMEAN}{0.0678}   % headline with Astra legs at mean spend, an optimistic bound (v4 record head_mean_priced 0.06782)
+\newcommand{\LFMULTMEAN}{50$\times$}   % 3.36 / 0.06782 = 49.5
+\newcommand{\ASTRAMEANUSD}{0.4516}   % GPT-6 Astra list-price mean per task over its k=4 per-task record
+\newcommand{\ASTRAPREMHEAD}{2.23}   % headline's Astra legs: GPT-5.6-sol per-task invoice premium on the tasks this plan sends to Astra, v4 record: ipj/analysis/stage-one/v4/paper_numbers_record.json (proper, per-roll, per-plan Astra premium)
+\newcommand{\ASTRAPREMASTRA}{2.00}  % same, for Qwen3.8-27B -> GPT-6 Astra (Table 3 row)
+\newcommand{\ASTRAPREMRETRY}{2.49}  % same, for the retry-once backup
+\newcommand{\RETRYUSD}{0.1260}   % v4 record (list-price Astra, exact GLM-5.3, metered headline rule): ipj/analysis/stage-one/v4/paper_numbers_record.json
+\newcommand{\LFUSDRENT}{1.01}   % v4 record (list-price Astra, exact GLM-5.3, metered headline rule): ipj/analysis/stage-one/v4/paper_numbers_record.json
+\newcommand{\LFMULTRENT}{3.3$\times$}   % v4 record (list-price Astra, exact GLM-5.3, metered headline rule): ipj/analysis/stage-one/v4/paper_numbers_record.json
+\newcommand{\KAPPAMID}{0.70}        % ladder target between KAPPALOW and KAPPAHIGH (not KAPPACERT)
+\newcommand{\RETRYACC}{74.8\%}   % v4 record (list-price Astra, exact GLM-5.3, metered headline rule): ipj/analysis/stage-one/v4/paper_numbers_record.json
+\newcommand{\RETRYMULT}{27$\times$}   % v4 record (list-price Astra, exact GLM-5.3, metered headline rule): ipj/analysis/stage-one/v4/paper_numbers_record.json
+\newcommand{\CascAccHead}{76.6\%}
+\newcommand{\CascUSDHead}{0.1145}   % v4 record (list-price Astra, exact GLM-5.3, metered headline rule): ipj/analysis/stage-one/v4/paper_numbers_record.json
+\newcommand{\CascMultHead}{29$\times$}   % v4 record (list-price Astra, exact GLM-5.3, metered headline rule): ipj/analysis/stage-one/v4/paper_numbers_record.json
+\newcommand{\KAPPAOWNMAX}{0.782}   % v4 record (list-price Astra, exact GLM-5.3, metered headline rule): ipj/analysis/stage-one/v4/paper_numbers_record.json
+\newcommand{\NFACETSOWNNEW}{sixteen}   % v4 record (list-price Astra, exact GLM-5.3, metered headline rule): ipj/analysis/stage-one/v4/paper_numbers_record.json
+\newcommand{\NFACETSRENTNEW}{seven}   % v4 record (list-price Astra, exact GLM-5.3, metered headline rule): ipj/analysis/stage-one/v4/paper_numbers_record.json
+\newcommand{\HOCLEAR}{72\%}   % v4 record (list-price Astra, exact GLM-5.3, metered headline rule): ipj/analysis/stage-one/v4/paper_numbers_record.json
+\newcommand{\HONPLANS}{435}         % owned-first plans in the v4 plan space
+\newcommand{\GPUACCMATCH}{55.4}   % v4 record (list-price Astra, exact GLM-5.3, metered headline rule): ipj/analysis/stage-one/v4/paper_numbers_record.json
+\newcommand{\LFASTRAGAP}{2.0}   % v4 record (list-price Astra, exact GLM-5.3, metered headline rule): ipj/analysis/stage-one/v4/paper_numbers_record.json
+\newcommand{\LFFABLEGAP}{8.0}   % v4 record: ipj/analysis/stage-one/v4/paper_numbers_record.json (proper, per-roll, per-plan Astra premium)
+\newcommand{\GATEAUCTO}{0.73}   % errored/no-verdict signal, Qwen3.8 @262k, 442 graded attempts
+\newcommand{\ESCPREMLO}{1.9}       % escalated-task output tokens / workload mean, E1 escalation set (sol)
+\newcommand{\ESCPREMHI}{2.1}       % (Terra 2.11, Kimi 2.08)
+\newcommand{\SIGRECALL}{half}      % Qwen3.8: 50% of failed attempts fire the signal (Qwen3.6: 67%)
+\newcommand{\SIGDISCARD}{7}        % solved attempts the signal escalates anyway, of 445
+
+% --- Figure 1 panel values (source: figures_and_tables/fig1_icp_overview.png, harness-matched basis) ---
+\newcommand{\CompAccGap}{3.9}       % GLM-5.2 -> GPT-5.6-sol vs Fable 5 80.4%
+\newcommand{\CompMult}{23$\times$}  % vs Fable 5 $4.50
+\newcommand{\PanelCAcc}{74.2\%}
+\newcommand{\PanelCUSD}{0.1399}
+\newcommand{\PanelCOwn}{87\%}
+\newcommand{\PanelCMult}{32$\times$}
+\newcommand{\PanelCGap}{6.2}
+
+% --- caption repairs, 2026-09-21 ---
+\newcommand{\MULTAMORT}{3.3$\times$}   % headline on the rented basis (= LFMULTRENT)
+\newcommand{\GLMOVERQWEN}{7.0}         % 62.14 (GLM-5.2 corrected, proper) - 55.1 (Qwen3.6-27B)
+\newcommand{\ESCPREMMIN}{1.78}   % lowest escalation cost premium on the Qwen3.8 set (GPT-6 Astra, list price)
+\newcommand{\ASTRAESCPREM}{1.96}   % Astra list cost on the tasks the headline escalates / Astra mean
+\newcommand{\ASTRADELTAX}{2.2$\times$}   % OpenRouter key-level usage delta / harness list-price total, $353.36 / $160.41
+\newcommand{\LFMULTDELTA}{14$\times$}   % headline if Astra were priced at the key-level delta
+\newcommand{\CascAccGLMAstra}{78.1\%}   % v4 record (list-price Astra, exact GLM-5.3, metered headline rule): ipj/analysis/stage-one/v4/paper_numbers_record.json
+\newcommand{\CascUSDGLMAstra}{0.1300}   % v4 record (list-price Astra, exact GLM-5.3, metered headline rule): ipj/analysis/stage-one/v4/paper_numbers_record.json
+\newcommand{\CascMultGLMAstra}{26$\times$}   % v4 record (list-price Astra, exact GLM-5.3, metered headline rule): ipj/analysis/stage-one/v4/paper_numbers_record.json
+\newcommand{\CascAccGLMSol}{77.1\%}   % v4 record (list-price Astra, exact GLM-5.3, metered headline rule): ipj/analysis/stage-one/v4/paper_numbers_record.json
+\newcommand{\CascUSDGLMSol}{0.1085}   % v4 record (list-price Astra, exact GLM-5.3, metered headline rule): ipj/analysis/stage-one/v4/paper_numbers_record.json
+\newcommand{\CascMultGLMSol}{31$\times$}   % v4 record (list-price Astra, exact GLM-5.3, metered headline rule): ipj/analysis/stage-one/v4/paper_numbers_record.json
+\newcommand{\GLMALONEACC}{70.7\%}   % v4 record (list-price Astra, exact GLM-5.3, metered headline rule): ipj/analysis/stage-one/v4/paper_numbers_record.json
+\newcommand{\GLMALONEMULT}{384$\times$}   % v4 record (list-price Astra, exact GLM-5.3, metered headline rule): ipj/analysis/stage-one/v4/paper_numbers_record.json
+\newcommand{\GLMMIDACC}{74.6\%}   % sensitivities.json, GLM-5.3 as a per-attempt-priced middle stage
+\newcommand{\GLMMIDMULT}{35$\times$}   % sensitivities.json
+\newcommand{\GLMKJATTEMPT}{362}   % GLM-5.2 metered node power x GLM-5.3 graded-run span / 445 attempts (inputs/glm53_exact.json)
+\newcommand{\GLMEKJ}{497}   % E3: GLM-5.3 single-roll metered wall integral, kJ per task
+\newcommand{\GLMKJSOLVEDGRADED}{511}   % extrapolated per-attempt energy / GLM-5.3 accuracy
+\newcommand{\NLMTOLD}{two}   % owned-first targets won (0.60..0.75) with Qwen3.6-27B as the newest local model
+\newcommand{\NLMTNEW}{four}   % v4/sensitivities.json local_model_test.plus_qwen38
+\newcommand{\KAPPAOWNMAXQEIGHT}{0.766}   % highest capability an owned-first plan is cheapest, GLM-5.3 excluded
+\newcommand{\KAPPALOWMID}{0.65}   % ladder target
+\newcommand{\KAPPATOP}{0.80}   % ladder target
+\newcommand{\JUDGEACC}{77.1\%}   % judge_gated_exact.json
+\newcommand{\JUDGEMULT}{27$\times$}   % v4/judge_gated_exact.json
+\newcommand{\JUDGEGAIN}{0.4}   % v4/judge_gated_exact.json, judge-gated minus signal-only headline, pts
+\newcommand{\JUDGEAUCALL}{0.80}   % v4/judge_gated_exact.json, all graded Qwen3.8 attempts
+\newcommand{\JUDGEAUCCOMP}{0.62}   % v4/judge_gated_exact.json, attempts the deployable signal does not fire on
+\newcommand{\QKJSOLVED}{483}   % E1: 305.9 kJ/attempt / 0.6335
+\newcommand{\GLMKJSOLVED}{737}   % E3 k=1
+\newcommand{\WALLVSTOKEN}{4}   % E3: 12.49 J/output token wall integral vs 3.02 saturated-load token basis
+\newcommand{\NTIERSENUMWORD}{twenty-one}   % spelled NTIERSENUM
+\newcommand{\EINFLIGHT}{14.2}   % v4/sensitivities.json e1_occupancy.tasks_in_flight (agent-execution s / metered window)
+\newcommand{\EONEUSD}{12.85}   % v4/sensitivities.json e1_occupancy.rented_one_in_flight_usd
+\newcommand{\HEADONEUSD}{12.96}   % v4/sensitivities.json e1_occupancy.headline_one_in_flight_usd
+\newcommand{\GLMINFLIGHT}{10.6}   % v4/sensitivities.json glm53_occupancy.tasks_in_flight
+\newcommand{\ACCSPANPP}{50.5}   % GPT-6 Astra 78.6 (same pooling) - Gemma-4-31B 28.1, v4 fixed tiers
