@@ -1,0 +1,53 @@
+name: ICP Research
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "ipj-research/**"
+      - "intelligence-per-watt/**"
+      - ".github/workflows/icp-research.yml"
+  pull_request:
+    paths:
+      - "ipj-research/**"
+      - "intelligence-per-watt/**"
+      - ".github/workflows/icp-research.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: icp-research-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  offline-artifact:
+    runs-on: ubuntu-latest
+    env:
+      MPLBACKEND: Agg
+      PYTEST_DISABLE_PLUGIN_AUTOLOAD: "1"
+      HF_HUB_OFFLINE: "1"
+      HF_DATASETS_OFFLINE: "1"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - uses: astral-sh/setup-uv@v4
+      - name: Install locked research environment
+        run: uv sync --project ipj-research --frozen --extra dev --extra router --extra reproduce
+      - name: Lint supported research code
+        run: uv run --project ipj-research --no-sync ruff check ipj-research/src ipj-research/tests ipj-research/examples ipj-research/studies/icp/reproduce.py ipj-research/studies/icp/fetch_data.py
+      - name: Research tests
+        run: uv run --project ipj-research --no-sync pytest ipj-research/tests -q --tb=short
+      - name: Verify and reproduce paper inputs
+        run: |
+          uv run --project ipj-research --no-sync python ipj-research/studies/icp/fetch_data.py --verify
+          uv run --project ipj-research --no-sync python ipj-research/studies/icp/reproduce.py --check --figures --output-dir "${RUNNER_TEMP}/icp-reproduction"
+      - name: Retain reproduction report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: icp-reproduction
+          path: ${{ runner.temp }}/icp-reproduction
+          if-no-files-found: warn

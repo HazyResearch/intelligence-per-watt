@@ -24,6 +24,19 @@ Intelligence Per Watt measures **accuracy alongside energy** for any LLM inferen
 >
 > **[Paper](https://arxiv.org/abs/2511.07885)**
 
+## Intelligence Control Plane research
+
+The [ICP research package](ipj-research/README.md) adds agentic efficiency
+accounting, orchestration, and offline analysis to this repository. It keeps
+the `ipj` import namespace and uses the local `ipw` package in a separate
+environment. See the [ICP study guide](docs/research/icp.md) for the paper,
+citation, and reproduction commands.
+
+The bundled artifact recomputes the author-validated paper values and six
+figures from retained study inputs. It also preserves the two reference images.
+This is offline reanalysis; executing new benchmarks requires the appropriate
+hardware, harnesses, and inference endpoints.
+
 ## Prerequisites
 
 - **Python >= 3.13** -- managed with [uv](https://docs.astral.sh/uv/getting-started/installation/)

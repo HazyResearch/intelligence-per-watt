@@ -98,3 +98,5 @@ nav:
       - Extending IPW: extending/index.md
   - Cost:
       - Pricing: cost/pricing.md
+  - Research:
+      - Intelligence Control Plane: research/icp.md
