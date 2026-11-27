@@ -30,6 +30,12 @@ class TestParseGrade:
     def test_unparseable(self) -> None:
         assert _parse_grade("random text") == "NOT_ATTEMPTED"
 
+    def test_markdown_verdict_no(self) -> None:
+        assert _parse_grade("reasoning: wrong\n**correct:** no") == "INCORRECT"
+
+    def test_fallback_negated_correct(self) -> None:
+        assert _parse_grade("reasoning: uncertainty is not a correct answer.") == "INCORRECT"
+
 
 class TestHLEHandler:
     """Test HLEHandler with mocked LLM client."""

@@ -7,6 +7,7 @@ from typing import Any, Dict, Optional, Tuple
 
 from ..core.registry import EvaluationRegistry
 from .base import EvaluationHandler
+from .helpers import parse_judge_grade
 
 LOGGER = logging.getLogger(__name__)
 
@@ -132,15 +133,7 @@ class GAIAHandler(EvaluationHandler):
                 max_output_tokens=1024,
             )
 
-            structured_match = re.search(
-                r"^correct:\s*(yes|no)", raw, re.MULTILINE | re.IGNORECASE
-            )
-            if structured_match:
-                is_correct = structured_match.group(1).lower() == "yes"
-            else:
-                is_correct = (
-                    "CORRECT" in raw.upper() and "INCORRECT" not in raw.upper()
-                )
+            is_correct = parse_judge_grade(raw) == "CORRECT"
 
             meta: Dict[str, object] = {
                 "match_type": "llm_fallback",
