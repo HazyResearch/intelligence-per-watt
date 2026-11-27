@@ -49,6 +49,12 @@ class TestParseGrade:
         assert _parse_grade("reasoning: wrong\ncorrect: INCORRECT") == "INCORRECT"
         assert _parse_grade("reasoning: hedged\ncorrect: Not attempted") == "NOT_ATTEMPTED"
 
+    def test_numbered_and_wrapped_verdict_line(self) -> None:
+        assert _parse_grade("1. extracted_final_answer: x\n3. correct: no") == "INCORRECT"
+        assert _parse_grade("reasoning: wrong\ncorrect: `no`") == "INCORRECT"
+        assert _parse_grade("reasoning: wrong\ncorrect: false") == "INCORRECT"
+        assert _parse_grade("reasoning: matches\ncorrect: true") == "CORRECT"
+
     def test_verdict_label_is_not_a_correct_grade(self) -> None:
         assert _parse_grade("reasoning: no answer given\ncorrect: N/A") == "NOT_ATTEMPTED"
 

@@ -44,13 +44,21 @@ def normalize_math_answer(text: Optional[str]) -> Optional[str]:
 # fill it with the grade names the templates define (CORRECT / INCORRECT /
 # NOT_ATTEMPTED) or wrap it in Markdown, so accept those forms too.
 _VERDICT_LINE = re.compile(
-    r"^[\s>*_#-]*correct[\s*_]*:[\s*_]*(yes|not[ _]attempted|incorrect|correct|no)",
+    r"^[ \t>*_#\u2022+-]*(?:\d+[.)][ \t]*)?correct[ \t*_]*:[ \t*_`\"'(\[]*"
+    r"(yes|true|not[ _]attempted|incorrect|correct|false|no)",
     re.MULTILINE | re.IGNORECASE,
 )
-_VERDICT_GRADES = {"yes": "CORRECT", "correct": "CORRECT", "incorrect": "INCORRECT", "no": "INCORRECT"}
+_VERDICT_GRADES = {
+    "yes": "CORRECT",
+    "true": "CORRECT",
+    "correct": "CORRECT",
+    "incorrect": "INCORRECT",
+    "false": "INCORRECT",
+    "no": "INCORRECT",
+}
 # The "correct:" label itself, so the keyword fallback does not read it as a verdict.
 _VERDICT_LABEL = re.compile(r"\bcorrect[\s*_]*:", re.IGNORECASE)
-_NEGATED_CORRECT = re.compile(r"\b(?:NOT|ISN'T)\s+(?:AN?\s+)?CORRECT\b")
+_NEGATED_CORRECT = re.compile(r"\b(?:NOT|ISN['\u2019]T)\s+(?:AN?\s+)?CORRECT\b")
 
 
 def parse_judge_grade(raw: str) -> Optional[str]:
