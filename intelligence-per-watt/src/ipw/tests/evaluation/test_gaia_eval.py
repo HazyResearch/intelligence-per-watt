@@ -124,6 +124,18 @@ class TestGAIAHandler:
         )
         assert is_correct is False
 
+    def test_llm_fallback_markdown_verdict_no(self) -> None:
+        handler = self._make_handler(
+            chat_return="extracted_final_answer: London\nreasoning: wrong city\n**correct:** no"
+        )
+        is_correct, _ = handler.evaluate(
+            problem="Capital of France?",
+            reference="Paris",
+            model_answer="London",
+            metadata={},
+        )
+        assert is_correct is False
+
     def test_llm_fallback_error(self) -> None:
         mock_client = MagicMock()
         mock_client.chat.side_effect = RuntimeError("API error")

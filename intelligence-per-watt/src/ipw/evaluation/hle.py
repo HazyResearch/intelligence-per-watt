@@ -6,6 +6,7 @@ from typing import Dict, Optional, Tuple
 
 from ..core.registry import EvaluationRegistry
 from .base import EvaluationHandler
+from .helpers import parse_judge_grade
 
 LOGGER = logging.getLogger(__name__)
 
@@ -74,27 +75,11 @@ correct: <yes, no, or not_attempted>"""
 
 def _parse_grade(response: str) -> str:
     """Parse grade from LLM response. Returns CORRECT, INCORRECT, or NOT_ATTEMPTED."""
-    structured_match = re.search(
-        r"^correct:\s*(yes|not_attempted|no)", response, re.MULTILINE | re.IGNORECASE
-    )
-    if structured_match:
-        value = structured_match.group(1).lower()
-        if value == "yes":
-            return "CORRECT"
-        if value == "no":
-            return "INCORRECT"
+    grade = parse_judge_grade(response)
+    if grade is None:
+        LOGGER.warning("Could not parse HLE grade from response: %s", response[:100])
         return "NOT_ATTEMPTED"
-
-    response_upper = response.upper().strip()
-    if "CORRECT" in response_upper and "INCORRECT" not in response_upper:
-        return "CORRECT"
-    if "INCORRECT" in response_upper:
-        return "INCORRECT"
-    if "NOT_ATTEMPTED" in response_upper or "NOT ATTEMPTED" in response_upper:
-        return "NOT_ATTEMPTED"
-
-    LOGGER.warning("Could not parse HLE grade from response: %s", response[:100])
-    return "NOT_ATTEMPTED"
+    return grade
 
 
 @EvaluationRegistry.register("hle")

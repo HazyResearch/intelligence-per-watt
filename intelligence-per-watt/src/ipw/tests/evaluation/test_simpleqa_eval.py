@@ -36,6 +36,32 @@ class TestParseGrade:
     def test_unparseable_defaults_not_attempted(self) -> None:
         assert _parse_grade("random text with no grade") == "NOT_ATTEMPTED"
 
+    def test_markdown_verdict_line(self) -> None:
+        assert _parse_grade("reasoning: wrong city\n**correct:** no") == "INCORRECT"
+        assert _parse_grade("reasoning: wrong city\ncorrect: **no**") == "INCORRECT"
+        assert _parse_grade("reasoning: matches\n- correct: yes") == "CORRECT"
+
+    def test_grade_name_on_verdict_line_wins_over_reasoning(self) -> None:
+        # llama3.2:3b writes the grade name on the verdict line; the keyword
+        # fallback used to read "incorrectly" in the reasoning instead.
+        raw = "reasoning: The answer incorrectly states the height.\ncorrect: CORRECT"
+        assert _parse_grade(raw) == "CORRECT"
+        assert _parse_grade("reasoning: wrong\ncorrect: INCORRECT") == "INCORRECT"
+        assert _parse_grade("reasoning: hedged\ncorrect: Not attempted") == "NOT_ATTEMPTED"
+
+    def test_verdict_label_is_not_a_correct_grade(self) -> None:
+        assert _parse_grade("reasoning: no answer given\ncorrect: N/A") == "NOT_ATTEMPTED"
+
+    def test_fallback_negated_correct(self) -> None:
+        # Real llama3.2:1b reply with no verdict line.
+        raw = (
+            "extracted_final_answer: Malia Obama\n"
+            'reasoning: The predicted answer "I cannot recall which planet that is" is not correct '
+            "because it contradicts the gold target."
+        )
+        assert _parse_grade(raw) == "INCORRECT"
+        assert _parse_grade("reasoning: uncertainty is not a correct answer.") == "INCORRECT"
+
 
 class TestSimpleQAHandler:
     """Test SimpleQAHandler with mocked LLM client."""
